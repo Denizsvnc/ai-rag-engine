@@ -4,16 +4,24 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "dev": "ts-node src/api/server.ts",
+    "start": "node dist/api/server.js"
   },
   "keywords": [],
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
-    "express": "^5.3.0"
+    "@huggingface/transformers": "^4.3.1",
+    "dotenv": "^16.4.5",
+    "express": "^5.3.0",
+    "lru-cache": "^10.2.0",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@types/dotenv": "^6.1.1",
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.5",
+    "ts-node": "^10.9.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }
