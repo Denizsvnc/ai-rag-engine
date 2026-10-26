@@ -231,6 +231,33 @@ npm run dev
 ```
 Der Server initialisiert das lokale ONNX-Modell und lauscht auf `http://localhost:3000`.
 
+### 4. 🐳 Docker & Container-Deployment
+
+#### 1-Befehl-Start mit Docker Compose
+Startet `ai-rag-engine` und den Redis BullMQ-Warteschlangendienst:
+```bash
+docker compose up -d
+```
+
+#### Eigenständiges Container-Image erstellen und ausführen
+```bash
+# Produktions-Image bauen
+docker build -t ai-rag-engine .
+
+# Container mit Umgebungsvariablen starten
+docker run -d \
+  --name ai-rag-engine \
+  -p 3000:3000 \
+  --env-file .env \
+  ai-rag-engine
+```
+
+Container-Status und Healthcheck überprüfen:
+```bash
+docker logs -f ai-rag-engine
+curl http://localhost:3000/api/health
+```
+
 ---
 
 ## 💻 Verwendungsbeispiele

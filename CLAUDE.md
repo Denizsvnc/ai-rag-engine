@@ -172,3 +172,4 @@ CUSTOM_LLM_MODEL=meta-llama/Llama-3.2-3B-Instruct
 4. **Data Sovereignty:** Honor `ALLOW_PUBLIC_OPENSOURCE_LLM=false`. If a corporate user disables public routers, do not route prompts through OpenRouter or third-party gateways.
 5. **Live Data Freshness:** When adding new pricing, stock, or booking capabilities, always use `IAgentTool` with live execution, not static vectors.
 6. **Zero-Bloat Discipline:** Never install bulky external dependencies when pure, fast TypeScript algorithms can solve the problem in microsecond time.
+7. **Containerization Standards:** Production Docker images must use multi-stage builds (`node:22-slim`), drop privileges to the `node` user, and include healthcheck probes hitting `/api/health`.

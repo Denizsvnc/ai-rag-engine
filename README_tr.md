@@ -231,6 +231,33 @@ npm run dev
 ```
 Sunucu yerel ONNX embedding modelini yükler ve `http://localhost:3000` adresinde dinlemeye başlar.
 
+### 4. 🐳 Docker & Konteyner Dağıtımı
+
+#### Docker Compose ile Tek Komutta Başlatma
+`ai-rag-engine` ve BullMQ kuyrukları için Redis servisini birlikte ayağa kaldırır:
+```bash
+docker compose up -d
+```
+
+#### Bağımsız Konteyner Olarak Derleme ve Çalıştırma
+```bash
+# Üretim imajını derleyin
+docker build -t ai-rag-engine .
+
+# Ortam değişkenleriyle konteyneri başlatın
+docker run -d \
+  --name ai-rag-engine \
+  -p 3000:3000 \
+  --env-file .env \
+  ai-rag-engine
+```
+
+Konteyner durumunu ve sağlık kontrolünü doğrulayın:
+```bash
+docker logs -f ai-rag-engine
+curl http://localhost:3000/api/health
+```
+
 ---
 
 ## 💻 Kullanım ve Kod Örnekleri

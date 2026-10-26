@@ -1,0 +1,57 @@
+services:
+  rag-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-rag-engine
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - PORT=3000
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+      # If connecting to the internal Redis service for BullMQ queues:
+      - REDIS_URL=redis://redis:6379
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      # Persistent cache and vector store data
+      - rag_data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+        required: false
+    networks:
+      - rag_network
+
+  # ----------------------------------------------------------------------------
+  # Optional Redis Service for BullMQ Distributed Background Ingestion Queues
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: ai-rag-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - rag_network
+
+volumes:
+  rag_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  rag_network:
+    driver: bridge

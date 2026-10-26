@@ -231,6 +231,33 @@ npm run dev
 ```
 The server will initialize the ONNX embedding pipeline and listen on `http://localhost:3000`.
 
+### 4. 🐳 Docker & Container Deployment
+
+#### 1-Command Startup with Docker Compose
+Starts both `ai-rag-engine` and the Redis BullMQ background queue:
+```bash
+docker compose up -d
+```
+
+#### Standalone Container Build & Run
+```bash
+# Build the production image
+docker build -t ai-rag-engine .
+
+# Run container with environment configuration
+docker run -d \
+  --name ai-rag-engine \
+  -p 3000:3000 \
+  --env-file .env \
+  ai-rag-engine
+```
+
+Verify container status and health:
+```bash
+docker logs -f ai-rag-engine
+curl http://localhost:3000/api/health
+```
+
 ---
 
 ## 💻 Usage & Code Examples
