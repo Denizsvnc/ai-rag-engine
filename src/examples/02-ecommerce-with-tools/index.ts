@@ -1,8 +1,10 @@
+import 'dotenv/config';
 import express from 'express';
 import {
     RAGEngine,
     createRagMiddleware,
     OpenAIAdapter,
+    OllamaAdapter,
     type IAgentTool,
     type IRulesAdapter
 } from '../../index';
@@ -42,9 +44,14 @@ const checkStockTool: IAgentTool<{ productName: string }> = {
     }
 };
 
-// 3. Configure the RAG Engine
+// 3. Configure the RAG Engine (with graceful provider fallback)
+const apiKey = process.env.OPENAI_API_KEY;
+const provider = apiKey
+    ? new OpenAIAdapter(apiKey, 'gpt-4o-mini')
+    : new OllamaAdapter({ model: process.env.OLLAMA_MODEL_FAST || 'llama3.2:3b' });
+
 const ragEngine = new RAGEngine({
-    llmProvider: new OpenAIAdapter(process.env.OPENAI_API_KEY, 'gpt-4o-mini'),
+    llmProvider: provider,
     inputs: {
         rules: new MockRulesAdapter()
     },

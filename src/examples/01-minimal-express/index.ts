@@ -1,13 +1,18 @@
+import 'dotenv/config';
 import express from 'express';
-import { RAGEngine, createRagMiddleware, OpenAIAdapter } from '../../index';
+import { RAGEngine, createRagMiddleware, OpenAIAdapter, OllamaAdapter } from '../../index';
 
 const app = express();
 app.use(express.json());
 
-// 1. Initialize engine with minimal configuration
-// SML intent routing and in-memory LRU cache use default settings automatically.
+// 1. Initialize engine with configured provider (OpenAI if key present, otherwise Ollama or mock)
+const apiKey = process.env.OPENAI_API_KEY;
+const provider = apiKey
+    ? new OpenAIAdapter(apiKey)
+    : new OllamaAdapter({ model: process.env.OLLAMA_MODEL_FAST || 'llama3.2:3b' });
+
 const ragEngine = new RAGEngine({
-    llmProvider: new OpenAIAdapter(process.env.OPENAI_API_KEY),
+    llmProvider: provider,
     inputs: {}
 });
 
