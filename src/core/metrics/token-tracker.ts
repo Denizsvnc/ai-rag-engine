@@ -22,6 +22,7 @@ export interface EngineMetricsSummary {
         avgMs: number;
         minMs: number;
         maxMs: number;
+        p50Ms: number;
         p95Ms: number;
     };
 }
@@ -51,10 +52,7 @@ export class TokenTracker {
         this.baselineTokensPerQuery = options?.baselineTokensPerQuery ?? 450;
     }
 
-    /**
-     * Accurately estimates token count for English and Turkish text without external tokenizers.
-     * Uses linguistic character/word boundary heuristics (~3.6 characters per token for multilingual).
-     */
+
     public estimateTokens(text: string): number {
         if (!text || text.trim().length === 0) return 0;
         const normalized = text.trim();
@@ -67,9 +65,7 @@ export class TokenTracker {
         return Math.max(charBased, wordBased, 1);
     }
 
-    /**
-     * Records a query resolution and returns per-response metrics.
-     */
+
     public trackQuery(event: {
         source: ResponseMetrics['source'];
         userPrompt: string;
@@ -136,9 +132,15 @@ export class TokenTracker {
         };
     }
 
-    /**
-     * Returns cumulative FinOps summary for observability and telemetry dashboards.
-     */
+    public recordFullQuery(promptTokens: number, completionTokens: number, latencyMs: number): void {
+        this.trackQuery({
+            source: 'LLM_RAG',
+            userPrompt: 'prompt',
+            usage: { promptTokens, completionTokens },
+            latencyMs
+        });
+    }
+
     public getSummary(): EngineMetricsSummary {
         const sortedLatencies = [...this.latencies].sort((a, b) => a - b);
         const count = sortedLatencies.length;
@@ -146,6 +148,8 @@ export class TokenTracker {
         const avgMs = count > 0 ? Number((this.latencies.reduce((a, b) => a + b, 0) / count).toFixed(2)) : 0;
         const minMs = count > 0 ? sortedLatencies[0]! : 0;
         const maxMs = count > 0 ? sortedLatencies[count - 1]! : 0;
+        const p50Index = count > 0 ? Math.min(Math.floor(count * 0.50), count - 1) : 0;
+        const p50Ms = count > 0 ? sortedLatencies[p50Index]! : 0;
         const p95Index = count > 0 ? Math.min(Math.floor(count * 0.95), count - 1) : 0;
         const p95Ms = count > 0 ? sortedLatencies[p95Index]! : 0;
 
@@ -174,6 +178,7 @@ export class TokenTracker {
                 avgMs,
                 minMs,
                 maxMs,
+                p50Ms,
                 p95Ms
             }
         };

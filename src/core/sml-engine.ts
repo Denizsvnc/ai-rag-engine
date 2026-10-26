@@ -150,10 +150,10 @@ export class SMLEngine {
             normalize: true,
         });
 
-        // Slice batched output into per-text 384-dimensional vectors
-        const dimensions = 384; // Default dimension for MiniLM
-        const results: Float32Array[] = [];
         const rawData = output.data as Float32Array;
+        // Dynamically compute embedding dimensions from model output tensor (supports any embedding model)
+        const dimensions = texts.length > 0 ? Math.floor(rawData.length / texts.length) : 384;
+        const results: Float32Array[] = [];
 
         for (let i = 0; i < texts.length; i++) {
             const start = i * dimensions;

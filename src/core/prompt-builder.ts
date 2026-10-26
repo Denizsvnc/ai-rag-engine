@@ -13,11 +13,6 @@ export interface PromptContext {
 }
 
 export class PromptBuilder {
-    /**
-     * Builds the authoritative system prompt in English with structured context,
-     * enterprise business rules, and state-of-the-art prompt injection defense directives.
-     * System prompts are provided in English to ensure optimal instruction adherence across all LLMs.
-     */
     public static buildSystemPrompt(context: PromptContext): string {
         let prompt = context.basePrompt || 'You are an institutional AI assistant and customer support specialist. Answer accurately, politely, and strictly adhere to the provided context and enterprise rules.\n\n';
 
@@ -38,7 +33,6 @@ export class PromptBuilder {
             prompt += '- Adhere strictly to user role permissions. Do NOT reveal administrative capabilities or perform operations outside these authorized roles.\n\n';
         }
 
-        // 3. Active enterprise business rules
         if (context.rules && context.rules.length > 0) {
             prompt += '### MANDATORY ENTERPRISE BUSINESS RULES ###\n';
             context.rules.forEach((rule, index) => {
@@ -74,10 +68,6 @@ export class PromptBuilder {
         return prompt;
     }
 
-    /**
-     * Encloses sanitized visitor text inside explicit untrusted delimiter tags,
-     * physically separating external untrusted data from system instructions.
-     */
     public static formatVisitorPrompt(sanitizedInput: string): string {
         return `<untrusted_visitor_message>\n${sanitizedInput}\n</untrusted_visitor_message>`;
     }

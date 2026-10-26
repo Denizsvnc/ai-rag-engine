@@ -6,11 +6,11 @@
 
 **Agentische RAG-Architektur für Unternehmen mit In-Process SML Intent-Routing, Zero-Token Semantischem FAQ-Caching, Multi-Tiered LLM-Failover und OWASP Prompt-Injection-Schutz.**
 
-[![Version](https://img.shields.io/badge/Version-2.0.0-6C5CE7?logo=semver&logoColor=white)](package.json)
+[![Version](https://img.shields.io/badge/Version-2.1.0-6C5CE7?logo=semver&logoColor=white)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![CI](https://github.com/Denizsvnc/ai-rag-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Denizsvnc/ai-rag-engine/actions)
-[![Tests](https://img.shields.io/badge/Tests-101%2F101_Bestanden-success?logo=checkmarx&logoColor=white)](test/)
+[![Tests](https://img.shields.io/badge/Tests-140%2F140_Bestanden-success?logo=checkmarx&logoColor=white)](test/)
 [![GitHub Stars](https://img.shields.io/github/stars/Denizsvnc/ai-rag-engine?style=social)](https://github.com/Denizsvnc/ai-rag-engine/stargazers)
 [![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-all--MiniLM--L6--v2_(q8)-FF5722?logo=onnx&logoColor=white)](https://huggingface.co/docs/transformers.js)
 [![Security](https://img.shields.io/badge/OWASP-Prompt_Injection_Geschützt-blueviolet?logo=shield&logoColor=white)](#3-️-owasp-prompt-injection--besucher-vertrauensgrenze)
@@ -438,16 +438,22 @@ npm run example:minimal
 
 | Benchmark-Ziel | Iterationen | Durchsatz (Throughput) | Durchschn. Latenz | p95 Latenz | Architektonische Rolle |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`PIIGuard.sanitize`** | 10.000 | **231.009 ops/s** | **4,28 µs** | 5,08 µs | Algorithmische TCKN Mod-10 + Luhn-Prüfung |
-| **`CacheManager.get`** | 20.000 | **3.714.796 ops/s** | **0,22 µs** | 0,33 µs | In-Memory Hot Path Cache |
-| **`RedisCacheAdapter.get`** | 20.000 | **5.165.789 ops/s** | **0,17 µs** | 0,25 µs | Multi-Instance JSON Serialisierungspfad |
-| **`Dot Product` (384-dim)** | 50.000 | **1.513.658 ops/s** | **0,64 µs** | 1,71 µs | all-MiniLM-L6-v2 ONNX SIMD Skalarprodukt |
-| **`Document Chunking`** | 5.000 | **623.085 ops/s** | **1,58 µs** | 2,58 µs | Magic Bytes Dateiprüfung & Boundary Chunker |
-| **`BM25Index.search` (500 Docs)** | 2.000 | **16.506 ops/s** | **60,56 µs** | 69,96 µs | Dünnbesetzte BM25-Schlüsselwortsuche |
-| **`TokenTracker`** | 20.000 | **5.425.200 ops/s** | **0,16 µs** | 0,29 µs | FinOps Echtzeit-Kostentelemetrie |
+| **`PIIGuard.sanitize`** | 10.000 | **226.182 ops/s** | **4,37 µs** | 5,33 µs | Algorithmische TCKN Mod-10 + Luhn-Prüfung |
+| **`CacheManager.get`** | 20.000 | **3.513.086 ops/s** | **0,23 µs** | 0,46 µs | In-Memory Hot Path Cache |
+| **`RedisCacheAdapter.get`** | 20.000 | **4.650.397 ops/s** | **0,19 µs** | 0,25 µs | Multi-Instance JSON Serialisierungspfad |
+| **`Dot Product` (384-dim)** | 50.000 | **1.486.386 ops/s** | **0,65 µs** | 1,75 µs | all-MiniLM-L6-v2 ONNX SIMD Skalarprodukt |
+| **`Document Chunking`** | 5.000 | **594.232 ops/s** | **1,66 µs** | 2,67 µs | Magic Bytes Dateiprüfung & Boundary Chunker |
+| **`BM25Index.search` (500 Docs)** | 2.000 | **14.938 ops/s** | **66,92 µs** | 77,21 µs | Dünnbesetzte BM25-Schlüsselwortsuche |
+| **`TokenTracker`** | 20.000 | **5.288.382 ops/s** | **0,17 µs** | 0,29 µs | FinOps Echtzeit-Kostentelemetrie |
 
 ### Zusammenfassung der Testsuite
 ```text
+✔ Sicherheitsschicht - JWT-Authentifizierung & RBAC-Guard (9/9 bestanden)
+✔ Sicherheitsschicht - Kryptografische Mutations-Bestätigungstickets (7/7 bestanden)
+✔ Sicherheitsschicht - Geschützte Admin-Endpunkte & Mandanten-Audit-Scoping (7/7 bestanden)
+✔ Sicherheitsschicht - Rollenisolierter Cache & Multi-Tenant-FAQ-Grenzen (2/2 bestanden)
+✔ Retrieval-Schicht - Hybride Suche & Engine-Query-Pipeline (3/3 bestanden)
+✔ Resilienz & Engineering-Qualität - Fehlerbehebung & Puffer (5/5 bestanden)
 ✔ Integration - Express API Routes (3/3 bestanden)
 ✔ Integration - RAGEngine Full Lifecycle (7/7 bestanden)
 ✔ Integration - Document Ingestion & PII Protection Pipeline (4/4 bestanden)
@@ -471,7 +477,7 @@ npm run example:minimal
 ✔ Streaming Ingestion & Backpressure-Management (5/5 bestanden)
 ✔ FinOps Metrics - TokenTracker (5/5 bestanden)
 
-Gesamt: 101 bestandene Tests in 24 Test-Suiten (0 Fehler, 100% Erfolgsquote)
+Gesamt: 140 bestandene Tests in 24 Test-Suiten (0 Fehler, 100% Erfolgsquote)
 ```
 
 ---

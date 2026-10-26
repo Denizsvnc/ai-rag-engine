@@ -16,8 +16,8 @@ const pipeline = promisify(streamPipeline);
 export interface DocumentUploadPayload {
     filename: string;
     content: string | Buffer | NodeJS.ReadableStream;
-    mimeType?: string;
-    tenantId?: string;
+    mimeType?: string | undefined;
+    tenantId?: string | undefined;
 }
 
 export interface StreamIngestionOptions {

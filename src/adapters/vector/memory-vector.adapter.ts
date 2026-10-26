@@ -12,7 +12,7 @@ export class MemoryVectorAdapter implements IVectorStoreAdapter {
     private documents: StoredDocument[] = [];
     private bm25Index: BM25Index = new BM25Index();
 
-    constructor(private smlEngine: SMLEngine) { }
+    constructor(private smlEngine: SMLEngine = new SMLEngine()) { }
 
     /**
      * Adds documents to memory, computes their embeddings, and indexes them in BM25.
@@ -25,6 +25,10 @@ export class MemoryVectorAdapter implements IVectorStoreAdapter {
         }
         // Update BM25 lexical index
         this.bm25Index.index(this.documents);
+    }
+
+    public async insert(doc: Omit<VectorDocument, 'score'>): Promise<void> {
+        await this.addDocuments([doc]);
     }
 
     /**
@@ -91,5 +95,24 @@ export class MemoryVectorAdapter implements IVectorStoreAdapter {
 
         // 3. Fuse via Reciprocal Rank Fusion
         return reciprocalRankFusion(denseResults, bm25Results, topK);
+    }
+
+    /**
+     * Deletes a document by ID from both Dense memory and BM25 index.
+     */
+    public async deleteDocument(id: string): Promise<boolean> {
+        const initialLen = this.documents.length;
+        this.documents = this.documents.filter(d => d.id !== id);
+        this.bm25Index = new BM25Index();
+        this.bm25Index.index(this.documents);
+        return this.documents.length < initialLen;
+    }
+
+    /**
+     * Clears all stored documents.
+     */
+    public async clear(): Promise<void> {
+        this.documents = [];
+        this.bm25Index.clear();
     }
 }

@@ -4,6 +4,7 @@ import { RAGEngine } from '../core/engine';
 import { TieredLLMProvider } from '../adapters/llm/tiered.adapter';
 import { StaticRulesAdapter } from '../adapters/rules/static-rules.adapter';
 import { LocalFaqAdapter } from '../adapters/faq/local-faq.adapter';
+import { MemoryVectorAdapter } from '../adapters/vector/memory-vector.adapter';
 import { createApiRoutes } from './routes';
 import { ENGINE_DEFAULTS } from '../config/default';
 
@@ -26,17 +27,23 @@ async function bootstrap() {
     const engine = new RAGEngine({
         llmProvider,
         inputs: {
-            // 1. Static Business Rules
+            // 1. In-memory & Persistent Vector Knowledge Base with Hybrid Search
+            vectorStore: new MemoryVectorAdapter(),
+            // 2. Static Business Rules
             rules: new StaticRulesAdapter([
                 'Always maintain a polite, professional, and institutional tone.',
                 'The return window for all standard purchases is 14 days.',
                 'Never ask for or store visitor credit card numbers or passwords.'
             ]),
-            // 2. Zero-token Semantic FAQ matching
+            // 3. Zero-token Semantic FAQ matching
             faq: new LocalFaqAdapter({
                 filePath: './src/utils/faq-embeddings.json',
                 defaultMatchThreshold: 0.80
             })
+        },
+        retrieval: {
+            strategy: 'hybrid',
+            topK: 3
         },
         security: {
             enabled: true,

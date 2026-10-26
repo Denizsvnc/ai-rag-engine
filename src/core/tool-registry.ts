@@ -66,6 +66,17 @@ export class ToolRegistry {
         );
     }
 
+    public async registerTool(tool: IAgentTool): Promise<void> {
+        this.activeTools.set(tool.name, tool);
+        try {
+            const rawEmbedding = await this.smlEngine.getEmbedding(tool.description);
+            const embedding = Array.from(rawEmbedding);
+            this.toolEmbeddings.push({ id: tool.name, embedding });
+        } catch {
+            this.toolEmbeddings.push({ id: tool.name, embedding: [] });
+        }
+    }
+
     public getTool(name: string): IAgentTool | undefined {
         return this.activeTools.get(name);
     }

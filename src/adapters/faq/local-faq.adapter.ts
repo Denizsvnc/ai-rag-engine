@@ -56,15 +56,28 @@ export class LocalFaqAdapter implements IFAQAdapter {
         }
     }
 
-    public async getFaqs(): Promise<FAQItem[]> {
+    public async setFaqs(items: FAQItem[]): Promise<void> {
+        this.items = [];
+        for (const item of items) {
+            if (!item.embedding || item.embedding.length === 0) {
+                const rawEmbedding = await this.smlEngine.getEmbedding(item.question);
+                item.embedding = Array.from(rawEmbedding);
+            }
+            this.items.push(item);
+        }
+        this.isLoaded = true;
+    }
+
+    public async getFaqs(tenantId?: string): Promise<FAQItem[]> {
         if (!this.isLoaded) await this.init();
-        return this.items;
+        if (!tenantId) return this.items;
+        return this.items.filter(item => !item.tenantId || item.tenantId === tenantId);
     }
 
     /**
-     * Finds the best semantically matching FAQ item for a given user query.
+     * Finds the best semantically matching FAQ item for a given user query within the caller's tenant boundary.
      */
-    public async findBestMatch(query: string, threshold?: number): Promise<FAQMatchResult | null> {
+    public async findBestMatch(query: string, threshold?: number, tenantId?: string): Promise<FAQMatchResult | null> {
         if (!this.isLoaded) await this.init();
         if (this.items.length === 0) return null;
 
@@ -76,6 +89,10 @@ export class LocalFaqAdapter implements IFAQAdapter {
         let highestScore = -1;
 
         for (const item of this.items) {
+            // Strict Multi-tenant boundary check: Item must either be global (!tenantId) or match the caller's tenantId
+            if (tenantId && item.tenantId && item.tenantId !== tenantId) {
+                continue;
+            }
             if (!item.embedding) continue;
             const score = dotProduct(queryVector, item.embedding);
             if (score > highestScore) {

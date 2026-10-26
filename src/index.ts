@@ -26,6 +26,7 @@ export { SecurityGuard } from './core/security/security-guard';
 export { InputSanitizer } from './core/security/sanitizer';
 export { InjectionDetector, type DetectionResult } from './core/security/injection-detector';
 export { PIIGuard, type PIIPolicy, type PIISanitizationResult } from './core/security/pii-guard';
+export { ConfirmationService, type ConfirmationTicketPayload } from './core/security/confirmation';
 
 // Asynchronous Queue & Ingestion
 export * from './core/queue/job-queue.interface';
@@ -47,7 +48,15 @@ export {
 
 // API & Express Middleware
 export { createRagMiddleware } from './api/middleware';
-export { createApiRoutes } from './api/routes';
+export { createApiRoutes, type ApiRouteOptions } from './api/routes';
+export {
+    createAuthToken,
+    verifyAuthToken,
+    createAuthMiddleware,
+    requireRoles,
+    type AuthTokenPayload,
+    type AuthMiddlewareOptions
+} from './api/auth';
 
 // LLM Adapters
 export { OpenAIAdapter } from './adapters/llm/openai.adapter';

@@ -6,11 +6,11 @@
 
 **Süreç İçi SML Niyet Yönlendirmesi, Sıfır-Token Anlamsal SSS Önbelleklemesi, Çok Katmanlı LLM Yedeklemesi ve OWASP Prompt Enjeksiyonu Savunmasına Sahip Kurumsal Agentic RAG Mimarisi.**
 
-[![Sürüm](https://img.shields.io/badge/Sürüm-2.0.0-6C5CE7?logo=semver&logoColor=white)](package.json)
+[![Sürüm](https://img.shields.io/badge/Sürüm-2.1.0-6C5CE7?logo=semver&logoColor=white)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![CI](https://github.com/Denizsvnc/ai-rag-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Denizsvnc/ai-rag-engine/actions)
-[![Tests](https://img.shields.io/badge/Tests-101%2F101_Geçti-success?logo=checkmarx&logoColor=white)](test/)
+[![Tests](https://img.shields.io/badge/Tests-140%2F140_Geçti-success?logo=checkmarx&logoColor=white)](test/)
 [![GitHub Stars](https://img.shields.io/github/stars/Denizsvnc/ai-rag-engine?style=social)](https://github.com/Denizsvnc/ai-rag-engine/stargazers)
 [![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-all--MiniLM--L6--v2_(q8)-FF5722?logo=onnx&logoColor=white)](https://huggingface.co/docs/transformers.js)
 [![Security](https://img.shields.io/badge/OWASP-Prompt_Injection_Korumalı-blueviolet?logo=shield&logoColor=white)](#3-️-owasp-prompt-enjeksiyonu--ziyaretçi-güven-sınırı)
@@ -438,16 +438,22 @@ npm run example:minimal
 
 | Test Edilen Modül | İterasyon | İşlem Hacmi (Throughput) | Ort. Gecikme | p95 Gecikme | Mimari Rolü |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`PIIGuard.sanitize`** | 10.000 | **231.009 işlem/sn** | **4.28 µs** | 5.08 µs | Algoritmik TCKN Mod-10 + Luhn Kart Kontrolü |
-| **`CacheManager.get`** | 20.000 | **3.714.796 işlem/sn** | **0.22 µs** | 0.33 µs | Bellek İçi Sıcak Yol Önbelleği |
-| **`RedisCacheAdapter.get`** | 20.000 | **5.165.789 işlem/sn** | **0.17 µs** | 0.25 µs | Çok Örnekli JSON Serileştirme Yolu |
-| **`Dot Product` (384-dim)** | 50.000 | **1.513.658 işlem/sn** | **0.64 µs** | 1.71 µs | all-MiniLM-L6-v2 ONNX SIMD Vektör Çarpımı |
-| **`Document Chunking`** | 5.000 | **623.085 işlem/sn** | **1.58 µs** | 2.58 µs | Magic Bytes Dosya Kontrolü & Metin Parçalama |
-| **`BM25Index.search` (500 Doküman)** | 2.000 | **16.506 işlem/sn** | **60.56 µs** | 69.96 µs | Seyrek BM25 Anahtar Kelime Araması |
-| **`TokenTracker`** | 20.000 | **5.425.200 işlem/sn** | **0.16 µs** | 0.29 µs | Gerçek Zamanlı FinOps Maliyet Telemetrisi |
+| **`PIIGuard.sanitize`** | 10.000 | **226.182 işlem/sn** | **4.37 µs** | 5.33 µs | Algoritmik TCKN Mod-10 + Luhn Kart Kontrolü |
+| **`CacheManager.get`** | 20.000 | **3.513.086 işlem/sn** | **0.23 µs** | 0.46 µs | Bellek İçi Sıcak Yol Önbelleği |
+| **`RedisCacheAdapter.get`** | 20.000 | **4.650.397 işlem/sn** | **0.19 µs** | 0.25 µs | Çok Örnekli JSON Serileştirme Yolu |
+| **`Dot Product` (384-dim)** | 50.000 | **1.486.386 işlem/sn** | **0.65 µs** | 1.75 µs | all-MiniLM-L6-v2 ONNX SIMD Vektör Çarpımı |
+| **`Document Chunking`** | 5.000 | **594.232 işlem/sn** | **1.66 µs** | 2.67 µs | Magic Bytes Dosya Kontrolü & Metin Parçalama |
+| **`BM25Index.search` (500 Doküman)** | 2.000 | **14.938 işlem/sn** | **66.92 µs** | 77.21 µs | Seyrek BM25 Anahtar Kelime Araması |
+| **`TokenTracker`** | 20.000 | **5.288.382 işlem/sn** | **0.17 µs** | 0.29 µs | Gerçek Zamanlı FinOps Maliyet Telemetrisi |
 
 ### Test Paketi Özeti
 ```text
+✔ Güvenlik Katmanı - JWT Kimlik Doğrulama & RBAC Koruması (9/9 geçti)
+✔ Güvenlik Katmanı - Kriptografik Mutasyon Onay Biletleri (7/7 geçti)
+✔ Güvenlik Katmanı - Korumalı Yönetici Uç Noktaları & Tenant Denetim İzolasyonu (7/7 geçti)
+✔ Güvenlik Katmanı - Rol İzoleli Önbellek & Multi-Tenant SSS Sınırı (2/2 geçti)
+✔ Getirme Katmanı - Hibrit Arama & Motor Sorgu Hattı (3/3 geçti)
+✔ Dayanıklılık & Mühendislik Kalitesi - Hata Kurtarma & Halka Tampon (5/5 geçti)
 ✔ Integration - Express API Routes (3/3 geçti)
 ✔ Integration - RAGEngine Full Lifecycle (7/7 geçti)
 ✔ Integration - Document Ingestion & PII Protection Pipeline (4/4 geçti)
@@ -471,7 +477,7 @@ npm run example:minimal
 ✔ Streaming Ingestion & Geri Basınç Yönetimi (5/5 geçti)
 ✔ FinOps Metrics - TokenTracker (5/5 geçti)
 
-Toplam: 24 test paketinde 101 test başarıyla geçti (0 hata, %100 başarı oranı)
+Toplam: 24 test paketinde 140 test başarıyla geçti (0 hata, %100 başarı oranı)
 ```
 
 ---

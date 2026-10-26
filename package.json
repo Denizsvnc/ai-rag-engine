@@ -1,6 +1,6 @@
 {
   "name": "ai-rag-engine",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Lightweight, enterprise-ready Agentic RAG engine with local SML intent routing, zero-token semantic FAQ matching, multi-tiered LLM failover, and OWASP prompt injection defense.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -41,7 +41,7 @@ export class PrometheusExporter {
         // 6. Latency percentiles
         lines.push('# HELP rag_latency_ms Query execution latency in milliseconds');
         lines.push('# TYPE rag_latency_ms summary');
-        lines.push(`rag_latency_ms{quantile="0.5"} ${summary.latency.avgMs}`);
+        lines.push(`rag_latency_ms{quantile="0.5"} ${summary.latency.p50Ms}`);
         lines.push(`rag_latency_ms{quantile="0.95"} ${summary.latency.p95Ms}`);
         lines.push(`rag_latency_ms_sum ${summary.latency.avgMs * summary.totalQueries}`);
         lines.push(`rag_latency_ms_count ${summary.totalQueries}`);

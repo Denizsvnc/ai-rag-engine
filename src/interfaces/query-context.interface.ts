@@ -28,7 +28,12 @@ export interface QueryContext {
     skipCache?: boolean | undefined;
 
     /**
-     * Explicit confirmation flag for mutating or destructive operations.
+     * Explicit confirmation flag for mutating or destructive operations (legacy / dev).
      */
     confirmedAction?: boolean | undefined;
+
+    /**
+     * Cryptographically signed HMAC-SHA256 confirmation ticket for destructive/mutating operations (P0 security).
+     */
+    confirmationTicket?: string | undefined;
 }

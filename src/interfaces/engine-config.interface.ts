@@ -33,6 +33,11 @@ export interface EngineConfig {
         toolResultTtlMs?: number | undefined;
         cacheToolResults?: boolean | undefined;
     } | undefined;
+    retrieval?: {
+        strategy?: 'dense' | 'sparse' | 'hybrid' | undefined;
+        topK?: number | undefined;
+        minRelevanceScore?: number | undefined;
+    } | undefined;
     metrics?: TokenTrackerOptions | undefined;
     ingestion?: {
         chunkSize?: number | undefined;

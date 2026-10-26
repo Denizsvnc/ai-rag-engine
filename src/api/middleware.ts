@@ -18,19 +18,21 @@ export function createRagMiddleware(engine: RAGEngine) {
                 return res.status(400).json({ error: '"query" alanı zorunludur ve string olmalıdır.' });
             }
 
-            // Extract multi-tenant metadata from enterprise HTTP headers or request body
-            const tenantId = (req.headers['x-tenant-id'] as string) || bodyContext?.tenantId;
-            const userId = (req.headers['x-user-id'] as string) || bodyContext?.userId;
-            const rolesHeader = req.headers['x-roles'] as string;
-            const roles = rolesHeader ? rolesHeader.split(',').map(r => r.trim()) : bodyContext?.roles;
+            // Prioritize server-verified auth claims (P0 Security) over raw client headers
+            const auth = req.auth;
+            const tenantId = auth?.tenantId || (req.headers['x-tenant-id'] as string) || bodyContext?.tenantId;
+            const userId = auth?.userId || (req.headers['x-user-id'] as string) || bodyContext?.userId;
+            const roles = auth?.roles || (req.headers['x-roles'] ? (req.headers['x-roles'] as string).split(',').map(r => r.trim()) : bodyContext?.roles);
             const confirmedAction = req.headers['x-confirmed-action'] === 'true' || bodyContext?.confirmedAction;
+            const confirmationTicket = (req.headers['x-confirmation-ticket'] as string) || bodyContext?.confirmationTicket;
 
             const resolvedContext: QueryContext = {
                 ...bodyContext,
                 ...(tenantId ? { tenantId } : {}),
                 ...(userId ? { userId } : {}),
                 ...(roles ? { roles } : {}),
-                ...(confirmedAction ? { confirmedAction } : {})
+                ...(confirmedAction ? { confirmedAction } : {}),
+                ...(confirmationTicket ? { confirmationTicket } : {})
             };
 
             const result = await engine.query(query, resolvedContext);

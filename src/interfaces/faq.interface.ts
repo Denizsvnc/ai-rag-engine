@@ -1,5 +1,6 @@
 export interface FAQItem {
     id?: string | undefined;
+    tenantId?: string | undefined;
     question: string;
     answer: string;
     category?: string | undefined;
@@ -13,6 +14,6 @@ export interface FAQMatchResult {
 }
 
 export interface IFAQAdapter {
-    getFaqs(): Promise<FAQItem[]>;
-    findBestMatch?(query: string, threshold?: number): Promise<FAQMatchResult | null>;
+    getFaqs(tenantId?: string): Promise<FAQItem[]>;
+    findBestMatch?(query: string, threshold?: number, tenantId?: string): Promise<FAQMatchResult | null>;
 }

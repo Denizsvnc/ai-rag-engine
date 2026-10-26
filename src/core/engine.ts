@@ -4,6 +4,7 @@ import { SMLEngine } from './sml-engine';
 import { ToolRegistry } from './tool-registry';
 import { PromptBuilder } from './prompt-builder';
 import { SecurityGuard } from './security/security-guard';
+import { ConfirmationService } from './security/confirmation';
 import type { VectorDocument } from '../interfaces/vector.interface';
 import type { ILLMRequest } from '../interfaces/llm.interface';
 import { TokenTracker, type EngineMetricsSummary } from './metrics/token-tracker';
@@ -13,6 +14,7 @@ import type { QueryContext } from '../interfaces/query-context.interface';
 import type { ToolAuditLog } from '../interfaces/tool.interface';
 
 import type { ICacheAdapter } from '../interfaces/cache.interface';
+import { MemoryVectorAdapter } from '../adapters/vector/memory-vector.adapter';
 
 export class RAGEngine {
     private cacheManager: ICacheAdapter;
@@ -23,6 +25,7 @@ export class RAGEngine {
     private isInitialized = false;
     private initPromise: Promise<void> | null = null;
     private auditLogs: ToolAuditLog[] = [];
+    private readonly maxAuditLogs = 1000;
 
     constructor(private config: EngineConfig) {
         if (config.cache?.adapter) {
@@ -36,9 +39,17 @@ export class RAGEngine {
             );
         }
         this.smlEngine = new SMLEngine({ modelName: config.smlConfig?.modelName });
+        const vectorStore = config.inputs?.vectorStore || new MemoryVectorAdapter(this.smlEngine);
+        this.config = {
+            ...config,
+            inputs: {
+                ...config.inputs,
+                vectorStore
+            }
+        };
         this.tokenTracker = new TokenTracker(config.metrics);
         this.ingestionService = new DocumentIngestionService({
-            vectorStore: config.inputs.vectorStore,
+            vectorStore,
             smlEngine: this.smlEngine,
             jobQueue: config.ingestion?.jobQueue,
             chunkSize: config.ingestion?.chunkSize,
@@ -52,37 +63,79 @@ export class RAGEngine {
     }
 
     /**
+     * Records a tool audit log entry into a bounded ring buffer (max 1000 items)
+     * and redacts sensitive field values.
+     */
+    public recordAuditLog(entry: ToolAuditLog): void {
+        let sanitizedArgs = entry.args;
+        try {
+            if (typeof sanitizedArgs === 'object' && sanitizedArgs !== null) {
+                sanitizedArgs = JSON.parse(JSON.stringify(sanitizedArgs));
+                for (const key of Object.keys(sanitizedArgs)) {
+                    if (/password|secret|token|tckn|credit_?card|card_?num/i.test(key)) {
+                        sanitizedArgs[key] = '***REDACTED***';
+                    }
+                }
+            }
+        } catch {
+            // Keep original args if serialization fails
+        }
+
+        this.auditLogs.push({ ...entry, args: sanitizedArgs });
+        if (this.auditLogs.length > this.maxAuditLogs) {
+            this.auditLogs.shift();
+        }
+    }
+
+    /**
      * Initializes the engine, loads models into memory, and hydrates persistent caches.
      * Thread-safe: Parallel concurrent invocations await the exact same mutex Promise.
+     * Resilient: Resets initPromise on failure so subsequent retries can succeed.
      */
     public async init(): Promise<void> {
         if (this.isInitialized) return;
 
         if (!this.initPromise) {
             this.initPromise = (async () => {
-                console.log('[RAGEngine] Initializing system...');
-                if (this.config.cache?.enabled !== false && typeof (this.cacheManager as any).init === 'function') {
-                    await (this.cacheManager as any).init();
-                }
+                try {
+                    console.log('[RAGEngine] Initializing system...');
+                    if (this.config.cache?.enabled !== false && typeof (this.cacheManager as any).init === 'function') {
+                        await (this.cacheManager as any).init();
+                    }
 
-                if (this.config.smlConfig?.enabled !== false) {
-                    await this.smlEngine.init();
-                }
+                    if (this.config.smlConfig?.enabled !== false) {
+                        await this.smlEngine.init();
+                    }
 
-                if (this.toolRegistry && this.config.tools) {
-                    await this.toolRegistry.initialize(this.config.tools.items);
-                }
+                    if (this.toolRegistry && this.config.tools) {
+                        await this.toolRegistry.initialize(this.config.tools.items);
+                    }
 
-                if (this.config.inputs.faq && typeof (this.config.inputs.faq as any).init === 'function') {
-                    await (this.config.inputs.faq as any).init();
-                }
+                    if (this.config.inputs?.vectorStore && typeof (this.config.inputs.vectorStore as any).init === 'function') {
+                        await (this.config.inputs.vectorStore as any).init();
+                    }
 
-                this.isInitialized = true;
-                console.log('[RAGEngine] Initialization complete.');
+                    if (this.config.inputs?.faq && typeof (this.config.inputs.faq as any).init === 'function') {
+                        await (this.config.inputs.faq as any).init();
+                    }
+
+                    this.isInitialized = true;
+                    console.log('[RAGEngine] Initialization complete.');
+                } catch (error) {
+                    this.initPromise = null; // Reset promise to allow subsequent recovery / retry (P1 resiliency)
+                    throw error;
+                }
             })();
         }
 
         return this.initPromise;
+    }
+
+    public async registerTool(tool: any): Promise<void> {
+        if (!this.toolRegistry) {
+            this.toolRegistry = new ToolRegistry(this.smlEngine);
+        }
+        await this.toolRegistry.registerTool(tool);
     }
 
     /**
@@ -133,8 +186,12 @@ export class RAGEngine {
             }
         }
 
-        // 2. Multi-Tenant Cache lookup
-        const cacheKey = context?.tenantId ? `tenant:${context.tenantId}:${sanitizedPrompt}` : sanitizedPrompt;
+        // 2. Multi-Tenant & Role-Isolated Cache lookup (P0 Security Isolation)
+        const roleScope = (context?.roles && context.roles.length > 0)
+            ? context.roles.slice().sort().join(',')
+            : 'public';
+        const tenantPart = context?.tenantId ? `tenant:${context.tenantId}` : 'tenant:default';
+        const cacheKey = `${tenantPart}:roles:${roleScope}:${sanitizedPrompt}`;
 
         if (this.config.cache?.enabled !== false && !context?.skipCache) {
             const cachedResponse = await this.cacheManager.get(cacheKey);
@@ -157,9 +214,13 @@ export class RAGEngine {
             }
         }
 
-        // 3. Zero-Token Semantic FAQ Matching
+        // 3. Zero-Token Semantic FAQ Matching within Tenant Boundary (P0 Tenant Isolation)
         if (this.config.inputs.faq && this.config.inputs.faq.findBestMatch) {
-            const faqMatch = await this.config.inputs.faq.findBestMatch(sanitizedPrompt);
+            const faqMatch = await this.config.inputs.faq.findBestMatch(
+                sanitizedPrompt,
+                undefined,
+                context?.tenantId
+            );
             if (faqMatch) {
                 const latencyMs = Date.now() - startTime;
                 const metrics = this.tokenTracker.trackQuery({
@@ -226,7 +287,7 @@ export class RAGEngine {
                             if (!hasPermission) {
                                 const authError = `User lacks required role(s): ${matchedTool.requiredRoles.join(', ')}`;
                                 console.warn(`[RAGEngine Governance] Unauthorized tool call blocked: ${tc.name} by user ${context?.userId || 'anonymous'}`);
-                                this.auditLogs.push({
+                                this.recordAuditLog({
                                     timestamp: new Date().toISOString(),
                                     toolName: tc.name,
                                     tenantId: context?.tenantId,
@@ -245,39 +306,66 @@ export class RAGEngine {
                             }
                         }
 
-                        // Barrier 2: Mutation & Explicit Confirmation Guard
-                        if ((matchedTool.isMutating || matchedTool.requiresConfirmation) && !context?.confirmedAction) {
-                            const warnMsg = `Tool '${tc.name}' mutates state and requires explicit user confirmation. Pass confirmedAction: true to execute.`;
-                            console.warn(`[RAGEngine Governance] Mutation blocked without explicit confirmation: ${tc.name}`);
-                            this.auditLogs.push({
-                                timestamp: new Date().toISOString(),
-                                toolName: tc.name,
-                                tenantId: context?.tenantId,
-                                userId: context?.userId,
-                                args: tc.arguments,
-                                isMutating: true,
-                                status: 'CONFIRMATION_REQUIRED',
-                                error: warnMsg,
-                                durationMs: 0
-                            });
-                            toolResultContext.push({
-                                toolName: tc.name,
-                                result: {
-                                    status: 'CONFIRMATION_REQUIRED',
-                                    message: warnMsg,
-                                    proposedArgs: tc.arguments
+                        // Barrier 2: Mutation & Cryptographic Confirmation Ticket Guard (P0 Security)
+                        const isMutatingOperation = matchedTool.isMutating || matchedTool.requiresConfirmation;
+                        if (isMutatingOperation) {
+                            let isConfirmed = false;
+                            let confirmationError: string | undefined;
+
+                            if (context?.confirmationTicket) {
+                                const ticketCheck = ConfirmationService.verifyTicket(
+                                    context.confirmationTicket,
+                                    tc.name,
+                                    tc.arguments,
+                                    context
+                                );
+                                if (ticketCheck.valid) {
+                                    isConfirmed = true;
+                                } else {
+                                    confirmationError = ticketCheck.error;
                                 }
-                            });
-                            continue;
+                            } else if (context?.confirmedAction === true) {
+                                // Backward compatibility for dev and unit tests
+                                isConfirmed = true;
+                            }
+
+                            if (!isConfirmed) {
+                                const ticket = ConfirmationService.issueTicket(tc.name, tc.arguments, context);
+                                const warnMsg = confirmationError ||
+                                    `Tool '${tc.name}' mutates state and requires user confirmation. Submit the provided confirmation ticket to proceed.`;
+                                console.warn(`[RAGEngine Governance] Mutation blocked without verified confirmation ticket: ${tc.name}`);
+                                this.recordAuditLog({
+                                    timestamp: new Date().toISOString(),
+                                    toolName: tc.name,
+                                    tenantId: context?.tenantId,
+                                    userId: context?.userId,
+                                    args: tc.arguments,
+                                    isMutating: true,
+                                    status: 'CONFIRMATION_REQUIRED',
+                                    error: warnMsg,
+                                    durationMs: 0
+                                });
+                                toolResultContext.push({
+                                    toolName: tc.name,
+                                    result: {
+                                        status: 'CONFIRMATION_REQUIRED',
+                                        message: warnMsg,
+                                        proposedArgs: tc.arguments,
+                                        confirmationTicket: ticket
+                                    }
+                                });
+                                continue;
+                            }
                         }
 
                         // Barrier 3: Strict Zod Schema Validation
-                        if (matchedTool.zodSchema) {
-                            const parseResult = matchedTool.zodSchema.safeParse(tc.arguments);
+                        const effectiveSchema = matchedTool.zodSchema || (matchedTool as any).schema;
+                        if (effectiveSchema) {
+                            const parseResult = effectiveSchema.safeParse(tc.arguments);
                             if (!parseResult.success) {
                                 const validationError = `Invalid tool arguments: ${parseResult.error.message}`;
                                 console.warn(`[RAGEngine Governance] Argument validation failed for ${tc.name}:`, parseResult.error.issues);
-                                this.auditLogs.push({
+                                this.recordAuditLog({
                                     timestamp: new Date().toISOString(),
                                     toolName: tc.name,
                                     tenantId: context?.tenantId,
@@ -306,7 +394,7 @@ export class RAGEngine {
                         try {
                             const dbResult = await matchedTool.execute(tc.arguments, context);
                             const durationMs = Date.now() - toolExecStart;
-                            this.auditLogs.push({
+                            this.recordAuditLog({
                                 timestamp: new Date().toISOString(),
                                 toolName: tc.name,
                                 tenantId: context?.tenantId,
@@ -320,7 +408,7 @@ export class RAGEngine {
                             executedTools.push({ name: tc.name, args: tc.arguments });
                         } catch (error: any) {
                             const durationMs = Date.now() - toolExecStart;
-                            this.auditLogs.push({
+                            this.recordAuditLog({
                                 timestamp: new Date().toISOString(),
                                 toolName: tc.name,
                                 tenantId: context?.tenantId,
@@ -338,11 +426,26 @@ export class RAGEngine {
             }
         }
 
-        // 4. Vector retrieval and active rules
+        // 4. Vector retrieval and active rules (P1 Hybrid Search Integration)
         let documents: VectorDocument[] = [];
         if (this.config.inputs.vectorStore && intent !== 'TOOL_CALL') {
             const vectorFilter = context?.tenantId ? { tenantId: context.tenantId } : undefined;
-            documents = await this.config.inputs.vectorStore.search(sanitizedPrompt, 3, vectorFilter);
+            const topK = this.config.retrieval?.topK ?? 3;
+            const strategy = this.config.retrieval?.strategy ?? (
+                typeof this.config.inputs.vectorStore.searchHybrid === 'function' ? 'hybrid' : 'dense'
+            );
+
+            if (strategy === 'hybrid' && typeof this.config.inputs.vectorStore.searchHybrid === 'function') {
+                documents = await this.config.inputs.vectorStore.searchHybrid(sanitizedPrompt, topK, vectorFilter);
+            } else {
+                documents = await this.config.inputs.vectorStore.search(sanitizedPrompt, topK, vectorFilter);
+            }
+
+            // Filter by minimum relevance score if configured
+            if (this.config.retrieval?.minRelevanceScore !== undefined) {
+                const minScore = this.config.retrieval.minRelevanceScore;
+                documents = documents.filter(doc => (doc.score ?? 1) >= minScore);
+            }
         }
 
         let rules: string[] = [];
@@ -407,10 +510,11 @@ export class RAGEngine {
     }
 
     /**
-     * Retrieve structured audit logs for tool executions.
+     * Retrieve structured audit logs for tool executions (supports tenant-level filtering).
      */
-    public getAuditLogs(): ToolAuditLog[] {
-        return [...this.auditLogs];
+    public getAuditLogs(tenantId?: string): ToolAuditLog[] {
+        if (!tenantId) return [...this.auditLogs];
+        return this.auditLogs.filter(log => log.tenantId === tenantId);
     }
 
     /**

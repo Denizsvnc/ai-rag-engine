@@ -6,11 +6,11 @@
 
 **Enterprise-Grade Agentic RAG Architecture with In-Process SML Intent Routing, Zero-Token Semantic FAQ Caching, Multi-Tiered LLM Failover & OWASP Prompt Injection Defense.**
 
-[![Version](https://img.shields.io/badge/Version-2.0.0-6C5CE7?logo=semver&logoColor=white)](package.json)
+[![Version](https://img.shields.io/badge/Version-2.1.0-6C5CE7?logo=semver&logoColor=white)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![CI](https://github.com/Denizsvnc/ai-rag-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Denizsvnc/ai-rag-engine/actions)
-[![Tests](https://img.shields.io/badge/Tests-101%2F101_Passing-success?logo=checkmarx&logoColor=white)](test/)
+[![Tests](https://img.shields.io/badge/Tests-140%2F140_Passing-success?logo=checkmarx&logoColor=white)](test/)
 [![GitHub Stars](https://img.shields.io/github/stars/Denizsvnc/ai-rag-engine?style=social)](https://github.com/Denizsvnc/ai-rag-engine/stargazers)
 [![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-all--MiniLM--L6--v2_(q8)-FF5722?logo=onnx&logoColor=white)](https://huggingface.co/docs/transformers.js)
 [![Security](https://img.shields.io/badge/OWASP-Prompt_Injection_Guarded-blueviolet?logo=shield&logoColor=white)](#-owasp-prompt-injection--visitor-trust-boundary)
@@ -438,16 +438,22 @@ npm run example:minimal
 
 | Benchmark Target | Iterations | Throughput | Avg Latency | p95 Latency | Architectural Role |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`PIIGuard.sanitize`** | 10,000 | **231,009 ops/s** | **4.28 µs** | 5.08 µs | Algorithmic TCKN Mod-10 + Luhn Check |
-| **`CacheManager.get`** | 20,000 | **3,714,796 ops/s** | **0.22 µs** | 0.33 µs | In-Memory Hot Path Eviction |
-| **`RedisCacheAdapter.get`** | 20,000 | **5,165,789 ops/s** | **0.17 µs** | 0.25 µs | Multi-Instance JSON Serialization Path |
-| **`Dot Product` (384-dim)** | 50,000 | **1,513,658 ops/s** | **0.64 µs** | 1.71 µs | all-MiniLM-L6-v2 ONNX SIMD Math |
-| **`Document Chunking`** | 5,000 | **623,085 ops/s** | **1.58 µs** | 2.58 µs | Magic Bytes & Boundary Chunker |
-| **`BM25Index.search` (500 Docs)** | 2,000 | **16,506 ops/s** | **60.56 µs** | 69.96 µs | Sparse BM25 Keyword Search |
-| **`TokenTracker`** | 20,000 | **5,425,200 ops/s** | **0.16 µs** | 0.29 µs | Real-time FinOps Telemetry |
+| **`PIIGuard.sanitize`** | 10,000 | **226,182 ops/s** | **4.37 µs** | 5.33 µs | Algorithmic TCKN Mod-10 + Luhn Check |
+| **`CacheManager.get`** | 20,000 | **3,513,086 ops/s** | **0.23 µs** | 0.46 µs | In-Memory Hot Path Eviction |
+| **`RedisCacheAdapter.get`** | 20,000 | **4,650,397 ops/s** | **0.19 µs** | 0.25 µs | Multi-Instance JSON Serialization Path |
+| **`Dot Product` (384-dim)** | 50,000 | **1,486,386 ops/s** | **0.65 µs** | 1.75 µs | all-MiniLM-L6-v2 ONNX SIMD Math |
+| **`Document Chunking`** | 5,000 | **594,232 ops/s** | **1.66 µs** | 2.67 µs | Magic Bytes & Boundary Chunker |
+| **`BM25Index.search` (500 Docs)** | 2,000 | **14,938 ops/s** | **66.92 µs** | 77.21 µs | Sparse BM25 Keyword Search |
+| **`TokenTracker`** | 20,000 | **5,288,382 ops/s** | **0.17 µs** | 0.29 µs | Real-time FinOps Telemetry |
 
 ### Automated Test Suite Summary
 ```text
+✔ Security Layer - JWT Authentication & RBAC Guard (9/9 passing)
+✔ Security Layer - Cryptographic Mutation Confirmation Tickets (7/7 passing)
+✔ Security Layer - Protected Administrative Endpoints & Tenant Audit Scoping (7/7 passing)
+✔ Security Layer - Cache Role Isolation & Multi-Tenant FAQ Boundary (2/2 passing)
+✔ Retrieval Layer - Hybrid Search & Engine Query Pipeline (3/3 passing)
+✔ Resiliency & Engineering Quality - Failure Recovery & Buffers (5/5 passing)
 ✔ Integration - Express API Routes (3/3 passing)
 ✔ Integration - RAGEngine Full Lifecycle (7/7 passing)
 ✔ Integration - Document Ingestion & PII Protection Pipeline (4/4 passing)
@@ -471,7 +477,7 @@ npm run example:minimal
 ✔ Streaming Ingestion & Backpressure Management (5/5 passing)
 ✔ FinOps Metrics - TokenTracker (5/5 passing)
 
-Total: 101 tests passing across 24 test suites (0 errors, 100% pass rate)
+Total: 140 tests passing across 24 test suites (0 errors, 100% pass rate)
 ```
 
 ---

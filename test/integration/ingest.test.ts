@@ -6,6 +6,7 @@ import { MemoryVectorAdapter } from '../../src/adapters/vector/memory-vector.ada
 import { SMLEngine } from '../../src/core/sml-engine';
 import { DocumentIngestionService } from '../../src/services/document-ingestion.service';
 import { createApiRoutes } from '../../src/api/routes';
+import { createAuthToken } from '../../src/api/auth';
 import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../src/interfaces/llm.interface';
 
 class MockLLMProvider implements ILLMProvider {
@@ -114,11 +115,20 @@ test('Integration - Document Ingestion & PII Protection Pipeline', async (t) => 
         const port = (server.address() as any).port;
         const baseUrl = `http://127.0.0.1:${port}/api`;
 
+        const adminToken = createAuthToken({
+            userId: 'test-admin',
+            tenantId: 'default',
+            roles: ['admin', 'editor']
+        });
+
         try {
             // 1. Submit valid document via API
             const postRes = await fetch(`${baseUrl}/ingest`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${adminToken}`
+                },
                 body: JSON.stringify({
                     filename: 'sirket_politikasi.md',
                     content: '# Şirket İade Politikası\n14 gün içinde koşulsuz iade hakkı mevcuttur.'
@@ -132,7 +142,9 @@ test('Integration - Document Ingestion & PII Protection Pipeline', async (t) => 
 
             // 2. Poll status endpoint
             await new Promise((res) => setTimeout(res, 80));
-            const statusRes = await fetch(`${baseUrl}/ingest/status/${postBody.jobId}`);
+            const statusRes = await fetch(`${baseUrl}/ingest/status/${postBody.jobId}`, {
+                headers: { 'Authorization': `Bearer ${adminToken}` }
+            });
             assert.equal(statusRes.status, 200);
             const statusBody = await statusRes.json() as any;
             assert.ok(statusBody.status === 'completed' || statusBody.status === 'processing');
@@ -140,7 +152,10 @@ test('Integration - Document Ingestion & PII Protection Pipeline', async (t) => 
             // 3. Reject dangerous file via API
             const badRes = await fetch(`${baseUrl}/ingest`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${adminToken}`
+                },
                 body: JSON.stringify({
                     filename: 'exploit.sh',
                     content: '#!/bin/bash\nrm -rf /'
@@ -152,7 +167,9 @@ test('Integration - Document Ingestion & PII Protection Pipeline', async (t) => 
             assert.ok(badBody.error?.includes('rejected'));
 
             // 4. Verify GET /api/metrics endpoint
-            const metricsRes = await fetch(`${baseUrl}/metrics`);
+            const metricsRes = await fetch(`${baseUrl}/metrics`, {
+                headers: { 'Authorization': `Bearer ${adminToken}` }
+            });
             assert.equal(metricsRes.status, 200);
             const metricsBody = await metricsRes.json() as any;
             assert.ok(typeof metricsBody.totalQueries === 'number');

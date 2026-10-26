@@ -7,9 +7,11 @@ export interface RetrievalEvalResult {
 }
 
 export interface FaithfulnessEvalResult {
-    score: number; // 0.0 to 1.0 (1.0 = completely grounded)
+    score: number; // 0.0 to 1.0 (Composite groundedness score)
+    lexicalGroundingScore: number; // Lexical token overlap heuristic
     totalSentences: number;
     groundedSentences: number;
+    contradictionsDetected: string[]; // Sentences containing numbers/claims absent from context
     ungroundedClaims: string[];
 }
 
@@ -82,11 +84,32 @@ export class RAGEvaluator {
      * and checks whether the salient terms in each sentence are grounded
      * in the retrieved context documents.
      */
+    public static evaluateGrounding(
+        answer: string,
+        context: string | string[]
+    ): FaithfulnessEvalResult & { grounded: boolean; groundingScore: number } {
+        const contextTexts = Array.isArray(context) ? context : [context];
+        const res = this.evaluateFaithfulness(answer, contextTexts);
+        return {
+            ...res,
+            grounded: res.score >= 0.7 && res.contradictionsDetected.length === 0,
+            groundingScore: res.score
+        };
+    }
+
     public static evaluateFaithfulness(
         answer: string,
         contextTexts: string[]
     ): FaithfulnessEvalResult {
         const combinedContext = contextTexts.join(' ').toLowerCase();
+        const contextClean = combinedContext.replace(/[^\p{L}\p{N}\s]/gu, ' ');
+        const contextWordTokens = new Set(contextClean.split(/\s+/).filter(w => w.length > 2));
+
+        // Extract context numerical literals (e.g. 24, 100, 3.5)
+        const contextNumbers = new Set(
+            (combinedContext.match(/\b\d+(?:[\.,]\d+)?\b/g) || []).map(n => n.replace(',', '.'))
+        );
+
         const sentences = answer
             .split(/(?<=[.!?])\s+/)
             .map(s => s.trim())
@@ -95,45 +118,68 @@ export class RAGEvaluator {
         if (sentences.length === 0) {
             return {
                 score: 1.0,
+                lexicalGroundingScore: 1.0,
                 totalSentences: 0,
                 groundedSentences: 0,
+                contradictionsDetected: [],
                 ungroundedClaims: []
             };
         }
 
         const ungroundedClaims: string[] = [];
+        const contradictionsDetected: string[] = [];
         let groundedCount = 0;
+        let totalLexicalOverlapSum = 0;
 
         for (const sentence of sentences) {
-            const words = sentence
-                .toLowerCase()
-                .replace(/[^\p{L}\p{N}\s]/gu, '')
+            const lowerSentence = sentence.toLowerCase();
+
+            // 1. Numerical Contradiction Check (detects numbers not present in context)
+            const sentenceNumbers = (lowerSentence.match(/\b\d+(?:[\.,]\d+)?\b/g) || []).map(n => n.replace(',', '.'));
+            let hasNumberContradiction = false;
+            for (const num of sentenceNumbers) {
+                if (contextNumbers.size > 0 && !contextNumbers.has(num)) {
+                    hasNumberContradiction = true;
+                    contradictionsDetected.push(
+                        `Contradiction: Number '${num}' in "${sentence}" contradicts context.`
+                    );
+                    break;
+                }
+            }
+
+            // 2. Lexical Substantive Term Overlap
+            const words = lowerSentence
+                .replace(/[^\p{L}\p{N}\s]/gu, ' ')
                 .split(/\s+/)
-                .filter(w => w.length > 3);
+                .filter(w => w.length > 2);
 
             if (words.length === 0) {
-                groundedCount++;
+                if (!hasNumberContradiction) groundedCount++;
+                totalLexicalOverlapSum += 1.0;
                 continue;
             }
 
-            // Count words grounded in retrieved context
-            const groundedWords = words.filter(word => combinedContext.includes(word));
+            const groundedWords = words.filter(word => contextWordTokens.has(word) || combinedContext.includes(word));
             const overlapRatio = groundedWords.length / words.length;
+            totalLexicalOverlapSum += overlapRatio;
 
-            // Threshold: sentence is considered grounded if at least 40% of substantive terms appear in context
-            if (overlapRatio >= 0.4) {
+            // Sentence is grounded if at least 40% lexical overlap AND no number contradiction
+            if (overlapRatio >= 0.4 && !hasNumberContradiction) {
                 groundedCount++;
             } else {
                 ungroundedClaims.push(sentence);
             }
         }
 
+        const lexicalGroundingScore = Number((totalLexicalOverlapSum / sentences.length).toFixed(4));
         const score = Number((groundedCount / sentences.length).toFixed(4));
 
         return {
             score,
+            lexicalGroundingScore,
             totalSentences: sentences.length,
             groundedSentences: groundedCount,
+            contradictionsDetected,
             ungroundedClaims
         };
     }
