@@ -88,7 +88,30 @@ async function main() {
         });
     });
 
-    const results = [piiBench, cacheBench, dotBench, chunkBench, tokenBench];
+    // 6. BM25 Lexical Keyword Search (Zero-Dependency Sparse Index)
+    const { BM25Index } = await import('../../src/core/vector/bm25');
+    const bm25 = new BM25Index();
+    const docs = [];
+    for (let i = 0; i < 500; i++) {
+        docs.push({
+            id: `doc_${i}`,
+            content: `Product LAPTOP-X${i} with 32GB RAM, 1TB NVMe SSD, and high-performance processor.`
+        });
+    }
+    bm25.index(docs);
+    const bm25Bench = runBench('BM25Index.search (500-Doc Sparse Corpus)', 2000, () => {
+        bm25.search('LAPTOP-X42 32GB NVMe', 5);
+    });
+
+    // 7. Centralized RedisCacheAdapter Serialization Hot Path
+    const { RedisCacheAdapter } = await import('../../src/adapters/cache/redis-cache.adapter');
+    const redisCache = new RedisCacheAdapter({ enableFallbackMemory: true });
+    await redisCache.set('hot_item', { sku: 'PRO-100', stock: 45, priceUsd: 1299.99 });
+    const redisBench = runBench('RedisCacheAdapter.get (Serialization Path)', 20000, () => {
+        redisCache.get('hot_item');
+    });
+
+    const results = [piiBench, cacheBench, dotBench, chunkBench, tokenBench, bm25Bench, redisBench];
 
     console.log('');
     console.table(

@@ -4,4 +4,5 @@ export interface ICacheAdapter {
     delete(key: string): Promise<boolean>;
     invalidate(patternOrKey: string | RegExp): Promise<number>;
     clear(): Promise<void>;
+    size?(): number;
 }

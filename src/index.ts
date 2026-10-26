@@ -35,9 +35,15 @@ export { createJobQueue, type QueueConfig } from './core/queue/queue-factory';
 export {
     DocumentIngestionService,
     type DocumentUploadPayload,
+    type StreamIngestionOptions,
     type IngestionJobResult,
     type DocumentIngestionConfig
 } from './services/document-ingestion.service';
+export {
+    RedisCacheAdapter,
+    type IRedisClientLike,
+    type RedisCacheOptions
+} from './adapters/cache/redis-cache.adapter';
 
 // API & Express Middleware
 export { createRagMiddleware } from './api/middleware';

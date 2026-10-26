@@ -6,10 +6,12 @@
 
 **Enterprise-Grade Agentic RAG Architecture with In-Process SML Intent Routing, Zero-Token Semantic FAQ Caching, Multi-Tiered LLM Failover & OWASP Prompt Injection Defense.**
 
+[![Version](https://img.shields.io/badge/Version-2.0.0-6C5CE7?logo=semver&logoColor=white)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![CI](https://github.com/Denizsvnc/ai-rag-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Denizsvnc/ai-rag-engine/actions)
-[![Tests](https://img.shields.io/badge/Tests-81%2F81_Passing-success?logo=checkmarx&logoColor=white)](test/)
+[![Tests](https://img.shields.io/badge/Tests-101%2F101_Passing-success?logo=checkmarx&logoColor=white)](test/)
+[![GitHub Stars](https://img.shields.io/github/stars/Denizsvnc/ai-rag-engine?style=social)](https://github.com/Denizsvnc/ai-rag-engine/stargazers)
 [![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-all--MiniLM--L6--v2_(q8)-FF5722?logo=onnx&logoColor=white)](https://huggingface.co/docs/transformers.js)
 [![Security](https://img.shields.io/badge/OWASP-Prompt_Injection_Guarded-blueviolet?logo=shield&logoColor=white)](#-owasp-prompt-injection--visitor-trust-boundary)
 [![PII Defense](https://img.shields.io/badge/PII-TCKN_&_Luhn_Guarded-blue?logo=security&logoColor=white)](#6--zero-bloat-pii-sanitization--data-sovereignty-routing)
@@ -436,11 +438,13 @@ npm run example:minimal
 
 | Benchmark Target | Iterations | Throughput | Avg Latency | p95 Latency | Architectural Role |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`PIIGuard.sanitize`** | 10,000 | **245,408 ops/s** | **4.03 µs** | 4.87 µs | Algorithmic TCKN Mod-10 + Luhn Check |
-| **`CacheManager.get`** | 20,000 | **7,276,034 ops/s** | **0.10 µs** | 0.25 µs | In-Memory Hot Path Eviction |
-| **`Dot Product` (384-dim)** | 50,000 | **2,307,741 ops/s** | **0.41 µs** | 0.58 µs | all-MiniLM-L6-v2 ONNX SIMD Math |
-| **`Document Chunking`** | 5,000 | **778,993 ops/s** | **1.26 µs** | 1.50 µs | Magic Bytes & Boundary Chunker |
-| **`TokenTracker`** | 20,000 | **5,946,554 ops/s** | **0.14 µs** | 0.21 µs | Real-time FinOps Telemetry |
+| **`PIIGuard.sanitize`** | 10,000 | **231,009 ops/s** | **4.28 µs** | 5.08 µs | Algorithmic TCKN Mod-10 + Luhn Check |
+| **`CacheManager.get`** | 20,000 | **3,714,796 ops/s** | **0.22 µs** | 0.33 µs | In-Memory Hot Path Eviction |
+| **`RedisCacheAdapter.get`** | 20,000 | **5,165,789 ops/s** | **0.17 µs** | 0.25 µs | Multi-Instance JSON Serialization Path |
+| **`Dot Product` (384-dim)** | 50,000 | **1,513,658 ops/s** | **0.64 µs** | 1.71 µs | all-MiniLM-L6-v2 ONNX SIMD Math |
+| **`Document Chunking`** | 5,000 | **623,085 ops/s** | **1.58 µs** | 2.58 µs | Magic Bytes & Boundary Chunker |
+| **`BM25Index.search` (500 Docs)** | 2,000 | **16,506 ops/s** | **60.56 µs** | 69.96 µs | Sparse BM25 Keyword Search |
+| **`TokenTracker`** | 20,000 | **5,425,200 ops/s** | **0.16 µs** | 0.29 µs | Real-time FinOps Telemetry |
 
 ### Automated Test Suite Summary
 ```text
@@ -448,21 +452,26 @@ npm run example:minimal
 ✔ Integration - RAGEngine Full Lifecycle (7/7 passing)
 ✔ Integration - Document Ingestion & PII Protection Pipeline (4/4 passing)
 ✔ Chaos & Concurrency - Init Mutex & Parallel Requests (2/2 passing)
+✔ Chaos & Fault Injection - Cascade Failover & Resiliency (4/4 passing)
+✔ Security - Full Pentest & Evasion Audit (5/5 passing)
 ✔ Core Engine - CacheManager & Data Freshness (7/7 passing)
 ✔ FAQ Layer - LocalFaqAdapter (4/4 passing)
-✔ Governed Tool Execution - RBAC, Zod & Mutation Guard (4/4 passing)
+✔ Centralized Cache - RedisCacheAdapter (3/3 passing)
 ✔ SML Engine - Circuit Breaker Pattern & Cooldown (2/2 passing)
-✔ Multi-Tenancy & Tenant Isolation (2/2 passing)
+✔ Governed Tool Execution - RBAC, Zod & Mutation Guard (4/4 passing)
 ✔ Hybrid Search - BM25 & Reciprocal Rank Fusion (3/3 passing)
-✔ RAG Evaluation System & Prometheus Telemetry (3/3 passing)
 ✔ Asynchronous Queue - InMemory & BullMQ (4/4 passing)
 ✔ LLM Adapters & Multi-Tier Failover (6/6 passing)
 ✔ Math Utilities - Dot Product (4/4 passing)
+✔ Multi-Tenancy & Tenant Isolation (2/2 passing)
+✔ Deep Enterprise Multi-Tenant Isolation & Anti-Poisoning (3/3 passing)
 ✔ Security Guard - PIIGuard & Data Sovereignty (6/6 passing)
+✔ RAG Evaluation System & Prometheus Telemetry (3/3 passing)
 ✔ Security Layer - Prompt Injection & Boundary Framing (11/11 passing)
+✔ Streaming Ingestion & Backpressure Management (5/5 passing)
 ✔ FinOps Metrics - TokenTracker (5/5 passing)
 
-Total: 81 tests passing across 19 test suites (0 errors, ~1.7s duration)
+Total: 101 tests passing across 24 test suites (0 errors, 100% pass rate)
 ```
 
 ---
@@ -479,7 +488,12 @@ ai-rag-engine/
 │   └── ingestion-pii-pipeline.svg # 2D animated secure ingestion & PII diagram
 ├── dist/                      # Compiled production ESM & types
 ├── src/
-│   ├── adapters/              # FAQ, LLM, Rules & Vector adapters
+│   ├── adapters/
+│   │   ├── cache/             # RedisCacheAdapter (multi-instance with LRU fallback)
+│   │   ├── faq/               # LocalFaqAdapter
+│   │   ├── llm/               # CustomLLM, Ollama, OpenAI, Gemini, OpenRouter, TieredLLM
+│   │   ├── rules/             # StaticRuleAdapter
+│   │   └── vector/            # MemoryVectorAdapter (Dense + BM25 + RRF)
 │   ├── api/                   # Express middleware, routes (/query, /ingest, /metrics)
 │   ├── core/
 │   │   ├── cache-manager.ts   # Dual-tier LRU + JSON disk cache (TTL & Invalidation)
@@ -491,22 +505,44 @@ ai-rag-engine/
 │   │   ├── sml-engine.ts      # Local ONNX all-MiniLM-L6-v2 pipeline
 │   │   └── tool-registry.ts   # Semantic intent tool router
 │   ├── services/
-│   │   └── document-ingestion.service.ts # Magic bytes & PII redaction pipeline
+│   │   └── document-ingestion.service.ts # Streaming, magic bytes & PII redaction pipeline
 │   ├── examples/              # Ready-to-run reference implementations
 │   ├── interfaces/            # TypeScript contracts & type definitions
 │   └── utils/                 # Pre-computed 384-dim vector datasets
 ├── test/
+│   ├── chaos/                 # Concurrency, mutex & cascading fault injection tests
 │   ├── integration/           # Full lifecycle, API & Ingestion integration tests
 │   ├── performance/           # High-throughput smoke benchmark & k6 load test
-│   └── unit/                  # Cache, SML, LLM, Math, PII & Security unit tests
-├── TASKS.md                   # Real-time feature checklist & implementation tracker
+│   ├── security/              # Adversarial injection & pentest audit tests
+│   ├── unit/                  # Cache, Redis, SML, LLM, Math, PII & Deep Isolation tests
+│   └── run-all.ts             # Cross-platform native Node.js test runner
 ├── CLAUDE.md                  # Comprehensive agent customization & engineering guide
 ├── LICENSE                    # MIT License
-├── package.json               # Package definitions & scripts
+├── package.json               # Package definitions & exact version pins
 ├── README.md                  # English Documentation (Default)
 ├── README_tr.md               # Türkçe Dokümantasyon
 └── README_de.md               # Deutsche Dokumentation
 ```
+
+---
+
+## ⭐ Support & Star the Project
+
+If **AI-RAG-ENGINE** saved you thousands of dollars in cloud LLM token expenses, accelerated your enterprise search, or helped secure your AI pipeline:
+
+⭐ **Please give this repository a Star on GitHub!** ⭐
+
+Your star directly helps developers and organizations discover how to build private, cost-efficient, and secure AI systems without vendor lock-in.
+
+<div align="center">
+
+[![GitHub stars](https://img.shields.io/github/stars/Denizsvnc/ai-rag-engine?style=for-the-badge&logo=github&color=F59E0B&logoColor=white)](https://github.com/Denizsvnc/ai-rag-engine/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/Denizsvnc/ai-rag-engine?style=for-the-badge&logo=github&color=6366F1&logoColor=white)](https://github.com/Denizsvnc/ai-rag-engine/network/members)
+[![Issues](https://img.shields.io/github/issues/Denizsvnc/ai-rag-engine?style=for-the-badge&logo=github&color=10B981&logoColor=white)](https://github.com/Denizsvnc/ai-rag-engine/issues)
+
+*Have an idea, found a bug, or want to contribute? Feel free to open an issue or pull request!*
+
+</div>
 
 ---
 

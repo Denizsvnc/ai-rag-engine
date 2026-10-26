@@ -17,11 +17,19 @@ export class InputSanitizer {
      * Sanitizes raw visitor input by stripping invisible chars, neutralizing delimiter breakout tags,
      * and bounding input length.
      */
+    /**
+     * Strips invisible zero-width unicode characters, byte-order marks, and control bytes.
+     */
+    public static stripZeroWidth(rawInput: string): string {
+        if (!rawInput) return '';
+        return rawInput.replace(this.INVISIBLE_CHARS_REGEX, '');
+    }
+
     public static sanitize(rawInput: string, maxLength: number = 4000): string {
         if (!rawInput) return '';
 
         // 1. Strip invisible zero-width unicode characters
-        let cleaned = rawInput.replace(this.INVISIBLE_CHARS_REGEX, '');
+        let cleaned = this.stripZeroWidth(rawInput);
 
         // 2. Bound maximum input length to prevent token-flooding denial of service
         if (cleaned.length > maxLength) {

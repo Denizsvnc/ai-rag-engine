@@ -23,7 +23,7 @@ export function createApiRoutes(engine: RAGEngine): Router {
         if (req.query.format === 'prometheus') {
             res.setHeader('Content-Type', 'text/plain; version=0.0.4');
             res.send(PrometheusExporter.exportMetrics(engine.getMetrics(), {
-                activeCacheSize: engine.getCacheManager().size()
+                activeCacheSize: engine.getCacheManager().size?.()
             }));
             return;
         }

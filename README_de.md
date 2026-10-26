@@ -6,10 +6,12 @@
 
 **Agentische RAG-Architektur für Unternehmen mit In-Process SML Intent-Routing, Zero-Token Semantischem FAQ-Caching, Multi-Tiered LLM-Failover und OWASP Prompt-Injection-Schutz.**
 
+[![Version](https://img.shields.io/badge/Version-2.0.0-6C5CE7?logo=semver&logoColor=white)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![CI](https://github.com/Denizsvnc/ai-rag-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Denizsvnc/ai-rag-engine/actions)
-[![Tests](https://img.shields.io/badge/Tests-81%2F81_Bestanden-success?logo=checkmarx&logoColor=white)](test/)
+[![Tests](https://img.shields.io/badge/Tests-101%2F101_Bestanden-success?logo=checkmarx&logoColor=white)](test/)
+[![GitHub Stars](https://img.shields.io/github/stars/Denizsvnc/ai-rag-engine?style=social)](https://github.com/Denizsvnc/ai-rag-engine/stargazers)
 [![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-all--MiniLM--L6--v2_(q8)-FF5722?logo=onnx&logoColor=white)](https://huggingface.co/docs/transformers.js)
 [![Security](https://img.shields.io/badge/OWASP-Prompt_Injection_Geschützt-blueviolet?logo=shield&logoColor=white)](#3-️-owasp-prompt-injection--besucher-vertrauensgrenze)
 [![DSGVO Datenschutz](https://img.shields.io/badge/DSGVO-TCKN_&_Luhn_Geschützt-blue?logo=security&logoColor=white)](#6--zero-bloat-pii-maskierung-tckn-luhn-und-datensouveränität)
@@ -436,11 +438,13 @@ npm run example:minimal
 
 | Benchmark-Ziel | Iterationen | Durchsatz (Throughput) | Durchschn. Latenz | p95 Latenz | Architektonische Rolle |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`PIIGuard.sanitize`** | 10.000 | **245.408 ops/s** | **4,03 µs** | 4,87 µs | Algorithmische TCKN Mod-10 + Luhn-Prüfung |
-| **`CacheManager.get`** | 20.000 | **7.276.034 ops/s** | **0,10 µs** | 0,25 µs | In-Memory Hot Path Cache |
-| **`Dot Product` (384-dim)** | 50.000 | **2.307.741 ops/s** | **0,41 µs** | 0,58 µs | all-MiniLM-L6-v2 ONNX SIMD Skalarprodukt |
-| **`Document Chunking`** | 5.000 | **778.993 ops/s** | **1,26 µs** | 1,50 µs | Magic Bytes Dateiprüfung & Boundary Chunker |
-| **`TokenTracker`** | 20.000 | **5.946.554 ops/s** | **0,14 µs** | 0,21 µs | FinOps Echtzeit-Kostentelemetrie |
+| **`PIIGuard.sanitize`** | 10.000 | **231.009 ops/s** | **4,28 µs** | 5,08 µs | Algorithmische TCKN Mod-10 + Luhn-Prüfung |
+| **`CacheManager.get`** | 20.000 | **3.714.796 ops/s** | **0,22 µs** | 0,33 µs | In-Memory Hot Path Cache |
+| **`RedisCacheAdapter.get`** | 20.000 | **5.165.789 ops/s** | **0,17 µs** | 0,25 µs | Multi-Instance JSON Serialisierungspfad |
+| **`Dot Product` (384-dim)** | 50.000 | **1.513.658 ops/s** | **0,64 µs** | 1,71 µs | all-MiniLM-L6-v2 ONNX SIMD Skalarprodukt |
+| **`Document Chunking`** | 5.000 | **623.085 ops/s** | **1,58 µs** | 2,58 µs | Magic Bytes Dateiprüfung & Boundary Chunker |
+| **`BM25Index.search` (500 Docs)** | 2.000 | **16.506 ops/s** | **60,56 µs** | 69,96 µs | Dünnbesetzte BM25-Schlüsselwortsuche |
+| **`TokenTracker`** | 20.000 | **5.425.200 ops/s** | **0,16 µs** | 0,29 µs | FinOps Echtzeit-Kostentelemetrie |
 
 ### Zusammenfassung der Testsuite
 ```text
@@ -448,21 +452,26 @@ npm run example:minimal
 ✔ Integration - RAGEngine Full Lifecycle (7/7 bestanden)
 ✔ Integration - Document Ingestion & PII Protection Pipeline (4/4 bestanden)
 ✔ Chaos & Concurrency - Init Mutex & Parallele Anfragen (2/2 bestanden)
+✔ Chaos & Fault Injection - Kaskadierender Failover & Resilienz (4/4 bestanden)
+✔ Security - Vollständiges Pentest & Evasion Audit (5/5 bestanden)
 ✔ Core Engine - CacheManager & Data Freshness (7/7 bestanden)
 ✔ FAQ Layer - LocalFaqAdapter (4/4 bestanden)
-✔ Governed Tool Execution - RBAC, Zod & Mutations-Sperre (4/4 bestanden)
+✔ Zentraler Cache - RedisCacheAdapter (3/3 bestanden)
 ✔ SML Engine - Circuit Breaker Pattern & Cooldown (2/2 bestanden)
-✔ Multi-Tenancy & Mandanten-Isolation (2/2 bestanden)
+✔ Governed Tool Execution - RBAC, Zod & Mutations-Sperre (4/4 bestanden)
 ✔ Hybrid Search - BM25 & Reciprocal Rank Fusion (3/3 bestanden)
-✔ RAG Evaluation System & Prometheus Telemetrie (3/3 bestanden)
 ✔ Asynchronous Queue - InMemory & BullMQ (4/4 bestanden)
 ✔ LLM Adapters & Multi-Tier Failover (6/6 bestanden)
 ✔ Math Utilities - Dot Product (4/4 bestanden)
+✔ Multi-Tenancy & Mandanten-Isolation (2/2 bestanden)
+✔ Deep Enterprise Mandanten-Isolation & Anti-Poisoning (3/3 bestanden)
 ✔ Security Guard - PIIGuard & Data Sovereignty (6/6 bestanden)
+✔ RAG Evaluation System & Prometheus Telemetrie (3/3 bestanden)
 ✔ Security Layer - Prompt Injection & Boundary Framing (11/11 bestanden)
+✔ Streaming Ingestion & Backpressure-Management (5/5 bestanden)
 ✔ FinOps Metrics - TokenTracker (5/5 bestanden)
 
-Gesamt: 81 bestandene Tests in 19 Test-Suiten (0 Fehler, ~1.7s Dauer)
+Gesamt: 101 bestandene Tests in 24 Test-Suiten (0 Fehler, 100% Erfolgsquote)
 ```
 
 ---
@@ -479,7 +488,12 @@ ai-rag-engine/
 │   └── ingestion-pii-pipeline.svg # 2D-animierte sichere Ingestion & PII Pipeline
 ├── dist/                      # Kompilierte Produktions-Bundles & Typen
 ├── src/
-│   ├── adapters/              # FAQ-, LLM-, Regel- und Vektor-Adapter
+│   ├── adapters/
+│   │   ├── cache/             # RedisCacheAdapter (Multi-Instance mit LRU-Fallback)
+│   │   ├── faq/               # LocalFaqAdapter
+│   │   ├── llm/               # CustomLLM, Ollama, OpenAI, Gemini, OpenRouter, TieredLLM
+│   │   ├── rules/             # StaticRuleAdapter
+│   │   └── vector/            # MemoryVectorAdapter (Dense + BM25 + RRF)
 │   ├── api/                   # Express Middleware & REST-Routen (/query, /ingest, /metrics)
 │   ├── core/
 │   │   ├── cache-manager.ts   # Zweistufiger LRU- & Festplatten-Cache (TTL & Invalidation)
@@ -491,22 +505,44 @@ ai-rag-engine/
 │   │   ├── sml-engine.ts      # Lokale ONNX all-MiniLM-L6-v2 In-Process Pipeline
 │   │   └── tool-registry.ts   # Semantischer Tool- und Intent-Router
 │   ├── services/
-│   │   └── document-ingestion.service.ts # Magic Bytes & PII-Schwärzungs-Service
+│   │   └── document-ingestion.service.ts # Streaming, Magic Bytes & PII-Schwärzungs-Service
 │   ├── examples/              # Ausführbare Referenzbeispiele
 │   ├── interfaces/            # TypeScript-Schnittstellen und Verträge
 │   └── utils/                 # Vorberechnete 384-dim Vektordatensätze
 ├── test/
+│   ├── chaos/                 # Concurrency-, Mutex- und Fehlereinweben-Tests
 │   ├── integration/           # Lifecycle-, API- und Ingestion-Tests
 │   ├── performance/           # High-Throughput Smoke Benchmark & k6 Lasttest
-│   └── unit/                  # Cache-, SML-, LLM-, Mathe-, PII- und Sicherheitstests
-├── TASKS.md                   # Echtzeit-Aufgabenverfolgung und Feature-Status
+│   ├── security/              # Adversarial Prompt Injection & Pentest Tests
+│   ├── unit/                  # Cache, Redis, SML, LLM, Mathe, PII und Deep Isolation Tests
+│   └── run-all.ts             # Plattformunabhängiger nativer Node.js Test-Runner
 ├── CLAUDE.md                  # Umfassender Leitfaden für KI-Assistenten und Entwickler
 ├── LICENSE                    # MIT-Lizenz
-├── package.json               # Paket-Metadaten und Skripte
+├── package.json               # Paket-Metadaten und exakt fixierte Abhängigkeiten
 ├── README.md                  # Englische Dokumentation (Standard)
 ├── README_tr.md               # Türkische Dokumentation
 └── README_de.md               # Deutsche Dokumentation
 ```
+
+---
+
+## ⭐ Projekt unterstützen & einen Stern (Star) vergeben
+
+Wenn Ihnen **AI-RAG-ENGINE** geholfen hat, tausende Dollar an Cloud-LLM-Tokenkosten zu sparen, Ihre Unternehmenssuche zu beschleunigen oder Ihre KI-Pipeline abzusichern:
+
+⭐ **Bitte vergeben Sie einen Stern (Star) für dieses Repository auf GitHub!** ⭐
+
+Jeder Stern hilft Entwicklern und Organisationen dabei, zu entdecken, wie private, sichere und kosteneffiziente KI-Systeme ohne Vendor-Lock-in gebaut werden können.
+
+<div align="center">
+
+[![GitHub stars](https://img.shields.io/github/stars/Denizsvnc/ai-rag-engine?style=for-the-badge&logo=github&color=F59E0B&logoColor=white)](https://github.com/Denizsvnc/ai-rag-engine/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/Denizsvnc/ai-rag-engine?style=for-the-badge&logo=github&color=6366F1&logoColor=white)](https://github.com/Denizsvnc/ai-rag-engine/network/members)
+[![Issues](https://img.shields.io/github/issues/Denizsvnc/ai-rag-engine?style=for-the-badge&logo=github&color=10B981&logoColor=white)](https://github.com/Denizsvnc/ai-rag-engine/issues)
+
+*Haben Sie eine Idee, einen Fehler gefunden oder möchten Sie beitragen? Erstellen Sie gerne ein Issue oder einen Pull Request!*
+
+</div>
 
 ---
 

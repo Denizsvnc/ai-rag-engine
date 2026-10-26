@@ -19,7 +19,7 @@ export class InjectionDetector {
         // 1. Direct instruction overrides & memory wipes
         {
             id: 'OVERRIDE_INSTRUCTIONS_EN',
-            regex: /\b(ignore|disregard|forget|override)\s+(all\s+)?(previous|prior|above|former|initial)\s+(instructions|prompts|rules|commands|constraints|directives)\b/i
+            regex: /\b(ignore|disregard|forget|override)\s+(all\s+)?(previous|prior|above|former|initial)\s+(instructions|prompts|rules|commands|constraints|directives|directions)\b/i
         },
         {
             id: 'OVERRIDE_INSTRUCTIONS_TR',
@@ -51,7 +51,7 @@ export class InjectionDetector {
         // 3. Prompt leaking & system extraction
         {
             id: 'EXTRACT_PROMPT_EN',
-            regex: /\b(repeat|show|print|reveal|output|display|dump|tell\s+me)\s+(your\s+)?(exact\s+)?(system\s+prompt|initial\s+prompt|hidden\s+prompt|secret\s+instructions|system\s+instructions|base\s+instructions)\b/i
+            regex: /\b(repeat|show|print|reveal|output|display|dump|tell\s+me)\s+(all\s+)?(your\s+)?(exact\s+)?(system\s+prompt|initial\s+prompt|hidden\s+prompt|secret\s+instructions|system\s+instructions|base\s+instructions|internal\s+instructions)\b/i
         },
         {
             id: 'EXTRACT_PROMPT_TR',

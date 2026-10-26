@@ -6,10 +6,12 @@
 
 **Süreç İçi SML Niyet Yönlendirmesi, Sıfır-Token Anlamsal SSS Önbelleklemesi, Çok Katmanlı LLM Yedeklemesi ve OWASP Prompt Enjeksiyonu Savunmasına Sahip Kurumsal Agentic RAG Mimarisi.**
 
+[![Sürüm](https://img.shields.io/badge/Sürüm-2.0.0-6C5CE7?logo=semver&logoColor=white)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![CI](https://github.com/Denizsvnc/ai-rag-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Denizsvnc/ai-rag-engine/actions)
-[![Tests](https://img.shields.io/badge/Tests-81%2F81_Geçti-success?logo=checkmarx&logoColor=white)](test/)
+[![Tests](https://img.shields.io/badge/Tests-101%2F101_Geçti-success?logo=checkmarx&logoColor=white)](test/)
+[![GitHub Stars](https://img.shields.io/github/stars/Denizsvnc/ai-rag-engine?style=social)](https://github.com/Denizsvnc/ai-rag-engine/stargazers)
 [![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-all--MiniLM--L6--v2_(q8)-FF5722?logo=onnx&logoColor=white)](https://huggingface.co/docs/transformers.js)
 [![Security](https://img.shields.io/badge/OWASP-Prompt_Injection_Korumalı-blueviolet?logo=shield&logoColor=white)](#3-️-owasp-prompt-enjeksiyonu--ziyaretçi-güven-sınırı)
 [![PII Koruması](https://img.shields.io/badge/KVKK%2FGDPR-TCKN_&_Luhn_Korumalı-blue?logo=security&logoColor=white)](#6--sıfır-şişkinlikli-pii-maskeleme-tckn-luhn-ve-veri-egemenliği)
@@ -436,11 +438,13 @@ npm run example:minimal
 
 | Test Edilen Modül | İterasyon | İşlem Hacmi (Throughput) | Ort. Gecikme | p95 Gecikme | Mimari Rolü |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`PIIGuard.sanitize`** | 10.000 | **245.408 işlem/sn** | **4.03 µs** | 4.87 µs | Algoritmik TCKN Mod-10 + Luhn Kart Kontrolü |
-| **`CacheManager.get`** | 20.000 | **7.276.034 işlem/sn** | **0.10 µs** | 0.25 µs | Bellek İçi Sıcak Yol Önbelleği |
-| **`Dot Product` (384-dim)** | 50.000 | **2.307.741 işlem/sn** | **0.41 µs** | 0.58 µs | all-MiniLM-L6-v2 ONNX SIMD Vektör Çarpımı |
-| **`Document Chunking`** | 5.000 | **778.993 işlem/sn** | **1.26 µs** | 1.50 µs | Magic Bytes Dosya Kontrolü & Metin Parçalama |
-| **`TokenTracker`** | 20.000 | **5.946.554 işlem/sn** | **0.14 µs** | 0.21 µs | Gerçek Zamanlı FinOps Maliyet Telemetrisi |
+| **`PIIGuard.sanitize`** | 10.000 | **231.009 işlem/sn** | **4.28 µs** | 5.08 µs | Algoritmik TCKN Mod-10 + Luhn Kart Kontrolü |
+| **`CacheManager.get`** | 20.000 | **3.714.796 işlem/sn** | **0.22 µs** | 0.33 µs | Bellek İçi Sıcak Yol Önbelleği |
+| **`RedisCacheAdapter.get`** | 20.000 | **5.165.789 işlem/sn** | **0.17 µs** | 0.25 µs | Çok Örnekli JSON Serileştirme Yolu |
+| **`Dot Product` (384-dim)** | 50.000 | **1.513.658 işlem/sn** | **0.64 µs** | 1.71 µs | all-MiniLM-L6-v2 ONNX SIMD Vektör Çarpımı |
+| **`Document Chunking`** | 5.000 | **623.085 işlem/sn** | **1.58 µs** | 2.58 µs | Magic Bytes Dosya Kontrolü & Metin Parçalama |
+| **`BM25Index.search` (500 Doküman)** | 2.000 | **16.506 işlem/sn** | **60.56 µs** | 69.96 µs | Seyrek BM25 Anahtar Kelime Araması |
+| **`TokenTracker`** | 20.000 | **5.425.200 işlem/sn** | **0.16 µs** | 0.29 µs | Gerçek Zamanlı FinOps Maliyet Telemetrisi |
 
 ### Test Paketi Özeti
 ```text
@@ -448,21 +452,26 @@ npm run example:minimal
 ✔ Integration - RAGEngine Full Lifecycle (7/7 geçti)
 ✔ Integration - Document Ingestion & PII Protection Pipeline (4/4 geçti)
 ✔ Chaos & Concurrency - Init Mutex & Paralel İstekler (2/2 geçti)
+✔ Chaos & Fault Injection - Kaskat Hata & Dayanıklılık (4/4 geçti)
+✔ Security - Kapsamlı Pentest & Atlatma Denetimi (5/5 geçti)
 ✔ Core Engine - CacheManager & Veri Tazeliği (7/7 geçti)
 ✔ FAQ Layer - LocalFaqAdapter (4/4 geçti)
-✔ Governed Tool Execution - RBAC, Zod & Mutasyon Onayı (4/4 geçti)
+✔ Merkezi Önbellek - RedisCacheAdapter (3/3 geçti)
 ✔ SML Engine - Circuit Breaker Deseni & Soğuma (2/2 geçti)
-✔ Multi-Tenancy & Tenant İzolasyonu (2/2 geçti)
+✔ Governed Tool Execution - RBAC, Zod & Mutasyon Onayı (4/4 geçti)
 ✔ Hybrid Search - BM25 & Reciprocal Rank Fusion (3/3 geçti)
-✔ RAG Evaluation System & Prometheus Telemetrisi (3/3 geçti)
 ✔ Asynchronous Queue - InMemory & BullMQ (4/4 geçti)
 ✔ LLM Adapters & Multi-Tier Failover (6/6 geçti)
 ✔ Math Utilities - Dot Product (4/4 geçti)
+✔ Multi-Tenancy & Tenant İzolasyonu (2/2 geçti)
+✔ Derin Kurumsal Multi-Tenant İzolasyon & Zehirlenme Koruması (3/3 geçti)
 ✔ Security Guard - PIIGuard & Veri Egemenliği (6/6 geçti)
+✔ RAG Evaluation System & Prometheus Telemetrisi (3/3 geçti)
 ✔ Security Layer - Prompt Injection & Sınır Çerçeveleme (11/11 geçti)
+✔ Streaming Ingestion & Geri Basınç Yönetimi (5/5 geçti)
 ✔ FinOps Metrics - TokenTracker (5/5 geçti)
 
-Toplam: 19 test paketinde 81 test başarıyla geçti (0 hata, ~1.7s süre)
+Toplam: 24 test paketinde 101 test başarıyla geçti (0 hata, %100 başarı oranı)
 ```
 
 ---
@@ -479,7 +488,12 @@ ai-rag-engine/
 │   └── ingestion-pii-pipeline.svg # 2D animasyonlu güvenli doküman & PII koruma şeması
 ├── dist/                      # Derlenmiş üretim ESM paketleri ve tipleri
 ├── src/
-│   ├── adapters/              # SSS, LLM, Kurallar ve Vektör adaptörleri
+│   ├── adapters/
+│   │   ├── cache/             # RedisCacheAdapter (LRU yedekli çok örnekli önbellek)
+│   │   ├── faq/               # LocalFaqAdapter
+│   │   ├── llm/               # CustomLLM, Ollama, OpenAI, Gemini, OpenRouter, TieredLLM
+│   │   ├── rules/             # StaticRuleAdapter
+│   │   └── vector/            # MemoryVectorAdapter (Dense + BM25 + RRF)
 │   ├── api/                   # Express ara yazılımı ve REST uç noktaları (/query, /ingest, /metrics)
 │   ├── core/
 │   │   ├── cache-manager.ts   # Çift katmanlı LRU + disk önbelleği (TTL & Invalidation)
@@ -491,22 +505,44 @@ ai-rag-engine/
 │   │   ├── sml-engine.ts      # Yerel ONNX all-MiniLM-L6-v2 süreç içi boru hattı
 │   │   └── tool-registry.ts   # Anlamsal araç ve niyet yönlendiricisi
 │   ├── services/
-│   │   └── document-ingestion.service.ts # Magic bytes ve PII sansürleme servisi
+│   │   └── document-ingestion.service.ts # Akış (streaming), magic bytes ve PII sansürleme servisi
 │   ├── examples/              # Çalıştırılabilir hazır referans örnekler
 │   ├── interfaces/            # TypeScript sözleşmeleri ve arayüzler
 │   └── utils/                 # Önceden hesaplanmış 384 boyutlu vektör verileri
 ├── test/
+│   ├── chaos/                 # Eşzamanlılık, mutex ve kaskat hata senaryoları
 │   ├── integration/           # Tam yaşam döngüsü, API ve Doküman Yükleme testleri
 │   ├── performance/           # Yüksek verimli smoke benchmark ve k6 yük testi
-│   └── unit/                  # Önbellek, SML, LLM, Matematik, PII ve Güvenlik testleri
-├── TASKS.md                   # Gerçek zamanlı görev ve aşama takip dosyası
+│   ├── security/              # Saldırgan komut enjeksiyonu ve pentest audit testleri
+│   ├── unit/                  # Önbellek, Redis, SML, LLM, Matematik, PII ve Derin İzolasyon testleri
+│   └── run-all.ts             # Platform bağımsız yerel Node.js test çalıştırıcısı
 ├── CLAUDE.md                  # Kapsamlı geliştirici ve yapay zeka rehberi
 ├── LICENSE                    # MIT Lisansı
-├── package.json               # Paket tanımı ve komutları
+├── package.json               # Paket tanımı ve sabitlenmiş bağımlılık sürümleri
 ├── README.md                  # İngilizce Dokümantasyon (Varsayılan)
 ├── README_tr.md               # Türkçe Dokümantasyon
 └── README_de.md               # Almanca Dokümantasyon
 ```
+
+---
+
+## ⭐ Projeyi Destekleyin ve Yıldız (Star) Verin
+
+Eğer **AI-RAG-ENGINE** projelerinizde binlerce dolarlık bulut LLM token maliyetinden tasarruf etmenizi sağladıysa, kurumsal aramanızı hızlandırdıysa veya yapay zeka boru hattınızı güvenceye aldıysa:
+
+⭐ **Lütfen GitHub üzerinde bu depoya bir Yıldız (Star) verin!** ⭐
+
+Vereceğiniz her yıldız, geliştiricilerin ve kurumların sağlayıcı bağımlılığı (vendor lock-in) olmadan gizlilik odaklı, güvenli ve maliyet tasarruflu yapay zeka sistemleri inşa edebileceğini keşfetmesine yardımcı olur.
+
+<div align="center">
+
+[![GitHub stars](https://img.shields.io/github/stars/Denizsvnc/ai-rag-engine?style=for-the-badge&logo=github&color=F59E0B&logoColor=white)](https://github.com/Denizsvnc/ai-rag-engine/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/Denizsvnc/ai-rag-engine?style=for-the-badge&logo=github&color=6366F1&logoColor=white)](https://github.com/Denizsvnc/ai-rag-engine/network/members)
+[![Issues](https://img.shields.io/github/issues/Denizsvnc/ai-rag-engine?style=for-the-badge&logo=github&color=10B981&logoColor=white)](https://github.com/Denizsvnc/ai-rag-engine/issues)
+
+*Bir öneriniz mi var, hata mı buldunuz ya da katkıda bulunmak mı istiyorsunuz? Yeni bir Issue veya Pull Request açmaktan çekinmeyin!*
+
+</div>
 
 ---
 

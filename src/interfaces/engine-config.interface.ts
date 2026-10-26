@@ -26,6 +26,7 @@ export interface EngineConfig {
     } | undefined;
     cache?: {
         enabled: boolean;
+        adapter?: ICacheAdapter | undefined;
         filePath?: string | undefined;
         minHitsToPersist?: number | undefined;
         ttlMs?: number | undefined;

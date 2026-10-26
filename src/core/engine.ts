@@ -12,8 +12,10 @@ import type { Job } from './queue/job-queue.interface';
 import type { QueryContext } from '../interfaces/query-context.interface';
 import type { ToolAuditLog } from '../interfaces/tool.interface';
 
+import type { ICacheAdapter } from '../interfaces/cache.interface';
+
 export class RAGEngine {
-    private cacheManager: CacheManager;
+    private cacheManager: ICacheAdapter;
     private smlEngine: SMLEngine;
     private toolRegistry: ToolRegistry | null = null;
     private tokenTracker: TokenTracker;
@@ -23,12 +25,16 @@ export class RAGEngine {
     private auditLogs: ToolAuditLog[] = [];
 
     constructor(private config: EngineConfig) {
-        this.cacheManager = new CacheManager(
-            config.cache?.filePath,
-            config.cache?.minHitsToPersist,
-            1000,
-            config.cache?.ttlMs || 1000 * 60 * 60 * 24
-        );
+        if (config.cache?.adapter) {
+            this.cacheManager = config.cache.adapter;
+        } else {
+            this.cacheManager = new CacheManager(
+                config.cache?.filePath,
+                config.cache?.minHitsToPersist,
+                1000,
+                config.cache?.ttlMs || 1000 * 60 * 60 * 24
+            );
+        }
         this.smlEngine = new SMLEngine({ modelName: config.smlConfig?.modelName });
         this.tokenTracker = new TokenTracker(config.metrics);
         this.ingestionService = new DocumentIngestionService({
@@ -55,7 +61,9 @@ export class RAGEngine {
         if (!this.initPromise) {
             this.initPromise = (async () => {
                 console.log('[RAGEngine] Initializing system...');
-                if (this.config.cache?.enabled !== false) await this.cacheManager.init();
+                if (this.config.cache?.enabled !== false && typeof (this.cacheManager as any).init === 'function') {
+                    await (this.cacheManager as any).init();
+                }
 
                 if (this.config.smlConfig?.enabled !== false) {
                     await this.smlEngine.init();
@@ -422,7 +430,7 @@ export class RAGEngine {
         return this.cacheManager.clear();
     }
 
-    public getCacheManager(): CacheManager {
+    public getCacheManager(): ICacheAdapter {
         return this.cacheManager;
     }
 
