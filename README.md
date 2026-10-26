@@ -8,8 +8,9 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![CI](https://github.com/Denizsvnc/ai-rag-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Denizsvnc/ai-rag-engine/actions)
+[![Tests](https://img.shields.io/badge/Tests-81%2F81_Passing-success?logo=checkmarx&logoColor=white)](test/)
 [![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-all--MiniLM--L6--v2_(q8)-FF5722?logo=onnx&logoColor=white)](https://huggingface.co/docs/transformers.js)
-[![Tests](https://img.shields.io/badge/Tests-65%2F65_Passing-success?logo=checkmarx&logoColor=white)](test/)
 [![Security](https://img.shields.io/badge/OWASP-Prompt_Injection_Guarded-blueviolet?logo=shield&logoColor=white)](#-owasp-prompt-injection--visitor-trust-boundary)
 [![PII Defense](https://img.shields.io/badge/PII-TCKN_&_Luhn_Guarded-blue?logo=security&logoColor=white)](#6--zero-bloat-pii-sanitization--data-sovereignty-routing)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -446,8 +447,14 @@ npm run example:minimal
 ✔ Integration - Express API Routes (3/3 passing)
 ✔ Integration - RAGEngine Full Lifecycle (7/7 passing)
 ✔ Integration - Document Ingestion & PII Protection Pipeline (4/4 passing)
+✔ Chaos & Concurrency - Init Mutex & Parallel Requests (2/2 passing)
 ✔ Core Engine - CacheManager & Data Freshness (7/7 passing)
 ✔ FAQ Layer - LocalFaqAdapter (4/4 passing)
+✔ Governed Tool Execution - RBAC, Zod & Mutation Guard (4/4 passing)
+✔ SML Engine - Circuit Breaker Pattern & Cooldown (2/2 passing)
+✔ Multi-Tenancy & Tenant Isolation (2/2 passing)
+✔ Hybrid Search - BM25 & Reciprocal Rank Fusion (3/3 passing)
+✔ RAG Evaluation System & Prometheus Telemetry (3/3 passing)
 ✔ Asynchronous Queue - InMemory & BullMQ (4/4 passing)
 ✔ LLM Adapters & Multi-Tier Failover (6/6 passing)
 ✔ Math Utilities - Dot Product (4/4 passing)
@@ -455,7 +462,7 @@ npm run example:minimal
 ✔ Security Layer - Prompt Injection & Boundary Framing (11/11 passing)
 ✔ FinOps Metrics - TokenTracker (5/5 passing)
 
-Total: 65 tests passing across 13 test suites (0 errors, ~980ms duration)
+Total: 81 tests passing across 19 test suites (0 errors, ~1.7s duration)
 ```
 
 ---

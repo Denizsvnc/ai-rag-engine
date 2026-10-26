@@ -9,6 +9,8 @@ import type { ILLMRequest } from '../interfaces/llm.interface';
 import { TokenTracker, type EngineMetricsSummary } from './metrics/token-tracker';
 import { DocumentIngestionService, type DocumentUploadPayload } from '../services/document-ingestion.service';
 import type { Job } from './queue/job-queue.interface';
+import type { QueryContext } from '../interfaces/query-context.interface';
+import type { ToolAuditLog } from '../interfaces/tool.interface';
 
 export class RAGEngine {
     private cacheManager: CacheManager;
@@ -17,6 +19,8 @@ export class RAGEngine {
     private tokenTracker: TokenTracker;
     private ingestionService: DocumentIngestionService;
     private isInitialized = false;
+    private initPromise: Promise<void> | null = null;
+    private auditLogs: ToolAuditLog[] = [];
 
     constructor(private config: EngineConfig) {
         this.cacheManager = new CacheManager(
@@ -43,34 +47,41 @@ export class RAGEngine {
 
     /**
      * Initializes the engine, loads models into memory, and hydrates persistent caches.
+     * Thread-safe: Parallel concurrent invocations await the exact same mutex Promise.
      */
     public async init(): Promise<void> {
         if (this.isInitialized) return;
 
-        console.log('[RAGEngine] Initializing system...');
-        if (this.config.cache?.enabled !== false) await this.cacheManager.init();
+        if (!this.initPromise) {
+            this.initPromise = (async () => {
+                console.log('[RAGEngine] Initializing system...');
+                if (this.config.cache?.enabled !== false) await this.cacheManager.init();
 
-        if (this.config.smlConfig?.enabled !== false) {
-            await this.smlEngine.init();
+                if (this.config.smlConfig?.enabled !== false) {
+                    await this.smlEngine.init();
+                }
+
+                if (this.toolRegistry && this.config.tools) {
+                    await this.toolRegistry.initialize(this.config.tools.items);
+                }
+
+                if (this.config.inputs.faq && typeof (this.config.inputs.faq as any).init === 'function') {
+                    await (this.config.inputs.faq as any).init();
+                }
+
+                this.isInitialized = true;
+                console.log('[RAGEngine] Initialization complete.');
+            })();
         }
 
-        if (this.toolRegistry && this.config.tools) {
-            await this.toolRegistry.initialize(this.config.tools.items);
-        }
-
-        if (this.config.inputs.faq && typeof (this.config.inputs.faq as any).init === 'function') {
-            await (this.config.inputs.faq as any).init();
-        }
-
-        this.isInitialized = true;
-        console.log('[RAGEngine] Initialization complete.');
+        return this.initPromise;
     }
 
     /**
      * Executes the query lifecycle:
      * Security Guardrail -> Cache -> SML Routing -> Retrieval -> Untrusted Boundary Framing -> LLM Generation.
      */
-    public async query(userPrompt: string, context?: { tenantId?: string; userId?: string }): Promise<RAGResponse> {
+    public async query(userPrompt: string, context?: QueryContext): Promise<RAGResponse> {
         const startTime = Date.now();
 
         if (!this.isInitialized) await this.init();
@@ -114,9 +125,11 @@ export class RAGEngine {
             }
         }
 
-        // 2. Cache lookup
-        if (this.config.cache?.enabled !== false) {
-            const cachedResponse = await this.cacheManager.get(sanitizedPrompt);
+        // 2. Multi-Tenant Cache lookup
+        const cacheKey = context?.tenantId ? `tenant:${context.tenantId}:${sanitizedPrompt}` : sanitizedPrompt;
+
+        if (this.config.cache?.enabled !== false && !context?.skipCache) {
+            const cachedResponse = await this.cacheManager.get(cacheKey);
             if (cachedResponse) {
                 const latencyMs = Date.now() - startTime;
                 const metrics = this.tokenTracker.trackQuery({
@@ -159,7 +172,7 @@ export class RAGEngine {
                 };
 
                 if (this.config.cache?.enabled !== false) {
-                    await this.cacheManager.set(sanitizedPrompt, responseObj);
+                    await this.cacheManager.set(cacheKey, responseObj);
                 }
 
                 return responseObj;
@@ -173,7 +186,7 @@ export class RAGEngine {
         // Untrusted visitor sandbox boundary
         const framedVisitorPrompt = PromptBuilder.formatVisitorPrompt(sanitizedPrompt);
 
-        // 4. SML intent analysis and tool routing
+        // 4. SML intent analysis and Governed Tool Routing
         if (this.toolRegistry && this.config.smlConfig?.enabled !== false) {
             const matchedTool = await this.toolRegistry.routeQueryToTool(
                 sanitizedPrompt,
@@ -194,15 +207,122 @@ export class RAGEngine {
 
                 // Execute tool if arguments were extracted
                 if (llmExtraction.toolCalls && llmExtraction.toolCalls.length > 0) {
-                    const tc = llmExtraction.toolCalls[0];
-                    if (tc) {
-                        console.log(`[RAGEngine] Triggering action: ${tc.name} with args:`, tc.arguments);
+                    for (const tc of llmExtraction.toolCalls) {
+                        if (!tc) continue;
+                        const toolExecStart = Date.now();
 
+                        // Barrier 1: Role-Based Access Control (RBAC)
+                        if (matchedTool.requiredRoles && matchedTool.requiredRoles.length > 0) {
+                            const callerRoles = context?.roles || [];
+                            const hasPermission = matchedTool.requiredRoles.some(r => callerRoles.includes(r));
+                            if (!hasPermission) {
+                                const authError = `User lacks required role(s): ${matchedTool.requiredRoles.join(', ')}`;
+                                console.warn(`[RAGEngine Governance] Unauthorized tool call blocked: ${tc.name} by user ${context?.userId || 'anonymous'}`);
+                                this.auditLogs.push({
+                                    timestamp: new Date().toISOString(),
+                                    toolName: tc.name,
+                                    tenantId: context?.tenantId,
+                                    userId: context?.userId,
+                                    args: tc.arguments,
+                                    isMutating: !!matchedTool.isMutating,
+                                    status: 'UNAUTHORIZED',
+                                    error: authError,
+                                    durationMs: 0
+                                });
+                                toolResultContext.push({
+                                    toolName: tc.name,
+                                    result: { error: authError, status: 'UNAUTHORIZED' }
+                                });
+                                continue;
+                            }
+                        }
+
+                        // Barrier 2: Mutation & Explicit Confirmation Guard
+                        if ((matchedTool.isMutating || matchedTool.requiresConfirmation) && !context?.confirmedAction) {
+                            const warnMsg = `Tool '${tc.name}' mutates state and requires explicit user confirmation. Pass confirmedAction: true to execute.`;
+                            console.warn(`[RAGEngine Governance] Mutation blocked without explicit confirmation: ${tc.name}`);
+                            this.auditLogs.push({
+                                timestamp: new Date().toISOString(),
+                                toolName: tc.name,
+                                tenantId: context?.tenantId,
+                                userId: context?.userId,
+                                args: tc.arguments,
+                                isMutating: true,
+                                status: 'CONFIRMATION_REQUIRED',
+                                error: warnMsg,
+                                durationMs: 0
+                            });
+                            toolResultContext.push({
+                                toolName: tc.name,
+                                result: {
+                                    status: 'CONFIRMATION_REQUIRED',
+                                    message: warnMsg,
+                                    proposedArgs: tc.arguments
+                                }
+                            });
+                            continue;
+                        }
+
+                        // Barrier 3: Strict Zod Schema Validation
+                        if (matchedTool.zodSchema) {
+                            const parseResult = matchedTool.zodSchema.safeParse(tc.arguments);
+                            if (!parseResult.success) {
+                                const validationError = `Invalid tool arguments: ${parseResult.error.message}`;
+                                console.warn(`[RAGEngine Governance] Argument validation failed for ${tc.name}:`, parseResult.error.issues);
+                                this.auditLogs.push({
+                                    timestamp: new Date().toISOString(),
+                                    toolName: tc.name,
+                                    tenantId: context?.tenantId,
+                                    userId: context?.userId,
+                                    args: tc.arguments,
+                                    isMutating: !!matchedTool.isMutating,
+                                    status: 'VALIDATION_FAILED',
+                                    error: validationError,
+                                    durationMs: 0
+                                });
+                                toolResultContext.push({
+                                    toolName: tc.name,
+                                    result: {
+                                        status: 'VALIDATION_FAILED',
+                                        error: validationError,
+                                        details: parseResult.error.issues
+                                    }
+                                });
+                                continue;
+                            }
+                            tc.arguments = parseResult.data;
+                        }
+
+                        // Barrier 4: Execution & Audit Logging
+                        console.log(`[RAGEngine] Triggering action: ${tc.name} with args:`, tc.arguments);
                         try {
                             const dbResult = await matchedTool.execute(tc.arguments, context);
+                            const durationMs = Date.now() - toolExecStart;
+                            this.auditLogs.push({
+                                timestamp: new Date().toISOString(),
+                                toolName: tc.name,
+                                tenantId: context?.tenantId,
+                                userId: context?.userId,
+                                args: tc.arguments,
+                                isMutating: !!matchedTool.isMutating,
+                                status: 'SUCCESS',
+                                durationMs
+                            });
                             toolResultContext.push({ toolName: tc.name, result: dbResult });
                             executedTools.push({ name: tc.name, args: tc.arguments });
                         } catch (error: any) {
+                            const durationMs = Date.now() - toolExecStart;
+                            this.auditLogs.push({
+                                timestamp: new Date().toISOString(),
+                                toolName: tc.name,
+                                tenantId: context?.tenantId,
+                                userId: context?.userId,
+                                args: tc.arguments,
+                                isMutating: !!matchedTool.isMutating,
+                                status: 'EXECUTION_FAILED',
+                                error: error.message,
+                                durationMs
+                            });
                             toolResultContext.push({ toolName: tc.name, result: { error: error.message } });
                         }
                     }
@@ -213,7 +333,8 @@ export class RAGEngine {
         // 4. Vector retrieval and active rules
         let documents: VectorDocument[] = [];
         if (this.config.inputs.vectorStore && intent !== 'TOOL_CALL') {
-            documents = await this.config.inputs.vectorStore.search(sanitizedPrompt, 3);
+            const vectorFilter = context?.tenantId ? { tenantId: context.tenantId } : undefined;
+            documents = await this.config.inputs.vectorStore.search(sanitizedPrompt, 3, vectorFilter);
         }
 
         let rules: string[] = [];
@@ -262,14 +383,28 @@ export class RAGEngine {
             if (intent === 'TOOL_CALL') {
                 if (this.config.cache?.cacheToolResults === true || this.config.cache?.toolResultTtlMs) {
                     const toolTtl = this.config.cache?.toolResultTtlMs || 60000;
-                    await this.cacheManager.set(sanitizedPrompt, responseObj, toolTtl);
+                    await this.cacheManager.set(cacheKey, responseObj, toolTtl);
                 }
             } else {
-                await this.cacheManager.set(sanitizedPrompt, responseObj, this.config.cache?.ttlMs);
+                await this.cacheManager.set(cacheKey, responseObj, this.config.cache?.ttlMs);
             }
         }
 
         return responseObj;
+    }
+
+    /**
+     * Retrieve structured audit logs for tool executions.
+     */
+    public getAuditLogs(): ToolAuditLog[] {
+        return [...this.auditLogs];
+    }
+
+    /**
+     * Clear recorded audit logs.
+     */
+    public clearAuditLogs(): void {
+        this.auditLogs = [];
     }
 
     /**

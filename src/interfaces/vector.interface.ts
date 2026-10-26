@@ -1,8 +1,8 @@
 export interface VectorDocument {
     id: string;
     content: string;
-    metadata?: Record<string, any>;
-    score?: number; // Similarity score
+    metadata?: Record<string, any> | undefined;
+    score?: number | undefined; // Similarity score
 }
 
 export interface IVectorStoreAdapter {

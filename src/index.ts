@@ -1,5 +1,6 @@
 // Interfaces & Types
 export * from './interfaces/engine-config.interface';
+export * from './interfaces/query-context.interface';
 export * from './interfaces/tool.interface';
 export * from './interfaces/vector.interface';
 export * from './interfaces/faq.interface';
@@ -10,11 +11,15 @@ export * from './core/security/security.types';
 
 // Core Engine & Orchestration
 export { RAGEngine } from './core/engine';
-export { SMLEngine, type SMLEngineConfig } from './core/sml-engine';
+export { SMLEngine, type SMLEngineConfig, CircuitBreakerOpenError } from './core/sml-engine';
 export { ToolRegistry } from './core/tool-registry';
 export { CacheManager } from './core/cache-manager';
 export { PromptBuilder, type PromptContext } from './core/prompt-builder';
 export { TokenTracker, type EngineMetricsSummary, type ResponseMetrics, type TokenTrackerOptions } from './core/metrics/token-tracker';
+export { PrometheusExporter, type PrometheusMetricOptions } from './core/metrics/prometheus-exporter';
+export { RAGEvaluator, type RetrievalEvalResult, type FaithfulnessEvalResult, type FullRAGEvaluationReport } from './core/metrics/rag-evaluator';
+export { BM25Index, type BM25Document } from './core/vector/bm25';
+export { reciprocalRankFusion, type HybridScoredDocument } from './core/vector/hybrid-search';
 
 // Security & Guardrails
 export { SecurityGuard } from './core/security/security-guard';

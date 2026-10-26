@@ -8,8 +8,9 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![CI](https://github.com/Denizsvnc/ai-rag-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Denizsvnc/ai-rag-engine/actions)
+[![Tests](https://img.shields.io/badge/Tests-81%2F81_Geçti-success?logo=checkmarx&logoColor=white)](test/)
 [![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-all--MiniLM--L6--v2_(q8)-FF5722?logo=onnx&logoColor=white)](https://huggingface.co/docs/transformers.js)
-[![Tests](https://img.shields.io/badge/Tests-65%2F65_Geçti-success?logo=checkmarx&logoColor=white)](test/)
 [![Security](https://img.shields.io/badge/OWASP-Prompt_Injection_Korumalı-blueviolet?logo=shield&logoColor=white)](#3-️-owasp-prompt-enjeksiyonu--ziyaretçi-güven-sınırı)
 [![PII Koruması](https://img.shields.io/badge/KVKK%2FGDPR-TCKN_&_Luhn_Korumalı-blue?logo=security&logoColor=white)](#6--sıfır-şişkinlikli-pii-maskeleme-tckn-luhn-ve-veri-egemenliği)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -446,16 +447,22 @@ npm run example:minimal
 ✔ Integration - Express API Routes (3/3 geçti)
 ✔ Integration - RAGEngine Full Lifecycle (7/7 geçti)
 ✔ Integration - Document Ingestion & PII Protection Pipeline (4/4 geçti)
-✔ Core Engine - CacheManager & Data Freshness (7/7 geçti)
+✔ Chaos & Concurrency - Init Mutex & Paralel İstekler (2/2 geçti)
+✔ Core Engine - CacheManager & Veri Tazeliği (7/7 geçti)
 ✔ FAQ Layer - LocalFaqAdapter (4/4 geçti)
+✔ Governed Tool Execution - RBAC, Zod & Mutasyon Onayı (4/4 geçti)
+✔ SML Engine - Circuit Breaker Deseni & Soğuma (2/2 geçti)
+✔ Multi-Tenancy & Tenant İzolasyonu (2/2 geçti)
+✔ Hybrid Search - BM25 & Reciprocal Rank Fusion (3/3 geçti)
+✔ RAG Evaluation System & Prometheus Telemetrisi (3/3 geçti)
 ✔ Asynchronous Queue - InMemory & BullMQ (4/4 geçti)
 ✔ LLM Adapters & Multi-Tier Failover (6/6 geçti)
 ✔ Math Utilities - Dot Product (4/4 geçti)
-✔ Security Guard - PIIGuard & Data Sovereignty (6/6 geçti)
-✔ Security Layer - Prompt Injection & Boundary Framing (11/11 geçti)
+✔ Security Guard - PIIGuard & Veri Egemenliği (6/6 geçti)
+✔ Security Layer - Prompt Injection & Sınır Çerçeveleme (11/11 geçti)
 ✔ FinOps Metrics - TokenTracker (5/5 geçti)
 
-Toplam: 13 test paketinde 65 test başarıyla geçti (0 hata, ~980ms süre)
+Toplam: 19 test paketinde 81 test başarıyla geçti (0 hata, ~1.7s süre)
 ```
 
 ---

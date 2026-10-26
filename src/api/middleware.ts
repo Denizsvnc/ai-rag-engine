@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { RAGEngine } from '../core/engine';
+import type { QueryContext } from '../interfaces/query-context.interface';
 
 export function createRagMiddleware(engine: RAGEngine) {
     let isInitialized = false;
@@ -11,13 +12,28 @@ export function createRagMiddleware(engine: RAGEngine) {
                 isInitialized = true;
             }
 
-            const { query, context } = req.body;
+            const { query, context: bodyContext } = req.body || {};
 
             if (!query || typeof query !== 'string') {
                 return res.status(400).json({ error: '"query" alanı zorunludur ve string olmalıdır.' });
             }
 
-            const result = await engine.query(query, context);
+            // Extract multi-tenant metadata from enterprise HTTP headers or request body
+            const tenantId = (req.headers['x-tenant-id'] as string) || bodyContext?.tenantId;
+            const userId = (req.headers['x-user-id'] as string) || bodyContext?.userId;
+            const rolesHeader = req.headers['x-roles'] as string;
+            const roles = rolesHeader ? rolesHeader.split(',').map(r => r.trim()) : bodyContext?.roles;
+            const confirmedAction = req.headers['x-confirmed-action'] === 'true' || bodyContext?.confirmedAction;
+
+            const resolvedContext: QueryContext = {
+                ...bodyContext,
+                ...(tenantId ? { tenantId } : {}),
+                ...(userId ? { userId } : {}),
+                ...(roles ? { roles } : {}),
+                ...(confirmedAction ? { confirmedAction } : {})
+            };
+
+            const result = await engine.query(query, resolvedContext);
             res.json(result);
         } catch (error: any) {
             console.error('[RAG Middleware] İşlem hatası:', error);

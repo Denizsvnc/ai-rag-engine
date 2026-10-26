@@ -5,7 +5,7 @@ import type { ICacheAdapter } from '../interfaces/cache.interface';
 
 export class CacheManager implements ICacheAdapter {
     private memoryCache: LRUCache<string, any>;
-    private hitCounters: Map<string, number> = new Map();
+    private hitCounters: LRUCache<string, number>;
     private isPersisting = false;
     private defaultTtlMs: number;
 
@@ -20,6 +20,11 @@ export class CacheManager implements ICacheAdapter {
             max: maxItemsInRAM,
             ttl: this.defaultTtlMs,
             updateAgeOnGet: false
+        });
+        // Bounded LRU to prevent memory leak when millions of queries cycle through
+        this.hitCounters = new LRUCache({
+            max: maxItemsInRAM * 3,
+            ttl: this.defaultTtlMs
         });
     }
 
@@ -131,6 +136,8 @@ export class CacheManager implements ICacheAdapter {
         if (this.isPersisting) return;
         this.isPersisting = true;
 
+        const tmpPath = `${this.filePath}.tmp.${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
         try {
             const dataToSave: Record<string, any> = {};
             for (const [key, hits] of this.hitCounters.entries()) {
@@ -143,9 +150,18 @@ export class CacheManager implements ICacheAdapter {
             }
 
             await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-            await fs.writeFile(this.filePath, JSON.stringify(dataToSave, null, 2), 'utf-8');
+            // Write to temporary file first
+            await fs.writeFile(tmpPath, JSON.stringify(dataToSave, null, 2), 'utf-8');
+            // Atomically replace target cache file
+            await fs.rename(tmpPath, this.filePath);
         } catch (error) {
-            console.error('[Cache] Cache could not be written to disk:', error);
+            console.error('[Cache] Cache could not be written to disk atomically:', error);
+            // Clean up temporary file on failure
+            try {
+                await fs.unlink(tmpPath);
+            } catch {
+                // Ignore unlink errors
+            }
         } finally {
             this.isPersisting = false;
         }

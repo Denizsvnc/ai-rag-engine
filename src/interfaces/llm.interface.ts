@@ -16,6 +16,7 @@ export interface ILLMResponse {
     usage?: {
         promptTokens: number;
         completionTokens: number;
+        totalTokens?: number;
     };
 }
 

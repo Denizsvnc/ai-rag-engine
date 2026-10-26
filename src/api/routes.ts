@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { RAGEngine } from '../core/engine';
 import { createRagMiddleware } from './middleware';
+import { PrometheusExporter } from '../core/metrics/prometheus-exporter';
 
 export function createApiRoutes(engine: RAGEngine): Router {
     const router = Router();
@@ -17,9 +18,21 @@ export function createApiRoutes(engine: RAGEngine): Router {
         });
     });
 
-    // FinOps Token usage, cost savings, and latency metrics
+    // FinOps Token usage, cost savings, and latency metrics (supports ?format=prometheus)
     router.get('/metrics', (req, res) => {
+        if (req.query.format === 'prometheus') {
+            res.setHeader('Content-Type', 'text/plain; version=0.0.4');
+            res.send(PrometheusExporter.exportMetrics(engine.getMetrics(), {
+                activeCacheSize: engine.getCacheManager().size()
+            }));
+            return;
+        }
         res.json(engine.getMetrics());
+    });
+
+    // Governed Tool Execution Audit Trail
+    router.get('/audit', (req, res) => {
+        res.json(engine.getAuditLogs());
     });
 
     // Asynchronous Document Ingestion endpoint

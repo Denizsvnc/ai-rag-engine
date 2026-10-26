@@ -8,8 +8,9 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![CI](https://github.com/Denizsvnc/ai-rag-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Denizsvnc/ai-rag-engine/actions)
+[![Tests](https://img.shields.io/badge/Tests-81%2F81_Bestanden-success?logo=checkmarx&logoColor=white)](test/)
 [![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-all--MiniLM--L6--v2_(q8)-FF5722?logo=onnx&logoColor=white)](https://huggingface.co/docs/transformers.js)
-[![Tests](https://img.shields.io/badge/Tests-65%2F65_Bestanden-success?logo=checkmarx&logoColor=white)](test/)
 [![Security](https://img.shields.io/badge/OWASP-Prompt_Injection_Geschützt-blueviolet?logo=shield&logoColor=white)](#3-️-owasp-prompt-injection--besucher-vertrauensgrenze)
 [![DSGVO Datenschutz](https://img.shields.io/badge/DSGVO-TCKN_&_Luhn_Geschützt-blue?logo=security&logoColor=white)](#6--zero-bloat-pii-maskierung-tckn-luhn-und-datensouveränität)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -446,8 +447,14 @@ npm run example:minimal
 ✔ Integration - Express API Routes (3/3 bestanden)
 ✔ Integration - RAGEngine Full Lifecycle (7/7 bestanden)
 ✔ Integration - Document Ingestion & PII Protection Pipeline (4/4 bestanden)
+✔ Chaos & Concurrency - Init Mutex & Parallele Anfragen (2/2 bestanden)
 ✔ Core Engine - CacheManager & Data Freshness (7/7 bestanden)
 ✔ FAQ Layer - LocalFaqAdapter (4/4 bestanden)
+✔ Governed Tool Execution - RBAC, Zod & Mutations-Sperre (4/4 bestanden)
+✔ SML Engine - Circuit Breaker Pattern & Cooldown (2/2 bestanden)
+✔ Multi-Tenancy & Mandanten-Isolation (2/2 bestanden)
+✔ Hybrid Search - BM25 & Reciprocal Rank Fusion (3/3 bestanden)
+✔ RAG Evaluation System & Prometheus Telemetrie (3/3 bestanden)
 ✔ Asynchronous Queue - InMemory & BullMQ (4/4 bestanden)
 ✔ LLM Adapters & Multi-Tier Failover (6/6 bestanden)
 ✔ Math Utilities - Dot Product (4/4 bestanden)
@@ -455,7 +462,7 @@ npm run example:minimal
 ✔ Security Layer - Prompt Injection & Boundary Framing (11/11 bestanden)
 ✔ FinOps Metrics - TokenTracker (5/5 bestanden)
 
-Gesamt: 65 bestandene Tests in 13 Test-Suiten (0 Fehler, ~980ms Dauer)
+Gesamt: 81 bestandene Tests in 19 Test-Suiten (0 Fehler, ~1.7s Dauer)
 ```
 
 ---
