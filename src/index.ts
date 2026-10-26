@@ -72,3 +72,4 @@ export { MemoryVectorAdapter } from './adapters/vector/memory-vector.adapter';
 export { StaticRulesAdapter } from './adapters/rules/static-rules.adapter';
 export { UrlFaqAdapter } from './adapters/faq/url-faq.adapter';
 export { LocalFaqAdapter, type LocalFaqAdapterOptions } from './adapters/faq/local-faq.adapter';
+export { RedisConfirmationNonceStore, MemoryConfirmationNonceStore, type ConfirmationNonceStore } from './core/security/nonce-store';

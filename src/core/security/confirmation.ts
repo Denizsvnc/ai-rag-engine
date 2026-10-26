@@ -1,5 +1,14 @@
 import crypto from 'crypto';
+import { z } from 'zod';
+import { resolveSecret } from './secrets';
+import { MemoryConfirmationNonceStore, type ConfirmationNonceStore } from './nonce-store';
 import type { QueryContext } from '../../interfaces/query-context.interface';
+
+const ticketPayloadSchema = z.object({
+    toolName: z.string().min(1), argsHash: z.string().regex(/^[a-f0-9]{64}$/),
+    tenantId: z.string().min(1).optional(), userId: z.string().min(1).optional(),
+    nonce: z.uuid(), expiresAt: z.number().int().positive()
+});
 
 export interface ConfirmationTicketPayload {
     toolName: string;
@@ -18,14 +27,19 @@ export interface TicketTargetOptions {
 }
 
 export class ConfirmationService {
-    private static usedNonces: Map<string, number> = new Map();
-    private static readonly DEFAULT_SECRET = process.env.CONFIRMATION_SECRET || 'rag-engine-mutation-ticket-secret';
+    private static readonly memoryStore = new MemoryConfirmationNonceStore();
     private static readonly DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
     constructor(
-        private secret: string = ConfirmationService.DEFAULT_SECRET,
-        private ttlMs: number = ConfirmationService.DEFAULT_TTL_MS
-    ) {}
+        private secret: string = resolveSecret('CONFIRMATION_SECRET'),
+        private ttlMs: number = ConfirmationService.DEFAULT_TTL_MS,
+        private nonceStore: ConfirmationNonceStore = ConfirmationService.memoryStore
+    ) {
+        this.secret = resolveSecret('CONFIRMATION_SECRET', secret);
+        if (process.env.NODE_ENV === 'production' && !nonceStore.distributed) {
+            throw new Error('Production confirmation requires a distributed nonce store.');
+        }
+    }
 
     /**
      * Instance method to issue a ticket using the configured secret and TTL.
@@ -48,14 +62,14 @@ export class ConfirmationService {
     /**
      * Instance method to verify a ticket. Throws an Error on verification failure.
      */
-    public verifyTicket(ticket: string, options: TicketTargetOptions): { valid: boolean; payload?: ConfirmationTicketPayload };
-    public verifyTicket(ticket: string, toolName: string, args: any, context?: QueryContext): { valid: boolean; payload?: ConfirmationTicketPayload };
-    public verifyTicket(
+    public verifyTicket(ticket: string, options: TicketTargetOptions): Promise<{ valid: boolean; payload?: ConfirmationTicketPayload }>;
+    public verifyTicket(ticket: string, toolName: string, args: any, context?: QueryContext): Promise<{ valid: boolean; payload?: ConfirmationTicketPayload }>;
+    public async verifyTicket(
         ticket: string,
         optionsOrName: TicketTargetOptions | string,
         maybeArgs?: any,
         maybeContext?: QueryContext
-    ): { valid: boolean; payload?: ConfirmationTicketPayload } {
+    ): Promise<{ valid: boolean; payload?: ConfirmationTicketPayload }> {
         let toolName: string;
         let args: any;
         let context: QueryContext | undefined;
@@ -70,7 +84,7 @@ export class ConfirmationService {
             context = maybeContext;
         }
 
-        const result = ConfirmationService.verifyTicket(ticket, toolName, args, context, this.secret);
+        const result = await ConfirmationService.verifyTicket(ticket, toolName, args, context, this.secret, this.nonceStore);
         if (!result.valid) {
             throw new Error(result.error || 'Ticket verification failed.');
         }
@@ -108,8 +122,9 @@ export class ConfirmationService {
         args: any,
         context?: QueryContext,
         ttlMs: number = this.DEFAULT_TTL_MS,
-        secret: string = this.DEFAULT_SECRET
+        secret: string = resolveSecret('CONFIRMATION_SECRET')
     ): string {
+        secret = resolveSecret('CONFIRMATION_SECRET', secret);
         const now = Date.now();
         const payload: ConfirmationTicketPayload = {
             toolName,
@@ -137,14 +152,18 @@ export class ConfirmationService {
      * 4. Matches the exact tool name and SHA-256 hash of the submitted arguments.
      * 5. Matches the caller tenantId/userId if specified.
      */
-    public static verifyTicket(
+    public static async verifyTicket(
         ticket: string,
         toolName: string,
         args: any,
         context?: QueryContext,
-        secret: string = this.DEFAULT_SECRET
-    ): { valid: boolean; error?: string } {
-        this.cleanupExpiredNonces();
+        secret: string = resolveSecret('CONFIRMATION_SECRET'),
+        nonceStore: ConfirmationNonceStore = this.memoryStore
+    ): Promise<{ valid: boolean; error?: string }> {
+        resolveSecret('CONFIRMATION_SECRET', secret);
+        if (process.env.NODE_ENV === 'production' && !nonceStore.distributed) {
+            return { valid: false, error: 'Production confirmation requires a distributed nonce store.' };
+        }
 
         if (!ticket || typeof ticket !== 'string') {
             return { valid: false, error: 'Confirmation ticket is missing or invalid format.' };
@@ -170,19 +189,14 @@ export class ConfirmationService {
 
         let payload: ConfirmationTicketPayload;
         try {
-            payload = JSON.parse(Buffer.from(serialized as string, 'base64url').toString('utf-8'));
+            payload = ticketPayloadSchema.parse(JSON.parse(Buffer.from(serialized as string, 'base64url').toString('utf-8')));
         } catch {
             return { valid: false, error: 'Failed to parse confirmation ticket payload.' };
         }
 
         // Expiry check
-        if (Date.now() > payload.expiresAt) {
-            return { valid: false, error: `Ticket has expired: Confirmation ticket expired at ${new Date(payload.expiresAt).toISOString()}.` };
-        }
-
-        // Anti-replay single-use check
-        if (this.usedNonces.has(payload.nonce)) {
-            return { valid: false, error: 'Ticket nonce has already been consumed: Confirmation ticket has already been used (anti-replay violation).' };
+        if (!payload || typeof payload.nonce !== 'string' || !payload.nonce || !Number.isFinite(payload.expiresAt) || Date.now() >= payload.expiresAt) {
+            return { valid: false, error: `Ticket has expired: Confirmation ticket expired at ${payload?.expiresAt}.` };
         }
 
         // Tool name match check
@@ -203,21 +217,20 @@ export class ConfirmationService {
         }
 
         // Tenant match check
-        if (payload.tenantId && context?.tenantId && payload.tenantId !== context.tenantId) {
+        if (payload.tenantId !== context?.tenantId) {
             return { valid: false, error: 'Ticket tenant mismatch: Cross-tenant confirmation ticket use is prohibited.' };
         }
 
-        // Mark nonce as spent
-        this.usedNonces.set(payload.nonce, payload.expiresAt);
-        return { valid: true };
-    }
-
-    private static cleanupExpiredNonces(): void {
-        const now = Date.now();
-        for (const [nonce, expiresAt] of this.usedNonces.entries()) {
-            if (now > expiresAt) {
-                this.usedNonces.delete(nonce);
-            }
+        if (payload.userId !== context?.userId) {
+            return { valid: false, error: 'Ticket user mismatch.' };
         }
+        try {
+            if (!await nonceStore.consume(payload.nonce, payload.expiresAt)) {
+                return { valid: false, error: 'Ticket nonce has already been consumed or expired.' };
+            }
+        } catch {
+            return { valid: false, error: 'Confirmation nonce store unavailable.' };
+        }
+        return { valid: true };
     }
 }

@@ -18,11 +18,13 @@ export interface DocumentUploadPayload {
     content: string | Buffer | NodeJS.ReadableStream;
     mimeType?: string | undefined;
     tenantId?: string | undefined;
+    userId?: string | undefined;
 }
 
 export interface StreamIngestionOptions {
     mimeType?: string | undefined;
     tenantId?: string | undefined;
+    userId?: string | undefined;
     onProgress?: ((chunksCount: number) => void) | undefined;
 }
 
@@ -479,7 +481,8 @@ export class DocumentIngestionService {
             tempFilePath,
             isStreamSpool: true,
             mimeType: options?.mimeType,
-            tenantId: options?.tenantId
+            tenantId: options?.tenantId,
+            userId: options?.userId
         }, jobId);
 
         return {
@@ -497,6 +500,7 @@ export class DocumentIngestionService {
         if (payload.content && typeof (payload.content as any).pipe === 'function') {
             return this.submitStream(payload.filename, payload.content as NodeJS.ReadableStream, {
                 mimeType: payload.mimeType,
+                userId: payload.userId,
                 tenantId: payload.tenantId
             });
         }
@@ -513,6 +517,7 @@ export class DocumentIngestionService {
             filename: payload.filename,
             contentBase64: buffer.toString('base64'),
             mimeType: payload.mimeType,
+            userId: payload.userId,
             tenantId: payload.tenantId
         }, jobId);
 
@@ -525,8 +530,10 @@ export class DocumentIngestionService {
     /**
      * Retrieves the status and progress of an ingestion job.
      */
-    public async getJobStatus(jobId: string): Promise<Job | null> {
-        return this.jobQueue.getJob(jobId);
+    public async getJobStatus(jobId: string, tenantId?: string): Promise<Job | null> {
+        const job = await this.jobQueue.getJob(jobId);
+        if (tenantId !== undefined && job?.data?.tenantId !== tenantId) return null;
+        return job;
     }
 
     private initWorker(): void {

@@ -7,6 +7,7 @@ export function createRagMiddleware(engine: RAGEngine) {
 
     return async (req: Request, res: Response, next: NextFunction) => {
         try {
+            if (!req.auth) return res.status(401).json({ error: 'Authentication required.' });
             if (!isInitialized) {
                 await engine.init();
                 isInitialized = true;
@@ -18,21 +19,16 @@ export function createRagMiddleware(engine: RAGEngine) {
                 return res.status(400).json({ error: '"query" alanı zorunludur ve string olmalıdır.' });
             }
 
-            // Prioritize server-verified auth claims (P0 Security) over raw client headers
-            const auth = req.auth;
-            const tenantId = auth?.tenantId || (req.headers['x-tenant-id'] as string) || bodyContext?.tenantId;
-            const userId = auth?.userId || (req.headers['x-user-id'] as string) || bodyContext?.userId;
-            const roles = auth?.roles || (req.headers['x-roles'] ? (req.headers['x-roles'] as string).split(',').map(r => r.trim()) : bodyContext?.roles);
-            const confirmedAction = req.headers['x-confirmed-action'] === 'true' || bodyContext?.confirmedAction;
-            const confirmationTicket = (req.headers['x-confirmation-ticket'] as string) || bodyContext?.confirmationTicket;
-
+            // Only authentication middleware may supply identity and authorization claims.
             const resolvedContext: QueryContext = {
-                ...bodyContext,
-                ...(tenantId ? { tenantId } : {}),
-                ...(userId ? { userId } : {}),
-                ...(roles ? { roles } : {}),
-                ...(confirmedAction ? { confirmedAction } : {}),
-                ...(confirmationTicket ? { confirmationTicket } : {})
+                tenantId: req.auth.tenantId,
+                userId: req.auth.userId,
+                roles: req.auth.roles,
+                metadata: req.auth.metadata,
+                skipCache: bodyContext?.skipCache === true,
+                confirmationTicket: typeof req.headers['x-confirmation-ticket'] === 'string'
+                    ? req.headers['x-confirmation-ticket']
+                    : typeof bodyContext?.confirmationTicket === 'string' ? bodyContext.confirmationTicket : undefined
             };
 
             const result = await engine.query(query, resolvedContext);

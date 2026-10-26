@@ -17,6 +17,7 @@ import type { ICacheAdapter } from '../interfaces/cache.interface';
 import { MemoryVectorAdapter } from '../adapters/vector/memory-vector.adapter';
 
 export class RAGEngine {
+    private confirmationService: ConfirmationService | undefined;
     private cacheManager: ICacheAdapter;
     private smlEngine: SMLEngine;
     private toolRegistry: ToolRegistry | null = null;
@@ -28,6 +29,9 @@ export class RAGEngine {
     private readonly maxAuditLogs = 1000;
 
     constructor(private config: EngineConfig) {
+        if (config.tools?.items.some(tool => tool.isMutating || tool.requiresConfirmation)) {
+            this.confirmationService = new ConfirmationService(config.confirmation?.secret, undefined, config.confirmation?.nonceStore);
+        }
         if (config.cache?.adapter) {
             this.cacheManager = config.cache.adapter;
         } else {
@@ -187,13 +191,10 @@ export class RAGEngine {
         }
 
         // 2. Multi-Tenant & Role-Isolated Cache lookup (P0 Security Isolation)
-        const roleScope = (context?.roles && context.roles.length > 0)
-            ? context.roles.slice().sort().join(',')
-            : 'public';
-        const tenantPart = context?.tenantId ? `tenant:${context.tenantId}` : 'tenant:default';
-        const cacheKey = `${tenantPart}:roles:${roleScope}:${sanitizedPrompt}`;
+        const scope = JSON.stringify([context?.tenantId ?? null, context?.userId ?? null, context?.roles?.slice().sort() ?? []]);
+        const cacheKey = `v2:${scope}:${sanitizedPrompt}`;
 
-        if (this.config.cache?.enabled !== false && !context?.skipCache) {
+        if (this.config.cache?.enabled !== false && !context?.skipCache && !context?.confirmationTicket) {
             const cachedResponse = await this.cacheManager.get(cacheKey);
             if (cachedResponse) {
                 const latencyMs = Date.now() - startTime;
@@ -251,6 +252,8 @@ export class RAGEngine {
         let intent = 'RAG_QUERY';
         let toolResultContext: Array<{ toolName: string; result: any }> = [];
         let executedTools: Array<{ name: string; args: any }> = [];
+        const confirmationRequests: NonNullable<RAGResponse['confirmationRequests']> = [];
+        let mutatingToolAttempted = false;
 
         // Untrusted visitor sandbox boundary
         const framedVisitorPrompt = PromptBuilder.formatVisitorPrompt(sanitizedPrompt);
@@ -278,6 +281,15 @@ export class RAGEngine {
                 if (llmExtraction.toolCalls && llmExtraction.toolCalls.length > 0) {
                     for (const tc of llmExtraction.toolCalls) {
                         if (!tc) continue;
+                        if (tc.name !== matchedTool.name) {
+                            this.recordAuditLog({
+                                timestamp: new Date().toISOString(), toolName: tc.name,
+                                tenantId: context?.tenantId, userId: context?.userId,
+                                args: tc.arguments, isMutating: !!matchedTool.isMutating,
+                                status: 'VALIDATION_FAILED', error: 'Extracted tool does not match routed tool.', durationMs: 0
+                            });
+                            continue;
+                        }
                         const toolExecStart = Date.now();
 
                         // Barrier 1: Role-Based Access Control (RBAC)
@@ -309,28 +321,28 @@ export class RAGEngine {
                         // Barrier 2: Mutation & Cryptographic Confirmation Ticket Guard (P0 Security)
                         const isMutatingOperation = matchedTool.isMutating || matchedTool.requiresConfirmation;
                         if (isMutatingOperation) {
+                            mutatingToolAttempted = true;
                             let isConfirmed = false;
                             let confirmationError: string | undefined;
 
                             if (context?.confirmationTicket) {
-                                const ticketCheck = ConfirmationService.verifyTicket(
+                                const ticketCheck = await ConfirmationService.verifyTicket(
                                     context.confirmationTicket,
                                     tc.name,
                                     tc.arguments,
-                                    context
+                                    context,
+                                    this.config.confirmation?.secret,
+                                    this.config.confirmation?.nonceStore
                                 );
                                 if (ticketCheck.valid) {
                                     isConfirmed = true;
                                 } else {
                                     confirmationError = ticketCheck.error;
                                 }
-                            } else if (context?.confirmedAction === true) {
-                                // Backward compatibility for dev and unit tests
-                                isConfirmed = true;
                             }
 
                             if (!isConfirmed) {
-                                const ticket = ConfirmationService.issueTicket(tc.name, tc.arguments, context);
+                                const ticket = this.confirmationService!.issueTicket(tc.name, tc.arguments, context);
                                 const warnMsg = confirmationError ||
                                     `Tool '${tc.name}' mutates state and requires user confirmation. Submit the provided confirmation ticket to proceed.`;
                                 console.warn(`[RAGEngine Governance] Mutation blocked without verified confirmation ticket: ${tc.name}`);
@@ -345,13 +357,13 @@ export class RAGEngine {
                                     error: warnMsg,
                                     durationMs: 0
                                 });
+                                confirmationRequests.push({ toolName: tc.name, proposedArgs: tc.arguments, confirmationTicket: ticket });
                                 toolResultContext.push({
                                     toolName: tc.name,
                                     result: {
                                         status: 'CONFIRMATION_REQUIRED',
                                         message: warnMsg,
-                                        proposedArgs: tc.arguments,
-                                        confirmationTicket: ticket
+                                        proposedArgs: tc.arguments
                                     }
                                 });
                                 continue;
@@ -487,6 +499,7 @@ export class RAGEngine {
             appliedRules: rules,
             sources: documents.map(d => d.id),
             ...(executedTools.length > 0 ? { executedTools } : {}),
+            ...(confirmationRequests.length > 0 ? { confirmationRequests } : {}),
             ...(securityWarning ? { securityWarning } : {}),
             latencyMs,
             metrics
@@ -497,7 +510,7 @@ export class RAGEngine {
             // By default, volatile live tool actions are NOT cached (or cached with a short toolResultTtlMs)
             // to ensure pricing/stock updates (e.g. price changing from X to B) are always fresh and never stale.
             if (intent === 'TOOL_CALL') {
-                if (this.config.cache?.cacheToolResults === true || this.config.cache?.toolResultTtlMs) {
+                if (!mutatingToolAttempted && (this.config.cache?.cacheToolResults === true || this.config.cache?.toolResultTtlMs)) {
                     const toolTtl = this.config.cache?.toolResultTtlMs || 60000;
                     await this.cacheManager.set(cacheKey, responseObj, toolTtl);
                 }
@@ -565,8 +578,8 @@ export class RAGEngine {
     /**
      * Retrieves the status of an ongoing or completed document ingestion job.
      */
-    public async getIngestionStatus(jobId: string): Promise<Job | null> {
-        return this.ingestionService.getJobStatus(jobId);
+    public async getIngestionStatus(jobId: string, tenantId?: string): Promise<Job | null> {
+        return this.ingestionService.getJobStatus(jobId, tenantId);
     }
 
     public getIngestionService(): DocumentIngestionService {

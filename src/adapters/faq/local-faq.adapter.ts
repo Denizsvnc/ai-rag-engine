@@ -70,7 +70,6 @@ export class LocalFaqAdapter implements IFAQAdapter {
 
     public async getFaqs(tenantId?: string): Promise<FAQItem[]> {
         if (!this.isLoaded) await this.init();
-        if (!tenantId) return this.items;
         return this.items.filter(item => !item.tenantId || item.tenantId === tenantId);
     }
 
@@ -90,7 +89,7 @@ export class LocalFaqAdapter implements IFAQAdapter {
 
         for (const item of this.items) {
             // Strict Multi-tenant boundary check: Item must either be global (!tenantId) or match the caller's tenantId
-            if (tenantId && item.tenantId && item.tenantId !== tenantId) {
+            if (item.tenantId && item.tenantId !== tenantId) {
                 continue;
             }
             if (!item.embedding) continue;

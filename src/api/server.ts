@@ -1,3 +1,6 @@
+import Redis from 'ioredis';
+import { resolveSecret } from '../core/security/secrets';
+import { RedisConfirmationNonceStore } from '../core/security/nonce-store';
 import 'dotenv/config';
 import express from 'express';
 import { RAGEngine } from '../core/engine';
@@ -9,6 +12,19 @@ import { createApiRoutes } from './routes';
 import { ENGINE_DEFAULTS } from '../config/default';
 
 async function bootstrap() {
+    // Validate authentication keys before opening a listening socket.
+    resolveSecret('JWT_SECRET');
+    resolveSecret('CONFIRMATION_SECRET');
+    let nonceStore: RedisConfirmationNonceStore | undefined;
+    if (process.env.CONFIRMATION_REDIS_URL) {
+        const redis = new Redis(process.env.CONFIRMATION_REDIS_URL, {
+            lazyConnect: true, maxRetriesPerRequest: 1, enableOfflineQueue: false
+        });
+        redis.on('error', () => {}); // Connection errors are handled by connect/consume.
+        await redis.connect();
+        await redis.ping();
+        nonceStore = new RedisConfirmationNonceStore(redis);
+    }
     const app = express();
     app.use(express.json());
 
@@ -26,6 +42,7 @@ async function bootstrap() {
     // Configure and initialize RAG Engine with all layers
     const engine = new RAGEngine({
         llmProvider,
+        confirmation: { nonceStore },
         inputs: {
             // 1. In-memory & Persistent Vector Knowledge Base with Hybrid Search
             vectorStore: new MemoryVectorAdapter(),
@@ -57,7 +74,7 @@ async function bootstrap() {
     });
 
     // Mount API routes
-    app.use('/api', createApiRoutes(engine));
+    app.use('/api', createApiRoutes(engine, { auth: { allowDevAnonymous: process.env.ALLOW_ANONYMOUS_DEV_AUTH === 'true' } }));
 
     const PORT = Number(process.env.PORT) || ENGINE_DEFAULTS.SERVER.PORT;
     const HOST = process.env.HOST || ENGINE_DEFAULTS.SERVER.HOST;
@@ -72,4 +89,7 @@ async function bootstrap() {
     });
 }
 
-bootstrap();
+bootstrap().catch(error => {
+    console.error('[Server Startup Error]', error.message);
+    process.exit(1);
+});

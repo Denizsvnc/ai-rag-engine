@@ -25,7 +25,8 @@
     "test": "tsx test/run-all.ts",
     "benchmark": "tsx test/performance/smoke-benchmark.ts",
     "example:ecommerce": "tsx src/examples/02-ecommerce-with-tools/index.ts",
-    "example:minimal": "tsx src/examples/01-minimal-express/index.ts"
+    "example:minimal": "tsx src/examples/01-minimal-express/index.ts",
+    "test:security": "node --import tsx --test test/security/*.test.ts test/unit/security/*.test.ts test/integration/security-boundaries.test.ts test/integration/distributed-confirmation.test.ts test/unit/governed-tools.test.ts"
   },
   "keywords": [
     "rag",
@@ -47,6 +48,7 @@
     "@huggingface/transformers": "4.3.1",
     "dotenv": "16.6.1",
     "express": "5.3.0",
+    "ioredis": "6.0.0",
     "lru-cache": "10.4.3",
     "zod": "4.6.7"
   },

@@ -13,6 +13,7 @@ services:
       - NODE_ENV=production
       # If connecting to the internal Redis service for BullMQ queues:
       - REDIS_URL=redis://redis:6379
+      - CONFIRMATION_REDIS_URL=redis://redis:6379
     env_file:
       - path: .env
         required: false
@@ -35,7 +36,7 @@ services:
     restart: unless-stopped
     ports:
       - "${REDIS_PORT:-6379}:6379"
-    command: redis-server --save 60 1 --loglevel warning
+    command: redis-server --appendonly yes --appendfsync always --maxmemory-policy noeviction --loglevel warning
     volumes:
       - redis_data:/data
     healthcheck:

@@ -35,7 +35,7 @@ export interface IAgentTool<TArgs = any, TResult = any> {
     requiredRoles?: string[] | undefined;
 
     /**
-     * If true, execution requires context.confirmedAction === true.
+     * If true, execution requires a valid single-use context.confirmationTicket.
      */
     requiresConfirmation?: boolean | undefined;
 

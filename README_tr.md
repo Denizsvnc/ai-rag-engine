@@ -10,7 +10,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![CI](https://github.com/Denizsvnc/ai-rag-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Denizsvnc/ai-rag-engine/actions)
-[![Tests](https://img.shields.io/badge/Tests-140%2F140_Geçti-success?logo=checkmarx&logoColor=white)](test/)
+[![Tests](https://img.shields.io/badge/Tests-148%2F148_Geçti-success?logo=checkmarx&logoColor=white)](test/)
 [![GitHub Stars](https://img.shields.io/github/stars/Denizsvnc/ai-rag-engine?style=social)](https://github.com/Denizsvnc/ai-rag-engine/stargazers)
 [![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-all--MiniLM--L6--v2_(q8)-FF5722?logo=onnx&logoColor=white)](https://huggingface.co/docs/transformers.js)
 [![Security](https://img.shields.io/badge/OWASP-Prompt_Injection_Korumalı-blueviolet?logo=shield&logoColor=white)](#3-️-owasp-prompt-enjeksiyonu--ziyaretçi-güven-sınırı)
@@ -477,7 +477,7 @@ npm run example:minimal
 ✔ Streaming Ingestion & Geri Basınç Yönetimi (5/5 geçti)
 ✔ FinOps Metrics - TokenTracker (5/5 geçti)
 
-Toplam: 24 test paketinde 140 test başarıyla geçti (0 hata, %100 başarı oranı)
+Toplam: 24 test paketinde 148 test başarıyla geçti (0 hata, %100 başarı oranı)
 ```
 
 ---
@@ -556,3 +556,10 @@ Vereceğiniz her yıldız, geliştiricilerin ve kurumların sağlayıcı bağım
 
 Bu proje [MIT Lisansı](LICENSE) kapsamında lisanslanmıştır.
 Ticari projelerinizde, açık kaynak girişimlerinizde ve kurumsal sistemlerinizde serbestçe kullanabilirsiniz.
+
+
+### Security hardening migration (27 October 2026)
+
+Authentication is required by default. Production requires independent random JWT_SECRET and CONFIRMATION_SECRET values (32+ bytes). Mutating SDK tools require a shared Redis nonce store. Boolean confirmation is ignored; verification is async and proposals are returned in confirmationRequests.
+
+See [verified findings, test evidence and migration instructions](docs/security-review.md). The 148-test result includes the real Redis test with REDIS_TEST_URL configured.

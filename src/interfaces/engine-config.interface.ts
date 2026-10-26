@@ -1,3 +1,4 @@
+import type { ConfirmationNonceStore } from '../core/security/nonce-store';
 import type { IVectorStoreAdapter } from './vector.interface';
 import type { IRulesAdapter } from './rules.interface';
 import type { IFAQAdapter } from './faq.interface';
@@ -9,6 +10,7 @@ import type { ResponseMetrics, TokenTrackerOptions } from '../core/metrics/token
 
 export interface EngineConfig {
     llmProvider: ILLMProvider;
+    confirmation?: { secret?: string | undefined; nonceStore?: ConfirmationNonceStore | undefined } | undefined;
     security?: SecurityConfig | undefined;
     smlConfig?: {
         enabled: boolean;
@@ -53,6 +55,7 @@ export interface RAGResponse {
     sources?: string[] | undefined; // IDs of retrieved documents
     appliedRules?: string[] | undefined;
     executedTools?: Array<{ name: string; args: any }> | undefined;
+    confirmationRequests?: Array<{ toolName: string; proposedArgs: unknown; confirmationTicket: string }> | undefined;
     securityWarning?: string | undefined;
     latencyMs: number;
     metrics?: ResponseMetrics | undefined;

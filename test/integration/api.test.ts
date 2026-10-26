@@ -27,7 +27,7 @@ describe('Integration - Express API Routes', () => {
             cache: { enabled: false, filePath: './data/test-cache.json' }
         });
 
-        app.use('/api', createApiRoutes(engine));
+        app.use('/api', createApiRoutes(engine, { auth: { allowDevAnonymous: true } }));
 
         await new Promise<void>((resolve) => {
             server = app.listen(0, () => {

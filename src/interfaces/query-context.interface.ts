@@ -28,7 +28,7 @@ export interface QueryContext {
     skipCache?: boolean | undefined;
 
     /**
-     * Explicit confirmation flag for mutating or destructive operations (legacy / dev).
+     * @deprecated Ignored. Mutations require a signed confirmationTicket.
      */
     confirmedAction?: boolean | undefined;
 

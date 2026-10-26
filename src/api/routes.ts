@@ -12,8 +12,8 @@ export interface ApiRouteOptions {
 export function createApiRoutes(engine: RAGEngine, options?: ApiRouteOptions): Router {
     const router = Router();
 
-    // Default to dev-friendly anonymous auth in test/dev environments unless enforceAuth is true
-    const allowDevAnonymous = options?.enforceAuth ? false : (options?.auth?.allowDevAnonymous ?? (process.env.NODE_ENV !== 'production'));
+    // Anonymous development access requires explicit opt-in and is forbidden in production.
+    const allowDevAnonymous = options?.enforceAuth ? false : (options?.auth?.allowDevAnonymous === true);
     const authMiddleware = createAuthMiddleware({
         ...options?.auth,
         allowDevAnonymous
@@ -36,7 +36,7 @@ export function createApiRoutes(engine: RAGEngine, options?: ApiRouteOptions): R
 
     // 3. FinOps Token usage, cost savings, and latency metrics (supports ?format=prometheus)
     // Protected: Requires metrics_collector, devops, or admin role when auth is enforced
-    router.get('/metrics', requireRoles(['admin', 'metrics_collector', 'devops', 'guest']), (req, res) => {
+    router.get('/metrics', requireRoles(['admin', 'metrics_collector', 'devops']), (req, res) => {
         if (req.query.format === 'prometheus') {
             res.setHeader('Content-Type', 'text/plain; version=0.0.4');
             res.send(PrometheusExporter.exportMetrics(engine.getMetrics(), {
@@ -69,7 +69,7 @@ export function createApiRoutes(engine: RAGEngine, options?: ApiRouteOptions): R
 
             // Scope document ingestion to caller tenantId
             const tenantId = req.auth?.tenantId;
-            const result = await engine.ingestDocument({ filename, content, mimeType, tenantId });
+            const result = await engine.ingestDocument({ filename, content, mimeType, tenantId, userId: req.auth!.userId });
             res.status(202).json({
                 message: 'Document accepted for asynchronous ingestion and PII sanitization.',
                 ...result
@@ -83,12 +83,16 @@ export function createApiRoutes(engine: RAGEngine, options?: ApiRouteOptions): R
     router.get('/ingest/status/:jobId', requireRoles(['admin', 'editor', 'ingest_agent']), async (req, res) => {
         try {
             const jobId = Array.isArray(req.params.jobId) ? req.params.jobId[0] : req.params.jobId;
-            const job = await engine.getIngestionStatus(jobId!);
+            const job = await engine.getIngestionStatus(jobId!, req.auth!.tenantId);
             if (!job) {
                 res.status(404).json({ error: `Ingestion job '${req.params.jobId}' not found.` });
                 return;
             }
-            res.json(job);
+            res.json({
+                id: job.id, status: job.status, progress: job.progress,
+                createdAt: job.createdAt, updatedAt: job.updatedAt, completedAt: job.completedAt,
+                result: job.result, ...(job.error ? { error: 'Ingestion failed.' } : {})
+            });
         } catch (error: any) {
             res.status(500).json({ error: error.message || 'Failed to retrieve job status.' });
         }

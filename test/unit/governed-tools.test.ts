@@ -1,3 +1,4 @@
+import { ConfirmationService } from '../../src/core/security/confirmation';
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
 import { z } from 'zod';
@@ -7,7 +8,7 @@ import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../src/interfac
 
 // Mock LLM configured to simulate extracting tool arguments
 class MockExtractionLLM implements ILLMProvider {
-    constructor(private simulatedArgs: any) {}
+    constructor(private simulatedArgs: any, private simulatedToolName?: string) {}
 
     async generate(req: ILLMRequest): Promise<ILLMResponse> {
         // If tools are present, simulate LLM choosing to call tool
@@ -16,7 +17,7 @@ class MockExtractionLLM implements ILLMProvider {
                 content: 'Simulated extraction',
                 toolCalls: [
                     {
-                        name: req.tools[0]!.name,
+                        name: this.simulatedToolName ?? req.tools[0]!.name,
                         arguments: this.simulatedArgs
                     }
                 ]
@@ -116,7 +117,7 @@ describe('Governed Tool Execution - RBAC, Zod & Mutation Guard', () => {
             tenantId: 'tenant_corp',
             userId: 'admin_1',
             roles: ['inventory_admin'],
-            confirmedAction: true
+            confirmationTicket: ConfirmationService.issueTicket(updateInventoryTool.name, { sku: 'A', quantity: -5 }, { tenantId: 'tenant_corp', userId: 'admin_1' })
         });
 
         const auditLogs = engine.getAuditLogs();
@@ -143,7 +144,7 @@ describe('Governed Tool Execution - RBAC, Zod & Mutation Guard', () => {
             tenantId: 'tenant_corp',
             userId: 'admin_1',
             roles: ['inventory_admin'],
-            confirmedAction: true
+            confirmationTicket: ConfirmationService.issueTicket(updateInventoryTool.name, { sku: 'LAPTOP-X1', quantity: 42 }, { tenantId: 'tenant_corp', userId: 'admin_1' })
         });
 
         const auditLogs = engine.getAuditLogs();
@@ -153,4 +154,24 @@ describe('Governed Tool Execution - RBAC, Zod & Mutation Guard', () => {
         assert.strictEqual(lastAudit?.args.sku, 'LAPTOP-X1');
         assert.strictEqual(lastAudit?.args.quantity, 42);
     });
+    test('Extraction must not redeem approval for a different tool name', async () => {
+        let executions = 0;
+        const args = { sku: 'LAPTOP-X1', quantity: 42 };
+        const engine = new RAGEngine({
+            llmProvider: new MockExtractionLLM(args, 'read_inventory'), inputs: {},
+            cache: { enabled: false },
+            tools: { registryFilePath: './data/test-gov-tools.json', items: [{
+                ...updateInventoryTool, execute: async () => { executions++; return {}; }
+            }] },
+            smlConfig: { enabled: true, matchThreshold: 0.35 }
+        });
+        await engine.init();
+        const context = { tenantId: 'tenant_corp', userId: 'admin_1', roles: ['inventory_admin'] };
+        await engine.query('Please update product stock inventory in the warehouse database', {
+            ...context, confirmationTicket: ConfirmationService.issueTicket('read_inventory', args, context)
+        });
+        assert.equal(executions, 0);
+        assert.equal(engine.getAuditLogs().at(-1)?.status, 'VALIDATION_FAILED');
+    });
+
 });
