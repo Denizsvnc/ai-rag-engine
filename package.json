@@ -1,14 +1,46 @@
 {
-  "name": "rag-engine",
+  "name": "ai-rag-engine",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "build": "tsc",
-    "dev": "ts-node src/api/server.ts",
-    "start": "node dist/api/server.js"
+  "description": "Lightweight, enterprise-ready Agentic RAG engine with local SML intent routing, zero-token semantic FAQ matching, multi-tiered LLM failover, and OWASP prompt injection defense.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
-  "keywords": [],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "tsx watch src/api/server.ts",
+    "build:types": "tsc --emitDeclarationOnly",
+    "build:js": "esbuild src/index.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/index.js && esbuild src/api/server.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/api/server.js",
+    "build": "npm run build:types && npm run build:js",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/api/server.js",
+    "test": "tsx --test 'test/**/*.test.ts'",
+    "example:ecommerce": "tsx src/examples/02-ecommerce-with-tools/index.ts",
+    "example:minimal": "tsx src/examples/01-minimal-express/index.ts"
+  },
+  "keywords": [
+    "rag",
+    "agentic-rag",
+    "sml",
+    "semantic-routing",
+    "vector-search",
+    "prompt-injection",
+    "ollama",
+    "vllm",
+    "openai",
+    "gemini",
+    "openrouter"
+  ],
+  "author": "",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@huggingface/transformers": "^4.3.1",

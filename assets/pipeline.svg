@@ -1,0 +1,189 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1264 540" width="1264" height="540" role="img" aria-label="AI-RAG-ENGINE request lifecycle: security guard, cache, semantic FAQ, SML router, tool or vector retrieval, prompt builder, tiered LLM">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/>
+      <stop offset="1" stop-color="#170f36"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.045"/>
+    </pattern>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="3.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <style>
+    .t{font-family:-apple-system,'Segoe UI',Inter,Roboto,Helvetica,Arial,sans-serif;fill:#e6e9ff}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    .title{font-size:21px;font-weight:700}
+    .subtitle{font-size:12.5px;fill:#9aa3c7}
+    .lbl{font-size:12.5px;font-weight:650;fill:#ffffff}
+    .small{font-size:10.5px;fill:#aab2d5}
+    .num{font-size:10px;font-weight:700;fill:#5d6796;letter-spacing:1px}
+    .lane{font-size:10px;font-weight:700;fill:#6b75a8;letter-spacing:1.5px}
+    .box{fill:#111933;stroke-width:1.5}
+    .halo{fill:none;stroke-width:6;opacity:.25;animation:pulse 2.8s ease-in-out infinite}
+    .base{fill:none;stroke:#28315c;stroke-width:2.5}
+    .flow{fill:none;stroke-width:2;stroke-dasharray:6 10;animation:dash 1.1s linear infinite}
+    .d1{animation-delay:-.4s}.d2{animation-delay:-.8s}.d3{animation-delay:-1.2s}.d4{animation-delay:-1.6s}.d5{animation-delay:-2s}
+    @keyframes dash{to{stroke-dashoffset:-32}}
+    @keyframes pulse{0%,100%{opacity:.08}50%{opacity:.45}}
+  </style>
+
+  <rect width="1264" height="540" rx="20" fill="url(#bg)"/>
+  <rect width="1264" height="540" rx="20" fill="url(#grid)"/>
+
+  <text x="28" y="42" class="t title">Request Lifecycle</text>
+  <text x="28" y="64" class="t subtitle">Every query takes the cheapest safe path. LLM tokens are spent only when nothing cheaper can answer.</text>
+
+  <!-- ============ CONNECTORS (base + animated flow) ============ -->
+  <g>
+    <path class="base" d="M128 188H156M268 188H296M408 188H436M548 188H576"/>
+    <path class="base" d="M688 188C702 188 702 104 716 104M688 188C702 188 702 272 716 272"/>
+    <path class="base" d="M828 104C842 104 842 188 856 188M828 272C842 272 842 188 856 188"/>
+    <path class="base" d="M968 188H996M1108 188H1136"/>
+    <path class="base" d="M1052 226C1052 248 1004 248 1004 270M1052 226C1052 248 1102 248 1102 270"/>
+    <path class="base" d="M212 226V400M352 226V400M492 226V400"/>
+
+    <path class="flow" stroke="#22d3ee" d="M128 188H156M268 188H296M408 188H436M548 188H576"/>
+    <path class="flow d1" stroke="#5b9dff" d="M688 188C702 188 702 104 716 104M828 104C842 104 842 188 856 188"/>
+    <path class="flow d2" stroke="#22d3ee" d="M688 188C702 188 702 272 716 272M828 272C842 272 842 188 856 188"/>
+    <path class="flow d3" stroke="#22d3ee" d="M968 188H996M1108 188H1136"/>
+    <path class="flow d4" stroke="#a78bfa" d="M1052 226C1052 248 1004 248 1004 270M1052 226C1052 248 1102 248 1102 270"/>
+    <path class="flow" stroke="#ff4d8d" d="M212 226V400"/>
+    <path class="flow d2" stroke="#ffb547" d="M352 226V400"/>
+    <path class="flow d4" stroke="#3ee6a8" d="M492 226V400"/>
+  </g>
+
+  <!-- ============ STAGE NUMBERS ============ -->
+  <g class="t num" text-anchor="middle">
+    <text x="72" y="140">01</text><text x="212" y="140">02</text><text x="352" y="140">03</text>
+    <text x="492" y="140">04</text><text x="632" y="140">05</text><text x="912" y="140">07</text>
+    <text x="1052" y="140">08</text><text x="1192" y="140">09</text>
+  </g>
+
+  <!-- ============ MAIN NODES ============ -->
+  <g text-anchor="middle">
+    <rect class="halo" x="16" y="150" width="112" height="76" rx="14" stroke="#22d3ee"/>
+    <rect class="box" x="16" y="150" width="112" height="76" rx="14" stroke="#22d3ee"/>
+    <text x="72" y="184" class="t lbl">Visitor Query</text>
+    <text x="72" y="203" class="t small">REST · SDK</text>
+
+    <rect class="halo" x="156" y="150" width="112" height="76" rx="14" stroke="#ff4d8d" style="animation-delay:-.3s"/>
+    <rect class="box" x="156" y="150" width="112" height="76" rx="14" stroke="#ff4d8d"/>
+    <text x="212" y="184" class="t lbl">Security Guard</text>
+    <text x="212" y="203" class="t small">sanitize · detect</text>
+
+    <rect class="halo" x="296" y="150" width="112" height="76" rx="14" stroke="#ffb547" style="animation-delay:-.6s"/>
+    <rect class="box" x="296" y="150" width="112" height="76" rx="14" stroke="#ffb547"/>
+    <text x="352" y="184" class="t lbl">Hybrid Cache</text>
+    <text x="352" y="203" class="t small">LRU + disk</text>
+
+    <rect class="halo" x="436" y="150" width="112" height="76" rx="14" stroke="#3ee6a8" style="animation-delay:-.9s"/>
+    <rect class="box" x="436" y="150" width="112" height="76" rx="14" stroke="#3ee6a8"/>
+    <text x="492" y="184" class="t lbl">Semantic FAQ</text>
+    <text x="492" y="203" class="t small">0-token match</text>
+
+    <rect class="halo" x="576" y="150" width="112" height="76" rx="14" stroke="#a78bfa" style="animation-delay:-1.2s"/>
+    <rect class="box" x="576" y="150" width="112" height="76" rx="14" stroke="#a78bfa"/>
+    <text x="632" y="184" class="t lbl">SML Router</text>
+    <text x="632" y="203" class="t small">MiniLM · ONNX</text>
+
+    <rect class="halo" x="716" y="66" width="112" height="76" rx="14" stroke="#3ee6a8" style="animation-delay:-1.5s"/>
+    <rect class="box" x="716" y="66" width="112" height="76" rx="14" stroke="#3ee6a8"/>
+    <rect x="736" y="73" width="72" height="15" rx="4" fill="#0b241c" stroke="#3ee6a8" stroke-width="0.8"/>
+    <text x="772" y="84" class="t small mono" style="font-size:8px;font-weight:700;fill:#3ee6a8">sim ≥ 0.50</text>
+    <text x="772" y="105" class="t lbl">Tool Action</text>
+    <text x="772" y="123" class="t small">live DB · API</text>
+
+    <rect class="halo" x="716" y="234" width="112" height="76" rx="14" stroke="#5b9dff" style="animation-delay:-1.8s"/>
+    <rect class="box" x="716" y="234" width="112" height="76" rx="14" stroke="#5b9dff"/>
+    <rect x="736" y="241" width="72" height="15" rx="4" fill="#0d1b33" stroke="#5b9dff" stroke-width="0.8"/>
+    <text x="772" y="252" class="t small mono" style="font-size:8px;font-weight:700;fill:#5b9dff">sim &lt; 0.50</text>
+    <text x="772" y="273" class="t lbl">Vector Retrieval</text>
+    <text x="772" y="291" class="t small">top-k documents</text>
+
+    <rect class="halo" x="856" y="150" width="112" height="76" rx="14" stroke="#f472b6" style="animation-delay:-2.1s"/>
+    <rect class="box" x="856" y="150" width="112" height="76" rx="14" stroke="#f472b6"/>
+    <text x="912" y="184" class="t lbl">Prompt Builder</text>
+    <text x="912" y="203" class="t small">untrusted sandbox</text>
+
+    <rect class="halo" x="996" y="150" width="112" height="76" rx="14" stroke="#22d3ee" style="animation-delay:-2.4s"/>
+    <rect class="box" x="996" y="150" width="112" height="76" rx="14" stroke="#22d3ee"/>
+    <text x="1052" y="184" class="t lbl">Tiered LLM</text>
+    <text x="1052" y="203" class="t small">fast ⇄ smart</text>
+
+    <rect class="halo" x="1136" y="150" width="112" height="76" rx="14" stroke="#3ee6a8" style="animation-delay:-2.7s"/>
+    <rect class="box" x="1136" y="150" width="112" height="76" rx="14" stroke="#3ee6a8"/>
+    <text x="1192" y="184" class="t lbl">Verified Answer</text>
+    <text x="1192" y="203" class="t small">+ cache write</text>
+
+    <!-- LLM tiers -->
+    <rect class="box" x="960" y="270" width="88" height="50" rx="11" stroke="#a78bfa"/>
+    <text x="1004" y="291" class="t lbl" style="font-size:11.5px">FAST</text>
+    <text x="1004" y="308" class="t small" style="font-size:9.5px">simple · extract</text>
+    <rect class="box" x="1058" y="270" width="88" height="50" rx="11" stroke="#a78bfa"/>
+    <text x="1102" y="291" class="t lbl" style="font-size:11.5px">SMART</text>
+    <text x="1102" y="308" class="t small" style="font-size:9.5px">analysis · multi-step</text>
+    <text x="1053" y="342" class="t small" style="font-size:9.5px">Private LLM → Ollama → OpenAI → Gemini</text>
+    <text x="1053" y="357" class="t small" style="font-size:9.5px;fill:#6b75a8">automatic failover chain</text>
+  </g>
+
+  <!-- ============ EARLY EXIT LANE ============ -->
+  <path d="M16 372H600" stroke="#28315c" stroke-dasharray="3 6"/>
+  <text x="28" y="392" class="t lane">EARLY EXIT · ZERO LLM COST</text>
+  <g text-anchor="middle">
+    <rect class="box" x="150" y="400" width="124" height="54" rx="12" stroke="#ff4d8d"/>
+    <text x="212" y="423" class="t lbl" style="fill:#ff8db3">Blocked</text>
+    <text x="212" y="441" class="t small">~1 ms · 0 tokens</text>
+    <rect class="box" x="290" y="400" width="124" height="54" rx="12" stroke="#ffb547"/>
+    <text x="352" y="423" class="t lbl" style="fill:#ffcf85">Cache Hit</text>
+    <text x="352" y="441" class="t small">~3 ms · 0 tokens</text>
+    <rect class="box" x="430" y="400" width="124" height="54" rx="12" stroke="#3ee6a8"/>
+    <text x="492" y="423" class="t lbl" style="fill:#8ff3cc">FAQ Hit</text>
+    <text x="492" y="441" class="t small">~5–10 ms · 0 tokens</text>
+  </g>
+
+  <!-- ============ MOVING PACKETS ============ -->
+  <g filter="url(#glow)">
+    <circle r="5" fill="#22d3ee">
+      <animateMotion dur="7s" repeatCount="indefinite" path="M72 188H688C702 188 702 272 716 272H828C842 272 842 188 856 188H1192"/>
+      <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.06;.92;1" dur="7s" repeatCount="indefinite"/>
+    </circle>
+    <circle r="5" fill="#5b9dff">
+      <animateMotion dur="7s" begin="-3.5s" repeatCount="indefinite" path="M72 188H688C702 188 702 104 716 104H828C842 104 842 188 856 188H1192"/>
+      <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.06;.92;1" dur="7s" begin="-3.5s" repeatCount="indefinite"/>
+    </circle>
+    <circle r="5" fill="#ff4d8d">
+      <animateMotion dur="3s" begin="-.6s" repeatCount="indefinite" path="M72 188H212V427"/>
+      <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.1;.85;1" dur="3s" begin="-.6s" repeatCount="indefinite"/>
+    </circle>
+    <circle r="5" fill="#ffb547">
+      <animateMotion dur="3.6s" begin="-1.8s" repeatCount="indefinite" path="M72 188H352V427"/>
+      <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.1;.85;1" dur="3.6s" begin="-1.8s" repeatCount="indefinite"/>
+    </circle>
+    <circle r="5" fill="#3ee6a8">
+      <animateMotion dur="4.2s" begin="-2.9s" repeatCount="indefinite" path="M72 188H492V427"/>
+      <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.1;.85;1" dur="4.2s" begin="-2.9s" repeatCount="indefinite"/>
+    </circle>
+    <circle r="4" fill="#a78bfa">
+      <animateMotion dur="2.4s" repeatCount="indefinite" path="M1052 226C1052 248 1004 248 1004 270"/>
+      <animate attributeName="opacity" values="0;1;0" dur="2.4s" repeatCount="indefinite"/>
+    </circle>
+    <circle r="4" fill="#a78bfa">
+      <animateMotion dur="2.4s" begin="-1.2s" repeatCount="indefinite" path="M1052 226C1052 248 1102 248 1102 270"/>
+      <animate attributeName="opacity" values="0;1;0" dur="2.4s" begin="-1.2s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- ============ LEGEND ============ -->
+  <g class="t small" transform="translate(640 420)">
+    <circle cx="0" cy="0" r="5" fill="#22d3ee"/><text x="12" y="4">Full RAG path</text>
+    <circle cx="120" cy="0" r="5" fill="#5b9dff"/><text x="132" y="4">Tool / agent path</text>
+    <circle cx="260" cy="0" r="5" fill="#ff4d8d"/><text x="272" y="4">Injection blocked</text>
+    <circle cx="0" cy="28" r="5" fill="#ffb547"/><text x="12" y="32">Cache hit</text>
+    <circle cx="120" cy="28" r="5" fill="#3ee6a8"/><text x="132" y="32">Semantic FAQ hit</text>
+    <circle cx="260" cy="28" r="5" fill="#a78bfa"/><text x="272" y="32">Complexity routing</text>
+  </g>
+  <text x="640" y="500" class="t small" style="fill:#6b75a8">Latencies are indicative, measured locally on CPU with the quantized q8 MiniLM model.</text>
+</svg>

@@ -1,0 +1,210 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1264 520" width="1264" height="520" role="img" aria-label="AI-RAG-ENGINE Local SML Decision and Execution Mechanism">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/>
+      <stop offset="1" stop-color="#150f32"/>
+    </linearGradient>
+    <linearGradient id="smlGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2a1f6e"/>
+      <stop offset="1" stop-color="#161b3d"/>
+    </linearGradient>
+    <linearGradient id="toolGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#142c4f"/>
+      <stop offset="1" stop-color="#0f1a36"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.045"/>
+    </pattern>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="3.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <style>
+    .t{font-family:-apple-system,'Segoe UI',Inter,Roboto,Helvetica,Arial,sans-serif;fill:#e6e9ff}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    .title{font-size:20px;font-weight:700}
+    .subtitle{font-size:12px;fill:#9aa3c7}
+    .lbl{font-size:12.5px;font-weight:650;fill:#fff}
+    .small{font-size:10px;fill:#aab2d5}
+    .cap{font-size:9.5px;font-weight:700;fill:#7c88b8;letter-spacing:1.5px}
+    .box{fill:#111933;stroke:#2f3a6b;stroke-width:1.5}
+    .base{fill:none;stroke:#28315c;stroke-width:2.5}
+    .flow{fill:none;stroke-width:2;stroke-dasharray:6 10;animation:dash 1.2s linear infinite}
+    @keyframes dash{to{stroke-dashoffset:-32}}
+    .pulse{animation:pulse 2.8s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:.2}50%{opacity:1}}
+  </style>
+
+  <rect width="1264" height="520" rx="20" fill="url(#bg)"/>
+  <rect width="1264" height="520" rx="20" fill="url(#grid)"/>
+
+  <!-- Header: scoped to left side to prevent collision with top boxes -->
+  <text x="28" y="38" class="t title">Local SML (Semantic Model Layer) Decision &amp; Execution Mechanism</text>
+  <text x="28" y="58" class="t subtitle">Sub-15ms mathematical vector dot products replace slow cloud LLM tool routing.</text>
+
+  <!-- Connectors -->
+  <g>
+    <!-- Query -> SML ONNX -->
+    <path class="base" d="M184 190H224"/>
+    <path class="flow" stroke="#22d3ee" d="M184 190H224"/>
+
+    <!-- SML ONNX -> Dot Product Engine -->
+    <path class="base" d="M394 190H434"/>
+    <path class="flow" stroke="#a78bfa" d="M394 190H434"/>
+
+    <!-- Registry DB -> Dot Product Engine -->
+    <path class="base" d="M521 114V136"/>
+    <path class="flow" stroke="#ffb547" d="M521 114V136"/>
+
+    <!-- Dot Product -> Decision Gate -->
+    <path class="base" d="M608 190H650"/>
+    <path class="flow" stroke="#22d3ee" d="M608 190H650"/>
+
+    <!-- Decision Gate -> Branch A (Tool Action: score >= 0.50) -->
+    <path class="base" d="M760 190C790 190 805 120 846 120"/>
+    <path class="flow" stroke="#3ee6a8" d="M760 190C790 190 805 120 846 120"/>
+
+    <!-- Decision Gate -> Branch B (Vector Retrieval: score < 0.50) -->
+    <path class="base" d="M760 190C790 190 805 260 846 260"/>
+    <path class="flow" stroke="#5b9dff" d="M760 190C790 190 805 260 846 260"/>
+
+    <!-- Branch A -> Native Action -->
+    <path class="base" d="M1006 120H1026"/>
+    <path class="flow" stroke="#3ee6a8" d="M1006 120H1026"/>
+
+    <!-- Native Action -> Prompt Builder -->
+    <path class="base" d="M1176 120C1186 120 1186 170 1196 170"/>
+    <path class="flow" stroke="#3ee6a8" d="M1176 120C1186 120 1186 170 1196 170"/>
+
+    <!-- Branch B -> Prompt Builder -->
+    <path class="base" d="M1006 260C1110 260 1150 200 1196 200"/>
+    <path class="flow" stroke="#5b9dff" d="M1006 260C1110 260 1150 200 1196 200"/>
+  </g>
+
+  <!-- ============ STAGES ============ -->
+
+  <!-- 01: Raw Query -->
+  <g>
+    <rect class="box" x="28" y="146" width="156" height="88" rx="14" stroke="#22d3ee"/>
+    <text x="38" y="168" class="t cap">INPUT QUERY</text>
+    <text x="38" y="188" class="t lbl" style="font-size:12px">"Do you have laptop</text>
+    <text x="38" y="204" class="t lbl" style="font-size:12px">stock right now?"</text>
+    <text x="38" y="222" class="t small">User visitor prompt</text>
+  </g>
+
+  <!-- 02: Local In-Process SML (all-MiniLM-L6-v2) -->
+  <g>
+    <rect class="box" x="224" y="136" width="170" height="108" rx="14" fill="url(#smlGrad)" stroke="#7c6cf5" stroke-width="2"/>
+    <circle cx="242" cy="158" r="4.5" fill="#22d3ee" class="pulse"/>
+    <text x="254" y="162" class="t lbl" style="font-size:13px">Local ONNX SML</text>
+    <text x="236" y="182" class="t small mono">all-MiniLM-L6-v2 (q8)</text>
+    <text x="236" y="200" class="t small">• Quantized CPU Inference</text>
+    <text x="236" y="216" class="t small">• Latency: <tspan fill="#3ee6a8" font-weight="700">~8-12ms</tspan> · <tspan fill="#3ee6a8" font-weight="700">0 Tokens</tspan></text>
+    <text x="236" y="232" class="t small mono" style="font-size:9px;fill:#a78bfa">Output: 384-dim unit vector [q⃗]</text>
+  </g>
+
+  <!-- Pre-computed Registry Storage (positioned clearly above Dot Product with zero text overlap) -->
+  <g>
+    <rect class="box" x="434" y="70" width="174" height="44" rx="10" stroke="#ffb547"/>
+    <text x="446" y="88" class="t cap" style="fill:#ffcf85">PRE-COMPUTED REGISTRY</text>
+    <text x="446" y="103" class="t small mono" style="font-size:9.5px">tools-registry.json (384-dim)</text>
+  </g>
+
+  <!-- 03: SIMD Dot Product Matrix Engine -->
+  <g>
+    <rect class="box" x="434" y="136" width="174" height="108" rx="14" stroke="#a78bfa"/>
+    <text x="446" y="158" class="t cap" style="fill:#c4b5fd">VECTOR SIMILARITY</text>
+    <text x="446" y="177" class="t lbl">Dot-Product Engine</text>
+    <text x="446" y="195" class="t small mono" style="font-size:9.5px">score = q⃗ · t⃗_i (cosine)</text>
+    <text x="446" y="213" class="t small mono" style="font-size:9px;fill:#3ee6a8">check_live_stock : 0.782 ✓</text>
+    <text x="446" y="229" class="t small mono" style="font-size:9px;fill:#7c88b8">track_order      : 0.194</text>
+  </g>
+
+  <!-- 04: Decision Gate -->
+  <g>
+    <polygon points="705,145 760,190 705,235 650,190" fill="#1b1242" stroke="#22d3ee" stroke-width="2"/>
+    <text x="705" y="184" class="t lbl" text-anchor="middle" style="font-size:11px;font-weight:700">SML Gate</text>
+    <text x="705" y="200" class="t small mono" text-anchor="middle" style="font-size:9.5px;fill:#22d3ee">sim ≥ 0.50?</text>
+
+    <!-- Branch Badges -->
+    <rect x="784" y="112" width="46" height="18" rx="5" fill="#0d2b24" stroke="#3ee6a8" stroke-width="1"/>
+    <text x="807" y="125" class="t small mono" text-anchor="middle" style="font-size:9px;font-weight:700;fill:#3ee6a8">YES</text>
+
+    <rect x="784" y="248" width="46" height="18" rx="5" fill="#132442" stroke="#5b9dff" stroke-width="1"/>
+    <text x="807" y="261" class="t small mono" text-anchor="middle" style="font-size:9px;font-weight:700;fill:#5b9dff">NO</text>
+  </g>
+
+  <!-- 05A: Tool Extraction Pipeline -->
+  <g>
+    <rect class="box" x="846" y="80" width="160" height="80" rx="12" fill="url(#toolGrad)" stroke="#3ee6a8" stroke-width="1.8"/>
+    <text x="856" y="101" class="t cap" style="fill:#8ff3cc">BRANCH A: DETERMINISTIC</text>
+    <text x="856" y="120" class="t lbl" style="font-size:12px">Parameter Extraction</text>
+    <text x="856" y="137" class="t small mono" style="font-size:9px;fill:#c4b5fd">{ productName: "laptop" }</text>
+    <text x="856" y="151" class="t small" style="font-size:8.5px;fill:#9aa3c7">Fast LLM schema parsing</text>
+  </g>
+
+  <!-- Live Tool Native Execution (Cleanly positioned between x=1026 and x=1176) -->
+  <g>
+    <rect class="box" x="1026" y="80" width="150" height="80" rx="12" stroke="#3ee6a8" stroke-width="1.8"/>
+    <circle cx="1040" cy="99" r="4" fill="#3ee6a8" class="pulse"/>
+    <text x="1052" y="103" class="t lbl" style="font-size:12px">Native Action</text>
+    <text x="1038" y="121" class="t small mono" style="font-size:9px;fill:#3ee6a8">tool.execute(args)</text>
+    <text x="1038" y="137" class="t small" style="font-size:9px">• Live SQL / ERP API</text>
+    <text x="1038" y="151" class="t small" style="font-size:9px">• In-stock: 42 units</text>
+  </g>
+
+  <!-- 05B: Vector Retrieval (Standard RAG) -->
+  <g>
+    <rect class="box" x="846" y="222" width="160" height="76" rx="12" stroke="#5b9dff"/>
+    <text x="856" y="244" class="t cap" style="fill:#93c5fd">BRANCH B: VECTOR RAG</text>
+    <text x="856" y="264" class="t lbl">Document Search</text>
+    <text x="856" y="282" class="t small">Vector store top-k chunks</text>
+  </g>
+
+  <!-- Prompt Builder (Cleanly placed at x=1196 to x=1246 with 0 collision) -->
+  <g>
+    <rect class="box" x="1196" y="145" width="46" height="90" rx="10" stroke="#f472b6"/>
+    <text x="1219" y="185" class="t small" text-anchor="middle" transform="rotate(90 1219 185)" style="font-size:9.5px;fill:#f472b6;font-weight:700">PROMPT</text>
+  </g>
+
+  <!-- ============ COMPARISON FOOTER BANNER ============ -->
+  <g transform="translate(28, 330)">
+    <rect width="1208" height="162" rx="14" fill="#0d1428" stroke="#28355e" stroke-width="1.2"/>
+    <text x="24" y="30" class="t lbl" style="font-size:13.5px;fill:#22d3ee">⚖️ ARCHITECTURAL BENCHMARK: In-Process SML vs. Traditional Cloud LLM Tool Routing</text>
+
+    <!-- Table Header -->
+    <path d="M24 44H1184" stroke="#1d284a"/>
+    <text x="32" y="62" class="t cap">METRIC</text>
+    <text x="320" y="62" class="t cap">TRADITIONAL RAG (LangChain / LlamaIndex / CrewAI)</text>
+    <text x="780" y="62" class="t cap" style="fill:#3ee6a8">AI-RAG-ENGINE IN-PROCESS SML</text>
+
+    <!-- Row 1 -->
+    <path d="M24 74H1184" stroke="#17213d"/>
+    <text x="32" y="92" class="t lbl" style="font-size:12px">Intent Routing Latency</text>
+    <text x="320" y="92" class="t small" style="fill:#ff8db3">1,500 ms – 3,000 ms (Cloud Roundtrip)</text>
+    <text x="780" y="92" class="t small mono" style="fill:#3ee6a8;font-weight:700">~8 ms – 12 ms (Local ONNX CPU)</text>
+
+    <!-- Row 2 -->
+    <path d="M24 104H1184" stroke="#17213d"/>
+    <text x="32" y="122" class="t lbl" style="font-size:12px">Token Cost for Routing</text>
+    <text x="320" y="122" class="t small" style="fill:#ff8db3">800 – 2,000 Tokens per query (Tools JSON schema)</text>
+    <text x="780" y="122" class="t small mono" style="fill:#3ee6a8;font-weight:700">0 Tokens (Zero LLM usage for routing)</text>
+
+    <!-- Row 3 -->
+    <path d="M24 134H1184" stroke="#17213d"/>
+    <text x="32" y="150" class="t lbl" style="font-size:12px">Reliability &amp; Privacy</text>
+    <text x="320" y="150" class="t small" style="fill:#ff8db3">Prone to hallucinations, rate-limits &amp; data leakage</text>
+    <text x="780" y="150" class="t small" style="fill:#3ee6a8;font-weight:600">100% Deterministic Cosine Math · Air-Gapped Local</text>
+  </g>
+
+  <!-- Animated Flying Packets -->
+  <g filter="url(#glow)">
+    <circle r="4" fill="#22d3ee"><animateMotion dur="2.4s" repeatCount="indefinite" path="M184 190H224"/></circle>
+    <circle r="4" fill="#a78bfa"><animateMotion dur="2.4s" begin="-0.6s" repeatCount="indefinite" path="M394 190H434"/></circle>
+    <circle r="3.5" fill="#ffb547"><animateMotion dur="2.8s" repeatCount="indefinite" path="M521 114V136"/></circle>
+    <circle r="4" fill="#22d3ee"><animateMotion dur="2.4s" begin="-1.2s" repeatCount="indefinite" path="M608 190H650"/></circle>
+    <circle r="4" fill="#3ee6a8"><animateMotion dur="2.4s" begin="-1.8s" repeatCount="indefinite" path="M760 190C790 190 805 120 846 120"/></circle>
+    <circle r="4" fill="#3ee6a8"><animateMotion dur="2.0s" begin="-0.5s" repeatCount="indefinite" path="M1006 120H1026"/></circle>
+  </g>
+</svg>

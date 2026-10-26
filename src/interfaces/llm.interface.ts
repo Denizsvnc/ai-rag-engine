@@ -4,6 +4,7 @@ export interface ILLMRequest {
     systemPrompt: string;
     userPrompt: string;
     tools?: IAgentTool[];
+    complexity?: 'fast' | 'smart';
 }
 
 export interface ILLMResponse {

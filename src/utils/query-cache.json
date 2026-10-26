@@ -1,0 +1,32 @@
+{
+  "_notice": "TEST & DEMO DATA ONLY: The cached queries in this file are sample seeds for demonstration. Delete or purge this cache before deploying to production.",
+  "iade politikasi nedir?": {
+    "answer": "Yasal iade suremiz teslimat tarihinden itibaren 14 gundur. Urunun orijinal ambalajinda ve faturasiyla gonderilmesi gerekmektedir.",
+    "intent": "FAQ",
+    "resolvedBy": "CACHE",
+    "appliedRules": [
+      "Iade suresi tum urunler icin 14 gundur."
+    ],
+    "latencyMs": 3
+  },
+  "kargo ne kadar surer?": {
+    "answer": "Standart teslimatimiz 2-4 is gunu icinde adresinize ulasir. Hizli kargo secenegi ile 24 saatte teslimat saglanmaktadir.",
+    "intent": "FAQ",
+    "resolvedBy": "CACHE",
+    "latencyMs": 4
+  },
+  "laptop stokta var mi?": {
+    "answer": "Depo A uzerinde guncel 12 adet laptop stogu bulunmaktadir. Fiyati 25.000 TL dir.",
+    "intent": "TOOL_CALL",
+    "resolvedBy": "TOOL_EXECUTION",
+    "executedTools": [
+      {
+        "name": "check_live_stock",
+        "args": {
+          "productName": "laptop"
+        }
+      }
+    ],
+    "latencyMs": 12
+  }
+}

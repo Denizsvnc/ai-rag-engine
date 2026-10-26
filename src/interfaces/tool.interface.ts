@@ -10,7 +10,7 @@ export interface ToolParameterSchema {
 
 export interface IAgentTool<TArgs = any, TResult = any> {
     name: string;
-    description: string; // MANDATORY for SML sentiment analysis and vectorization
+    description: string; // Used by SML for intent routing and vector similarity
     parameters?: ToolParameterSchema;
     cacheResultTTL?: number;
     execute: (args: TArgs, context?: Record<string, any>) => Promise<TResult>;

@@ -1,0 +1,223 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1264 600" width="1264" height="600" role="img" aria-label="AI-RAG-ENGINE integration topology: clients call REST endpoints, RAGEngine orchestrates adapters and LLM providers with failover">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/>
+      <stop offset="1" stop-color="#170f36"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d1650"/>
+      <stop offset="1" stop-color="#111933"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.045"/>
+    </pattern>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="3.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <style>
+    .t{font-family:-apple-system,'Segoe UI',Inter,Roboto,Helvetica,Arial,sans-serif;fill:#e6e9ff}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    .title{font-size:21px;font-weight:700}
+    .subtitle{font-size:12.5px;fill:#9aa3c7}
+    .lbl{font-size:13px;font-weight:650;fill:#fff}
+    .small{font-size:10.5px;fill:#aab2d5}
+    .cap{font-size:10px;font-weight:700;fill:#6b75a8;letter-spacing:1.5px}
+    .box{fill:#111933;stroke:#2f3a6b;stroke-width:1.5}
+    .row{fill:#0e1530;stroke:#28315c;stroke-width:1}
+    .base{fill:none;stroke:#28315c;stroke-width:2.5}
+    .flow{fill:none;stroke-width:2;stroke-dasharray:6 10;animation:dash 1.1s linear infinite}
+    .slow{animation-duration:1.8s}
+    @keyframes dash{to{stroke-dashoffset:-32}}
+    .pulse{animation:pulse 2.6s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+    .spin{transform-origin:822px 194px;animation:spin 14s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+
+  <rect width="1264" height="600" rx="20" fill="url(#bg)"/>
+  <rect width="1264" height="600" rx="20" fill="url(#grid)"/>
+
+  <text x="28" y="42" class="t title">Integration Topology &amp; Endpoints</text>
+  <text x="28" y="64" class="t subtitle">Call it over REST from any language, or embed it as a library. Providers fail over automatically in priority order.</text>
+
+  <!-- column captions -->
+  <text x="24" y="98" class="t cap">CLIENTS</text>
+  <text x="320" y="92" class="t cap">HTTP SURFACE</text>
+  <text x="712" y="92" class="t cap">ORCHESTRATION</text>
+  <text x="1030" y="88" class="t cap">LLM PROVIDERS · FAILOVER ORDER</text>
+
+  <!-- ============ CONNECTORS ============ -->
+  <g>
+    <path class="base" d="M224 142C272 142 272 188 320 188M224 232C272 232 272 188 320 188M224 322C272 322 272 188 320 188M224 412C272 412 272 260 320 260"/>
+    <path class="base" d="M620 280H712"/>
+    <path class="base" d="M932 280C980 280 980 124 1030 124M932 280C980 280 980 200 1030 200M932 280C980 280 980 276 1030 276M932 280C980 280 980 352 1030 352"/>
+    <path class="base" d="M822 410C822 450 609 450 609 490M822 410C822 450 751 450 751 490M822 410C822 450 893 450 893 490M822 410C822 450 1035 450 1035 490"/>
+
+    <path class="flow" stroke="#22d3ee" d="M224 142C272 142 272 188 320 188M224 232C272 232 272 188 320 188M224 322C272 322 272 188 320 188"/>
+    <path class="flow" stroke="#5b9dff" d="M224 412C272 412 272 260 320 260"/>
+    <path class="flow" stroke="#22d3ee" d="M620 280H712"/>
+    <path class="flow" stroke="#3ee6a8" d="M932 280C980 280 980 124 1030 124M932 280C980 280 980 200 1030 200"/>
+    <path class="flow slow" stroke="#a78bfa" d="M932 280C980 280 980 276 1030 276M932 280C980 280 980 352 1030 352"/>
+    <path class="flow slow" stroke="#ffb547" d="M822 410C822 450 609 450 609 490M822 410C822 450 751 450 751 490M822 410C822 450 893 450 893 490M822 410C822 450 1035 450 1035 490"/>
+
+    <!-- blocked public route -->
+    <path d="M932 280C980 280 980 428 1030 428" fill="none" stroke="#ff4d8d" stroke-width="2" stroke-dasharray="2 7" opacity=".55"/>
+    <g transform="translate(984 400)" class="pulse">
+      <circle r="11" fill="#2a0f22" stroke="#ff4d8d" stroke-width="1.5"/>
+      <path d="M-4.5 -4.5L4.5 4.5M4.5 -4.5L-4.5 4.5" stroke="#ff4d8d" stroke-width="2" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <!-- ============ CLIENTS ============ -->
+  <g>
+    <rect class="box" x="24" y="110" width="200" height="64" rx="13"/>
+    <text x="44" y="138" class="t lbl">Web App</text>
+    <text x="44" y="157" class="t small">React · Next.js · Vue</text>
+    <rect class="box" x="24" y="200" width="200" height="64" rx="13"/>
+    <text x="44" y="228" class="t lbl">Mobile App</text>
+    <text x="44" y="247" class="t small">iOS · Android · Flutter</text>
+    <rect class="box" x="24" y="290" width="200" height="64" rx="13"/>
+    <text x="44" y="318" class="t lbl">Backend Service</text>
+    <text x="44" y="337" class="t small">Go · Python · Java · PHP · .NET</text>
+    <rect class="box" x="24" y="380" width="200" height="64" rx="13"/>
+    <text x="44" y="408" class="t lbl">Ops &amp; CI</text>
+    <text x="44" y="427" class="t small">cURL · Postman · K8s probes</text>
+  </g>
+
+  <!-- ============ API PANEL ============ -->
+  <g>
+    <rect x="320" y="104" width="300" height="356" rx="18" fill="#0f1530" stroke="#3a4680" stroke-width="1.5"/>
+    <circle cx="344" cy="130" r="4" fill="#3ee6a8" class="pulse"/>
+    <text x="356" y="134" class="t lbl">Express API</text>
+    <text x="596" y="134" class="t small mono" text-anchor="end">:3000</text>
+
+    <rect class="row" x="336" y="160" width="268" height="56" rx="10"/>
+    <rect x="348" y="174" width="50" height="22" rx="6" fill="#0f3b2f" stroke="#3ee6a8"/>
+    <text x="373" y="189" class="t mono" style="font-size:11px;font-weight:700;fill:#3ee6a8" text-anchor="middle">POST</text>
+    <text x="410" y="185" class="t mono" style="font-size:13px;fill:#fff">/api/query</text>
+    <text x="410" y="203" class="t small">Run the full RAG pipeline</text>
+
+    <rect class="row" x="336" y="232" width="268" height="56" rx="10"/>
+    <rect x="348" y="246" width="50" height="22" rx="6" fill="#10284d" stroke="#5b9dff"/>
+    <text x="373" y="261" class="t mono" style="font-size:11px;font-weight:700;fill:#5b9dff" text-anchor="middle">GET</text>
+    <text x="410" y="257" class="t mono" style="font-size:13px;fill:#fff">/api/health</text>
+    <text x="410" y="275" class="t small">Liveness / readiness probe</text>
+
+    <rect class="row" x="336" y="304" width="268" height="56" rx="10"/>
+    <rect x="348" y="318" width="50" height="22" rx="6" fill="#241a4d" stroke="#a78bfa"/>
+    <text x="373" y="333" class="t mono" style="font-size:11px;font-weight:700;fill:#a78bfa" text-anchor="middle">MW</text>
+    <text x="410" y="329" class="t mono" style="font-size:12px;fill:#fff">createRagMiddleware()</text>
+    <text x="410" y="347" class="t small">Mount on any Express route</text>
+
+    <rect class="row" x="336" y="376" width="268" height="56" rx="10"/>
+    <rect x="348" y="390" width="50" height="22" rx="6" fill="#3a1630" stroke="#f472b6"/>
+    <text x="373" y="405" class="t mono" style="font-size:11px;font-weight:700;fill:#f472b6" text-anchor="middle">SDK</text>
+    <text x="410" y="401" class="t mono" style="font-size:12px;fill:#fff">engine.query()</text>
+    <text x="410" y="419" class="t small">Embed directly in Node.js</text>
+  </g>
+
+  <!-- ============ CORE ============ -->
+  <g>
+    <rect x="712" y="150" width="220" height="260" rx="18" fill="url(#core)" stroke="#7c6cf5" stroke-width="1.8"/>
+    <circle class="spin" cx="822" cy="194" r="29" fill="none" stroke="#22d3ee" stroke-opacity=".5" stroke-dasharray="4 7"/>
+    <path d="M822 174l17 10v20l-17 10l-17-10v-20z" fill="#2a1f6e" stroke="#22d3ee" stroke-width="1.5"/>
+    <circle cx="822" cy="194" r="4" fill="#22d3ee" class="pulse"/>
+    <text x="822" y="240" class="t lbl" text-anchor="middle" style="font-size:15px">RAGEngine</text>
+    <g class="t small mono" style="font-size:10.5px">
+      <text x="736" y="268">▸ SecurityGuard</text>
+      <text x="736" y="288">▸ CacheManager</text>
+      <text x="736" y="308">▸ LocalFaqAdapter</text>
+      <text x="736" y="328">▸ ToolRegistry · SMLEngine</text>
+      <text x="736" y="348">▸ PromptBuilder</text>
+      <text x="736" y="368">▸ TieredLLMProvider</text>
+      <text x="736" y="388">▸ FallbackLLMProvider</text>
+    </g>
+  </g>
+
+  <!-- ============ PROVIDERS ============ -->
+  <g>
+    <rect class="box" x="1030" y="96" width="210" height="56" rx="12" stroke="#3ee6a8"/>
+    <text x="1046" y="120" class="t lbl">Private LLM</text>
+    <text x="1046" y="138" class="t small">vLLM · TGI · LocalAI · gateway</text>
+    <rect x="1170" y="106" width="58" height="17" rx="8" fill="#0f3b2f"/><text x="1199" y="118" class="t" style="font-size:9px;font-weight:700;fill:#3ee6a8" text-anchor="middle">ON-PREM</text>
+
+    <rect class="box" x="1030" y="172" width="210" height="56" rx="12" stroke="#3ee6a8"/>
+    <text x="1046" y="196" class="t lbl">Ollama</text>
+    <text x="1046" y="214" class="t small mono">localhost:11434</text>
+    <rect x="1170" y="182" width="58" height="17" rx="8" fill="#0f3b2f"/><text x="1199" y="194" class="t" style="font-size:9px;font-weight:700;fill:#3ee6a8" text-anchor="middle">ON-PREM</text>
+
+    <rect class="box" x="1030" y="248" width="210" height="56" rx="12" stroke="#a78bfa"/>
+    <text x="1046" y="272" class="t lbl">OpenAI</text>
+    <text x="1046" y="290" class="t small">gpt-4o-mini · gpt-4o</text>
+    <rect x="1170" y="258" width="58" height="17" rx="8" fill="#241a4d"/><text x="1199" y="270" class="t" style="font-size:9px;font-weight:700;fill:#a78bfa" text-anchor="middle">CLOUD</text>
+
+    <rect class="box" x="1030" y="324" width="210" height="56" rx="12" stroke="#a78bfa"/>
+    <text x="1046" y="348" class="t lbl">Google Gemini</text>
+    <text x="1046" y="366" class="t small">flash · pro</text>
+    <rect x="1170" y="334" width="58" height="17" rx="8" fill="#241a4d"/><text x="1199" y="346" class="t" style="font-size:9px;font-weight:700;fill:#a78bfa" text-anchor="middle">CLOUD</text>
+
+    <g opacity=".55">
+      <rect x="1030" y="400" width="210" height="56" rx="12" fill="#151126" stroke="#ff4d8d" stroke-width="1.5" stroke-dasharray="5 5"/>
+      <text x="1046" y="424" class="t lbl">OpenRouter</text>
+      <text x="1046" y="442" class="t small">public open-source models</text>
+      <rect x="1170" y="410" width="58" height="17" rx="8" fill="#3a1630"/><text x="1199" y="422" class="t" style="font-size:9px;font-weight:700;fill:#ff4d8d" text-anchor="middle">LOCKED</text>
+    </g>
+    <text x="1135" y="474" class="t small mono" style="font-size:9.5px;fill:#ff8db3" text-anchor="middle">ALLOW_PUBLIC_OPENSOURCE_LLM=false</text>
+  </g>
+
+  <!-- ============ DATA ADAPTERS ============ -->
+  <text x="320" y="522" class="t cap">PLUGGABLE DATA ADAPTERS</text>
+  <text x="320" y="540" class="t small">Swap any of them for Pinecone,</text>
+  <text x="320" y="555" class="t small">pgvector, Redis or your own API.</text>
+  <g text-anchor="middle">
+    <rect class="box" x="545" y="490" width="128" height="50" rx="11" stroke="#ffb547"/>
+    <text x="609" y="511" class="t lbl" style="font-size:12px">Vector Store</text>
+    <text x="609" y="528" class="t small mono" style="font-size:9.5px">IVectorStoreAdapter</text>
+    <rect class="box" x="687" y="490" width="128" height="50" rx="11" stroke="#ffb547"/>
+    <text x="751" y="511" class="t lbl" style="font-size:12px">FAQ Knowledge</text>
+    <text x="751" y="528" class="t small mono" style="font-size:9.5px">IFAQAdapter</text>
+    <rect class="box" x="829" y="490" width="128" height="50" rx="11" stroke="#ffb547"/>
+    <text x="893" y="511" class="t lbl" style="font-size:12px">Business Rules</text>
+    <text x="893" y="528" class="t small mono" style="font-size:9.5px">IRulesAdapter</text>
+    <rect class="box" x="971" y="490" width="128" height="50" rx="11" stroke="#ffb547"/>
+    <text x="1035" y="511" class="t lbl" style="font-size:12px">Agent Tools</text>
+    <text x="1035" y="528" class="t small mono" style="font-size:9.5px">IAgentTool</text>
+  </g>
+
+  <!-- ============ PACKETS ============ -->
+  <g filter="url(#glow)">
+    <!-- requests: clients -> API -->
+    <circle r="4.5" fill="#22d3ee"><animateMotion dur="2.6s" repeatCount="indefinite" path="M224 142C272 142 272 188 320 188"/></circle>
+    <circle r="4.5" fill="#22d3ee"><animateMotion dur="2.6s" begin="-.9s" repeatCount="indefinite" path="M224 232C272 232 272 188 320 188"/></circle>
+    <circle r="4.5" fill="#22d3ee"><animateMotion dur="2.6s" begin="-1.7s" repeatCount="indefinite" path="M224 322C272 322 272 188 320 188"/></circle>
+    <circle r="4.5" fill="#5b9dff"><animateMotion dur="3.2s" begin="-.4s" repeatCount="indefinite" path="M224 412C272 412 272 260 320 260"/></circle>
+    <!-- responses: API -> clients -->
+    <circle r="3.5" fill="#3ee6a8"><animateMotion dur="2.6s" begin="-1.3s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear" path="M224 142C272 142 272 188 320 188"/></circle>
+    <circle r="3.5" fill="#3ee6a8"><animateMotion dur="2.6s" begin="-.2s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear" path="M224 322C272 322 272 188 320 188"/></circle>
+    <!-- API <-> Core -->
+    <circle r="5" fill="#22d3ee"><animateMotion dur="1.6s" repeatCount="indefinite" path="M620 280H712"/></circle>
+    <circle r="4" fill="#3ee6a8"><animateMotion dur="1.6s" begin="-.8s" repeatCount="indefinite" keyPoints="1;0" keyTimes="0;1" calcMode="linear" path="M620 280H712"/></circle>
+    <!-- Core -> providers (primary first, failover after) -->
+    <circle r="4.5" fill="#3ee6a8"><animateMotion dur="2.2s" repeatCount="indefinite" path="M932 280C980 280 980 124 1030 124"/></circle>
+    <circle r="4.5" fill="#3ee6a8"><animateMotion dur="2.2s" begin="-1.1s" repeatCount="indefinite" path="M932 280C980 280 980 200 1030 200"/></circle>
+    <circle r="4" fill="#a78bfa"><animateMotion dur="3.4s" begin="-.6s" repeatCount="indefinite" path="M932 280C980 280 980 276 1030 276"/></circle>
+    <circle r="4" fill="#a78bfa"><animateMotion dur="3.4s" begin="-2.3s" repeatCount="indefinite" path="M932 280C980 280 980 352 1030 352"/></circle>
+    <!-- Core <-> adapters -->
+    <circle r="3.5" fill="#ffb547"><animateMotion dur="2.8s" repeatCount="indefinite" path="M822 410C822 450 609 450 609 490"/></circle>
+    <circle r="3.5" fill="#ffb547"><animateMotion dur="2.8s" begin="-.7s" repeatCount="indefinite" path="M822 410C822 450 751 450 751 490"/></circle>
+    <circle r="3.5" fill="#ffb547"><animateMotion dur="2.8s" begin="-1.4s" repeatCount="indefinite" path="M822 410C822 450 893 450 893 490"/></circle>
+    <circle r="3.5" fill="#ffb547"><animateMotion dur="2.8s" begin="-2.1s" repeatCount="indefinite" path="M822 410C822 450 1035 450 1035 490"/></circle>
+  </g>
+
+  <!-- legend -->
+  <g class="t small" transform="translate(28 520)">
+    <circle cx="6" cy="0" r="4.5" fill="#22d3ee"/><text x="18" y="4">request</text>
+    <circle cx="6" cy="22" r="4" fill="#3ee6a8"/><text x="18" y="26">response</text>
+    <circle cx="6" cy="44" r="4" fill="#ffb547"/><text x="18" y="48">data lookup</text>
+    <circle cx="116" cy="0" r="4.5" fill="#5b9dff"/><text x="128" y="4">health probe</text>
+    <circle cx="116" cy="22" r="4" fill="#a78bfa"/><text x="128" y="26">failover route</text>
+    <circle cx="116" cy="44" r="4" fill="#ff4d8d"/><text x="128" y="48">blocked by policy</text>
+  </g>
+</svg>
