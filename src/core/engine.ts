@@ -354,7 +354,12 @@ export class RAGEngine {
         const systemPrompt = PromptBuilder.buildSystemPrompt({
             rules,
             documents,
-            toolResults: toolResultContext
+            toolResults: toolResultContext,
+            caller: context ? {
+                tenantId: context.tenantId,
+                userId: context.userId,
+                roles: context.roles
+            } : undefined
         });
 
         const finalResponse = await this.config.llmProvider.generate({
