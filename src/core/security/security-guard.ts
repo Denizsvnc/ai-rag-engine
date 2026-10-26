@@ -1,19 +1,25 @@
 import type { SecurityConfig, InjectionCheckResult } from './security.types';
 import { InputSanitizer } from './sanitizer';
 import { InjectionDetector } from './injection-detector';
+import { PIIGuard } from './pii-guard';
 
 /**
  * Enterprise Security Guardrail for the RAG Engine.
  * Provides pre-flight input sanitization, heuristic attack detection,
- * and untrusted visitor boundary formatting to mitigate Prompt Injection.
+ * PII masking (TCKN, Credit Cards, IBAN), and untrusted visitor boundary formatting.
  */
 export class SecurityGuard {
     /**
-     * Inspects, sanitizes, and assesses security risk of incoming visitor input.
+     * Inspects, sanitizes, redacts PII, and assesses security risk of incoming visitor input.
      */
     public static inspect(rawInput: string, config?: SecurityConfig): InjectionCheckResult {
         const maxLength = config?.maxInputLength ?? 4000;
-        const sanitized = InputSanitizer.sanitize(rawInput, maxLength);
+        let sanitized = InputSanitizer.sanitize(rawInput, maxLength);
+
+        if (config?.pii?.enabled !== false) {
+            const piiResult = PIIGuard.sanitize(sanitized, config?.pii);
+            sanitized = piiResult.sanitizedText;
+        }
 
         const customPatterns = config?.customInjectionPatterns;
         const detection = InjectionDetector.detect(sanitized, customPatterns);

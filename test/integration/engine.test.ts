@@ -125,4 +125,71 @@ describe('Integration - RAGEngine Full Lifecycle', () => {
         assert.ok(res.executedTools !== undefined);
         assert.equal(res.executedTools[0]?.name, 'check_live_stock');
     });
+
+    it('should maintain live data freshness when catalog price/stock changes from X to B', async () => {
+        // Dynamic live pricing database simulation
+        let liveDatabasePrice = 1000; // Price X
+
+        const livePriceTool: IAgentTool<{ productName: string }> = {
+            name: 'check_live_price',
+            description: 'Ürünün güncel satış fiyatını sorgular. Ürün ne kadar, fiyatı nedir sorularında çalışır. Retrieves current product price.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    productName: { type: 'string', description: 'Product name' }
+                },
+                required: ['productName']
+            },
+            execute: async () => {
+                return { currentPrice: liveDatabasePrice, currency: 'USD' };
+            }
+        };
+
+        const livePriceEngine = new RAGEngine({
+            llmProvider: mockLlm,
+            smlConfig: { enabled: true, matchThreshold: 0.40 },
+            inputs: {
+                rules: new StaticRulesAdapter(['Report exact current price.'])
+            },
+            tools: {
+                registryFilePath: './src/utils/tools-registry.json',
+                items: [livePriceTool]
+            },
+            cache: {
+                enabled: true,
+                cacheToolResults: false // Guarantee zero stale cache for volatile live tools
+            }
+        });
+
+        await livePriceEngine.init();
+
+        // 1. Initial query when price is $1000 (X)
+        mockLlm.nextResponse = 'Ürünün güncel satış fiyatı 1000 USD dir.';
+        const res1 = await livePriceEngine.query('laptop ne kadar ve fiyatı nedir?');
+        assert.equal(res1.intent, 'TOOL_CALL');
+        assert.ok(res1.answer.includes('1000'));
+
+        // 2. Database update: Price changes from $1000 (X) to $800 (B)
+        liveDatabasePrice = 800; // Price B
+
+        // 3. Query again: Because volatile tools are not cached, it immediately pulls $800
+        mockLlm.nextResponse = 'Ürünün güncel satış fiyatı 800 USD dir.';
+        const res2 = await livePriceEngine.query('laptop ne kadar ve fiyatı nedir?');
+        assert.equal(res2.intent, 'TOOL_CALL');
+        assert.ok(res2.answer.includes('800'), 'Must reflect updated price B ($800) immediately without stale cache');
+    });
+
+    it('should evict cache entries via engine.invalidateCache()', async () => {
+        // Query is in cache
+        const beforeInvalidate = await engine.query('ürünü kaç gün içinde iade edebilirim?');
+        assert.equal(beforeInvalidate.resolvedBy, 'CACHE');
+
+        // Admin updates return policy from 14 to 30 days -> Invalidate cache
+        const evicted = await engine.invalidateCache('iade');
+        assert.ok(evicted > 0);
+
+        // Next query re-evaluates through FAQ instead of stale cache
+        const afterInvalidate = await engine.query('ürünü kaç gün içinde iade edebilirim?');
+        assert.equal(afterInvalidate.resolvedBy, 'SEMANTIC_FAQ');
+    });
 });

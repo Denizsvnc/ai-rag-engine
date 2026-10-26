@@ -23,6 +23,7 @@
     "typecheck": "tsc --noEmit",
     "start": "node dist/api/server.js",
     "test": "tsx --test 'test/**/*.test.ts'",
+    "benchmark": "tsx test/performance/smoke-benchmark.ts",
     "example:ecommerce": "tsx src/examples/02-ecommerce-with-tools/index.ts",
     "example:minimal": "tsx src/examples/01-minimal-express/index.ts"
   },

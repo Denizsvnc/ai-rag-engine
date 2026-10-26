@@ -1,3 +1,5 @@
+import type { PIIPolicy } from './pii-guard';
+
 export type RiskLevel = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
 
 export interface InjectionCheckResult {
@@ -36,4 +38,9 @@ export interface SecurityConfig {
      * Additional regex patterns to classify as prompt injection attacks.
      */
     customInjectionPatterns?: RegExp[] | undefined;
+
+    /**
+     * Data Privacy & Sovereignty policy for masking sensitive PII (TCKN, Credit Cards, IBAN, etc.).
+     */
+    pii?: PIIPolicy | undefined;
 }

@@ -14,11 +14,25 @@ export { SMLEngine, type SMLEngineConfig } from './core/sml-engine';
 export { ToolRegistry } from './core/tool-registry';
 export { CacheManager } from './core/cache-manager';
 export { PromptBuilder, type PromptContext } from './core/prompt-builder';
+export { TokenTracker, type EngineMetricsSummary, type ResponseMetrics, type TokenTrackerOptions } from './core/metrics/token-tracker';
 
 // Security & Guardrails
 export { SecurityGuard } from './core/security/security-guard';
 export { InputSanitizer } from './core/security/sanitizer';
 export { InjectionDetector, type DetectionResult } from './core/security/injection-detector';
+export { PIIGuard, type PIIPolicy, type PIISanitizationResult } from './core/security/pii-guard';
+
+// Asynchronous Queue & Ingestion
+export * from './core/queue/job-queue.interface';
+export { InMemoryJobQueue, type InMemoryQueueOptions } from './core/queue/in-memory-queue';
+export { BullMQJobQueue, type BullMQQueueOptions } from './core/queue/bullmq-queue';
+export { createJobQueue, type QueueConfig } from './core/queue/queue-factory';
+export {
+    DocumentIngestionService,
+    type DocumentUploadPayload,
+    type IngestionJobResult,
+    type DocumentIngestionConfig
+} from './services/document-ingestion.service';
 
 // API & Express Middleware
 export { createRagMiddleware } from './api/middleware';

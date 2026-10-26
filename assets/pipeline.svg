@@ -77,7 +77,7 @@
     <rect class="halo" x="296" y="150" width="112" height="76" rx="14" stroke="#ffb547" style="animation-delay:-.6s"/>
     <rect class="box" x="296" y="150" width="112" height="76" rx="14" stroke="#ffb547"/>
     <text x="352" y="184" class="t lbl">Hybrid Cache</text>
-    <text x="352" y="203" class="t small">LRU + disk</text>
+    <text x="352" y="203" class="t small">TTL · invalidate</text>
 
     <rect class="halo" x="436" y="150" width="112" height="76" rx="14" stroke="#3ee6a8" style="animation-delay:-.9s"/>
     <rect class="box" x="436" y="150" width="112" height="76" rx="14" stroke="#3ee6a8"/>
@@ -94,7 +94,7 @@
     <rect x="736" y="73" width="72" height="15" rx="4" fill="#0b241c" stroke="#3ee6a8" stroke-width="0.8"/>
     <text x="772" y="84" class="t small mono" style="font-size:8px;font-weight:700;fill:#3ee6a8">sim ≥ 0.50</text>
     <text x="772" y="105" class="t lbl">Tool Action</text>
-    <text x="772" y="123" class="t small">live DB · API</text>
+    <text x="772" y="123" class="t small">Live DB · Realtime</text>
 
     <rect class="halo" x="716" y="234" width="112" height="76" rx="14" stroke="#5b9dff" style="animation-delay:-1.8s"/>
     <rect class="box" x="716" y="234" width="112" height="76" rx="14" stroke="#5b9dff"/>

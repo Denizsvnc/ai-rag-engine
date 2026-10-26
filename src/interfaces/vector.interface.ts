@@ -7,4 +7,5 @@ export interface VectorDocument {
 
 export interface IVectorStoreAdapter {
     search(query: string, topK?: number, filter?: Record<string, any>): Promise<VectorDocument[]>;
+    addDocuments?(docs: Omit<VectorDocument, 'score'>[]): Promise<void>;
 }

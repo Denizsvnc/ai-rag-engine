@@ -9,8 +9,9 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-all--MiniLM--L6--v2_(q8)-FF5722?logo=onnx&logoColor=white)](https://huggingface.co/docs/transformers.js)
-[![Tests](https://img.shields.io/badge/Tests-36%2F36_Geçti-success?logo=checkmarx&logoColor=white)](test/)
+[![Tests](https://img.shields.io/badge/Tests-65%2F65_Geçti-success?logo=checkmarx&logoColor=white)](test/)
 [![Security](https://img.shields.io/badge/OWASP-Prompt_Injection_Korumalı-blueviolet?logo=shield&logoColor=white)](#3-️-owasp-prompt-enjeksiyonu--ziyaretçi-güven-sınırı)
+[![PII Koruması](https://img.shields.io/badge/KVKK%2FGDPR-TCKN_&_Luhn_Korumalı-blue?logo=security&logoColor=white)](#6--sıfır-şişkinlikli-pii-maskeleme-tckn-luhn-ve-veri-egemenliği)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -73,6 +74,17 @@ Modern kurumsal uygulamalarda kullanıcıdan gelen her ham sorunun doğrudan pah
 
 ---
 
+### 4. Güvenli Belge Okuma ve PII Koruma Hattı (Ingestion & PII Pipeline)
+*Sıfır şişkinlikli magic byte dosya güvenliği, 11 haneli TCKN mod-10 algoritması, Luhn kredi kartı doğrulaması, BullMQ asenkron kuyruğu ve yerel veri egemenliği yönlendirmesi.*
+
+<div align="center">
+
+![AI-RAG-ENGINE Güvenli Belge Okuma ve PII Hattı](assets/ingestion-pii-pipeline.svg)
+
+</div>
+
+---
+
 ## ✨ Öne Çıkan Mühendislik Yetenekleri
 
 ### 1. 🧠 Süreç İçi Semantik Model Katmanı (SML) ve Deterministik Araç Yönlendirmesi
@@ -108,9 +120,61 @@ Modern kurumsal uygulamalarda kullanıcıdan gelen her ham sorunun doğrudan pah
 * **Kademeli Yedekleme (Failover):** Birincil modelde (örn. OpenAI) kota aşımı (`429`) veya ağ hatası oluştuğunda sistem kesintisiz olarak Gemini veya Ollama'ya geçiş yapar.
 * **Kurumsal Veri Koruma:** `ALLOW_PUBLIC_OPENSOURCE_LLM=false` ayarı sayesinde şirket verilerinin kontrolsüz açık kaynak yönlendiricilerine sızması önlenir.
 
-### 5. 💾 Çift Katmanlı Kalıcı Önbellek (LRU Cache)
-* Bellek içi ultra hızlı LRU önbellek ile disk üzerinde kalıcı JSON depolama (`query-cache.json`) birlikte çalışır.
-* Sunucu yeniden başlatılsa bile doğrulanmış önbellek kayıtları korunur.
+### 5. 💾 Çift Katmanlı LRU Önbellek ve Gerçek Zamanlı Veri Tazeliği (Bayat Veriyi Önleme)
+* **Kritik Bayat Veri Problemi:** Klasik RAG sistemlerinde bir ürünün fiyatı **1.000 TL (X)** iken **800 TL (B)** olarak güncellendiğinde, eski vektör kayıtları ve uzun ömürlü sorgu önbellekleri kullanıcıya bayat 1.000 TL yanıtını vermeye devam eder.
+* **AI-RAG-ENGINE Veri Tazeliği Mimarisi:**
+  1. **Dinamik Veriler Vektörleri Baypas Eder (Canlı SML Araçları):** Fiyatlar, anlık stok miktarları ve rezervasyon durumları ASLA statik vektör veritabanlarına gömülmez. Süreç içi SML niyet motoru, fiyat/stok sorularını doğrudan canlı veritabanı aracına (`check_live_price`) yönlendirerek veriyi sorgu anında PostgreSQL/ERP kaynağından çeker.
+  2. **Canlı Araç Önbellek Muafiyeti (`cacheToolResults: false`):** Canlı araç eylemlerinin çıktıları varsayılan olarak 24 saatlik önbelleğe kaydedilmez (veya 60 saniyelik mikro-TTL kullanır); böylece katalogdaki değişiklikler kullanıcılara anında yansır.
+  3. **Aktif Önbellek Geçersiz Kılma API'si (Cache Invalidation):** Ürün veya politika güncellemelerinde backend sistemleri bellek ve disk önbelleğini anında temizleyebilir:
+     ```typescript
+     // Bir ürün veya kelimeye ait önbellek kayıtlarını düşürün
+     await engine.invalidateCache('laptop');
+     // Regex deseniyle fiyat sorgularını temizleyin
+     await engine.invalidateCache(/_price$|fiyat/i);
+     ```
+  4. **Yapılandırılabilir TTL ve Otomatik Zaman Aşımı:** LRU bellek önbelleği `ttlMs` ayarı ile eskiyen kayıtları belirlenen süre sonunda otomatik olarak temizler.
+
+### 6. 🔒 Sıfır-Şişkinlikli PII Maskeleme (TCKN & Luhn) ve Veri Egemenliği
+* **KVKK / GDPR Uyumluluk Zorunluluğu:** Kullanıcı sorguları ve sisteme yüklenen PDF/metin belgeleri sıklıkla T.C. Kimlik Numarası (TCKN), Kredi Kartı, IBAN ve iletişim bilgisi barındırır. Geleneksel sistemler ya bunu göz ardı eder (ağır yasal cezalar riski) ya da sunucuyu kilitleyen 500MB'lık devasa Python NLP kütüphaneleri kurar.
+* **Sıfır-Şişkinlikli (Zero-Bloat) Algoritmik Çözüm:** Saf TypeScript ile harici hiçbir bağımlılık olmadan, mikrosaniyeler (**4.03 µs**, 245.408 işlem/sn) içinde çalışır:
+  1. **Algoritmik 11 Haneli TCKN Mod-10 Doğrulaması:** Resmî devlet kontrol algoritmasını doğrular:
+     $$d_{10} = \left(\left(\sum \text{tek} \times 7 - \sum \text{çift}\right) \bmod 10 + 10\right) \bmod 10, \quad d_{11} = \left(\sum_{k=1}^{10} d_k\right) \bmod 10$$
+     *Sıfır Yanlış Pozitif (False Positive):* Sipariş numarası veya barkod gibi rastgele 11 haneli sayılara dokunulmaz, yalnızca gerçek TCKN'ler maskelenir (`[TCKN_100*****46]`).
+  2. **Kredi Kartı Luhn Algoritması:** Sağdan sola basamakları ikiye katlayarak gerçek banka kartlarını doğrular ve maskeler (`[CARD_****_****_****_5671]`).
+  3. **IBAN & İletişim Bilgisi Temizleme:** Türk (`TR..`) ve uluslararası IBAN'ları, e-posta ve telefon numaralarını otomatik sansürler.
+* **Katı Veri Egemenliği Yönlendirmesi (Data Sovereignty):**
+  * **Genel Bulut LLM'leri (OpenAI, Gemini):** PII verileri **kesinlikle %100 oranında maskelenir**. Hiçbir kimlik verisi şirket ağ sınırından dışarı çıkamaz.
+  * **Şirket İçi Yerel LLM'ler (Ollama, Özel VPC):** Şirket hukuki uyumluluk politikası izin veriyorsa (`allowUnmaskedForLocalLLM: true`), şirket içi yerel akıl yürütme için orijinal veri korunabilir.
+
+### 7. ⚡ Asenkron BullMQ & Bellek İçi İş Kuyruğu (Job Queue)
+* **Engellemesiz Mimari:** Doküman okuma, PDF akış analizi, metin parçalama (chunking), PII sansürleme ve ONNX vektör hesaplama ağır işlerdir. Bunların senkron HTTP isteğinde yapılması Express sunucusunu kilitler.
+* **Çift Motorlu Takılabilir Kuyruk (`IJobQueue`):**
+  * **Sıfır-Bağımlılıklı `InMemoryJobQueue`:** Varsayılan olarak etkindir. Eşzamanlı çalışan havuzu ve durum takibi ile Redis gerektirmeden anında çalışır.
+  * **Kurumsal `BullMQJobQueue`:** Çok düğümlü Kubernetes ve kurumsal dağıtımlar için Redis destekli, yeniden deneme ve hata toleranslı BullMQ kuyruğu.
+* **İki Adımlı REST Akışı:**
+  1. `POST /api/ingest`: Dosyanın ilk byte'larını güvenlikten geçirir ve `202 Accepted` ile bir `jobId` döner.
+  2. `GET /api/ingest/status/:jobId`: Kuyruktaki işlemin durumunu (`%0 -> %30 -> %70 -> %100`) raporlar.
+* **Çalıştırılabilir Dosya (Magic Byte) Güvenliği:** Yüklenen dosyaların uzantısı `.pdf` veya `.txt` yapılsa bile ikili başlıkları taranarak zararlı dosyalar (`MZ` Windows PE, `\x7fELF` Linux, `#!` Shebang, `0xCAFEBABE`, `.exe`, `.sh`, `.bin`, `.docm`) **1.26 µs** içinde derhal reddedilir.
+
+### 8. 📊 FinOps Telemetrisi ve Canlı Token Maliyet Takibi
+* **Yönetici ve Finans Görünürlüğü:** Sistem yöneticileri önbellek ve SML yönlendirmesinin kaç token ve kaç dolar tasarruf sağladığını anlık olarak izler.
+* **Her Yanıtta Detaylı Metrikler:** Her `engine.query()` yanıtı gerçek zamanlı maliyet ve token tasarrufunu döndürür:
+  ```json
+  {
+    "answer": "14 gün içinde koşulsuz iade edebilirsiniz.",
+    "intent": "FAQ",
+    "resolvedBy": "SEMANTIC_FAQ",
+    "metrics": {
+      "tokensConsumed": 0,
+      "tokensSaved": 450,
+      "estimatedCostSavedUsd": 0.00135,
+      "latencyMs": 4.2,
+      "source": "FAQ"
+    }
+  }
+  ```
+* **Kümülatif FinOps Uç Noktası (`GET /api/metrics`):**
+  Toplam sorgu adedi, sıfır-token çözüm oranı (örn. `%78.4`), tüketilen ve tasarruf edilen toplam token, dolar bazında maliyet kazancı ve p95 gecikmelerini listeler.
 
 ---
 
@@ -318,8 +382,14 @@ Kubernetes ve Docker konteynerleri için sağlık kontrolü uç noktası.
 Tüm katmanlar otomatik bir test paketi ile doğrulanmaktadır:
 
 ```bash
-# Birim ve entegrasyon testlerini çalıştırın
+# Birim ve entegrasyon testlerini çalıştırın (13 pakette 65 test)
 npm test
+
+# Yüksek verimli performans ve duman (smoke) testini çalıştırın
+npm run benchmark
+
+# k6 çok kullanıcılı eşzamanlı yük testini çalıştırın
+k6 run test/performance/k6-load-test.js
 
 # TypeScript tür kontrolü yapın
 npm run typecheck
@@ -332,17 +402,32 @@ npm run example:ecommerce
 npm run example:minimal
 ```
 
+### Yüksek Verimli Duman (Smoke) Benchmark Sonuçları
+*Apple Silicon M-serisi üzerinde ölçülmüştür (%100 CPU süreç içi işlem, harici GPU gerektirmez):*
+
+| Test Edilen Modül | İterasyon | İşlem Hacmi (Throughput) | Ort. Gecikme | p95 Gecikme | Mimari Rolü |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **`PIIGuard.sanitize`** | 10.000 | **245.408 işlem/sn** | **4.03 µs** | 4.87 µs | Algoritmik TCKN Mod-10 + Luhn Kart Kontrolü |
+| **`CacheManager.get`** | 20.000 | **7.276.034 işlem/sn** | **0.10 µs** | 0.25 µs | Bellek İçi Sıcak Yol Önbelleği |
+| **`Dot Product` (384-dim)** | 50.000 | **2.307.741 işlem/sn** | **0.41 µs** | 0.58 µs | all-MiniLM-L6-v2 ONNX SIMD Vektör Çarpımı |
+| **`Document Chunking`** | 5.000 | **778.993 işlem/sn** | **1.26 µs** | 1.50 µs | Magic Bytes Dosya Kontrolü & Metin Parçalama |
+| **`TokenTracker`** | 20.000 | **5.946.554 işlem/sn** | **0.14 µs** | 0.21 µs | Gerçek Zamanlı FinOps Maliyet Telemetrisi |
+
 ### Test Paketi Özeti
 ```text
 ✔ Integration - Express API Routes (3/3 geçti)
-✔ Integration - RAGEngine Full Lifecycle (5/5 geçti)
-✔ Core Engine - CacheManager (3/3 geçti)
+✔ Integration - RAGEngine Full Lifecycle (7/7 geçti)
+✔ Integration - Document Ingestion & PII Protection Pipeline (4/4 geçti)
+✔ Core Engine - CacheManager & Data Freshness (7/7 geçti)
 ✔ FAQ Layer - LocalFaqAdapter (4/4 geçti)
+✔ Asynchronous Queue - InMemory & BullMQ (4/4 geçti)
 ✔ LLM Adapters & Multi-Tier Failover (6/6 geçti)
 ✔ Math Utilities - Dot Product (4/4 geçti)
+✔ Security Guard - PIIGuard & Data Sovereignty (6/6 geçti)
 ✔ Security Layer - Prompt Injection & Boundary Framing (11/11 geçti)
+✔ FinOps Metrics - TokenTracker (5/5 geçti)
 
-Toplam: 13 test paketinde 36 test başarıyla geçti (0 hata, ~750ms süre)
+Toplam: 13 test paketinde 65 test başarıyla geçti (0 hata, ~980ms süre)
 ```
 
 ---
@@ -354,31 +439,33 @@ ai-rag-engine/
 ├── assets/
 │   ├── logo.jpg               # Proje görsel kimliği ve logosu
 │   ├── pipeline.svg           # 2D animasyonlu istek akış şeması
-│   └── endpoints.svg          # 2D animasyonlu entegrasyon topolojisi
+│   ├── endpoints.svg          # 2D animasyonlu entegrasyon topolojisi
+│   ├── sml-mechanism.svg      # 2D animasyonlu SML karar motoru şeması
+│   └── ingestion-pii-pipeline.svg # 2D animasyonlu güvenli doküman & PII koruma şeması
 ├── dist/                      # Derlenmiş üretim ESM paketleri ve tipleri
 ├── src/
-│   ├── adapters/
-│   │   ├── faq/               # Yerel vektör ve URL SSS adaptörleri
-│   │   ├── llm/               # Tiered, Ollama, Custom LLM, OpenAI, Gemini
-│   │   ├── rules/             # Statik ve dinamik iş kuralları
-│   │   └── vector/            # Bellek içi vektör veritabanı adaptörü
-│   ├── api/
-│   │   ├── middleware.ts      # Express ara yazılım üreticisi
-│   │   ├── routes.ts          # REST sorgu ve sağlık uç noktaları
-│   │   └── server.ts          # Bağımsız Express sunucusu
+│   ├── adapters/              # SSS, LLM, Kurallar ve Vektör adaptörleri
+│   ├── api/                   # Express ara yazılımı ve REST uç noktaları (/query, /ingest, /metrics)
 │   ├── core/
-│   │   ├── cache-manager.ts   # Çift katmanlı LRU + disk önbellek yöneticisi
-│   │   ├── engine.ts          # Ana orkestrasyon motoru
+│   │   ├── cache-manager.ts   # Çift katmanlı LRU + disk önbelleği (TTL & Invalidation)
+│   │   ├── engine.ts          # Ana orkestrasyon motoru ve telemetri
+│   │   ├── metrics/           # TokenTracker (FinOps maliyet ve token tasarruf takibi)
 │   │   ├── prompt-builder.ts  # Prompt enjeksiyon korumalı bağlam oluşturucu
+│   │   ├── queue/             # InMemoryJobQueue, BullMQJobQueue & QueueFactory
+│   │   ├── security/          # PIIGuard (TCKN/Luhn), Sanitizer & InjectionDetector
 │   │   ├── sml-engine.ts      # Yerel ONNX all-MiniLM-L6-v2 süreç içi boru hattı
-│   │   ├── tool-registry.ts   # Anlamsal araç ve niyet yönlendiricisi
-│   │   └── security/          # Sanitizer, InjectionDetector & SecurityGuard
+│   │   └── tool-registry.ts   # Anlamsal araç ve niyet yönlendiricisi
+│   ├── services/
+│   │   └── document-ingestion.service.ts # Magic bytes ve PII sansürleme servisi
 │   ├── examples/              # Çalıştırılabilir hazır referans örnekler
 │   ├── interfaces/            # TypeScript sözleşmeleri ve arayüzler
 │   └── utils/                 # Önceden hesaplanmış 384 boyutlu vektör verileri
 ├── test/
-│   ├── integration/           # Tam yaşam döngüsü ve HTTP uç nokta testleri
-│   └── unit/                  # Önbellek, SML, LLM, Matematik ve Güvenlik testleri
+│   ├── integration/           # Tam yaşam döngüsü, API ve Doküman Yükleme testleri
+│   ├── performance/           # Yüksek verimli smoke benchmark ve k6 yük testi
+│   └── unit/                  # Önbellek, SML, LLM, Matematik, PII ve Güvenlik testleri
+├── TASKS.md                   # Gerçek zamanlı görev ve aşama takip dosyası
+├── CLAUDE.md                  # Kapsamlı geliştirici ve yapay zeka rehberi
 ├── LICENSE                    # MIT Lisansı
 ├── package.json               # Paket tanımı ve komutları
 ├── README.md                  # İngilizce Dokümantasyon (Varsayılan)

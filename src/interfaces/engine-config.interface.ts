@@ -5,6 +5,7 @@ import type { ICacheAdapter } from './cache.interface';
 import type { IAgentTool } from './tool.interface';
 import type { ILLMProvider } from './llm.interface';
 import type { SecurityConfig } from '../core/security/security.types';
+import type { ResponseMetrics, TokenTrackerOptions } from '../core/metrics/token-tracker';
 
 export interface EngineConfig {
     llmProvider: ILLMProvider;
@@ -25,8 +26,17 @@ export interface EngineConfig {
     } | undefined;
     cache?: {
         enabled: boolean;
-        filePath: string;
+        filePath?: string | undefined;
         minHitsToPersist?: number | undefined;
+        ttlMs?: number | undefined;
+        toolResultTtlMs?: number | undefined;
+        cacheToolResults?: boolean | undefined;
+    } | undefined;
+    metrics?: TokenTrackerOptions | undefined;
+    ingestion?: {
+        chunkSize?: number | undefined;
+        chunkOverlap?: number | undefined;
+        jobQueue?: any | undefined;
     } | undefined;
 }
 
@@ -39,4 +49,5 @@ export interface RAGResponse {
     executedTools?: Array<{ name: string; args: any }> | undefined;
     securityWarning?: string | undefined;
     latencyMs: number;
+    metrics?: ResponseMetrics | undefined;
 }
