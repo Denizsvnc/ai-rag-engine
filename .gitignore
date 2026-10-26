@@ -72,3 +72,10 @@ env/
 chroma_data/
 faiss_index/
 data/
+
+# Local Tasks & Scratch Files
+TASKS.md
+tasks_progress.md
+test-preview-*.html
+test-*.html
+

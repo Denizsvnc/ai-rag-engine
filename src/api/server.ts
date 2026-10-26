@@ -5,6 +5,7 @@ import { TieredLLMProvider } from '../adapters/llm/tiered.adapter';
 import { StaticRulesAdapter } from '../adapters/rules/static-rules.adapter';
 import { LocalFaqAdapter } from '../adapters/faq/local-faq.adapter';
 import { createApiRoutes } from './routes';
+import { ENGINE_DEFAULTS } from '../config/default';
 
 async function bootstrap() {
     const app = express();
@@ -51,12 +52,15 @@ async function bootstrap() {
     // Mount API routes
     app.use('/api', createApiRoutes(engine));
 
-    const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
+    const PORT = Number(process.env.PORT) || ENGINE_DEFAULTS.SERVER.PORT;
+    const HOST = process.env.HOST || ENGINE_DEFAULTS.SERVER.HOST;
+    const displayHost = HOST === '0.0.0.0' ? 'localhost' : HOST;
+
+    app.listen(PORT, HOST, () => {
         console.log(`\n========================================================`);
-        console.log(`🚀 Modular Enterprise RAG Engine is listening on port ${PORT}`);
-        console.log(`📡 Query Endpoint  : POST http://localhost:${PORT}/api/query`);
-        console.log(`💚 Health Endpoint : GET  http://localhost:${PORT}/api/health`);
+        console.log(`🚀 Modular Enterprise RAG Engine is listening on http://${HOST}:${PORT}`);
+        console.log(`📡 Query Endpoint  : POST http://${displayHost}:${PORT}/api/query`);
+        console.log(`💚 Health Endpoint : GET  http://${displayHost}:${PORT}/api/health`);
         console.log(`========================================================\n`);
     });
 }

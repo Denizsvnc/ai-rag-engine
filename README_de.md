@@ -276,9 +276,10 @@ const engine = new RAGEngine({
 
 // Route in Express registrieren
 app.post('/api/chat', createRagMiddleware(engine));
-
-app.listen(3000, () => {
-    console.log('⚡ AI-RAG-ENGINE läuft unter http://localhost:3000/api/chat');
+ 
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`⚡ AI-RAG-ENGINE läuft unter http://localhost:${PORT}/api/chat`);
 });
 ```
 

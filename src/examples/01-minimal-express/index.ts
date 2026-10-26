@@ -19,7 +19,8 @@ const ragEngine = new RAGEngine({
 // 2. Attach middleware to Express route
 app.post('/ask', createRagMiddleware(ragEngine));
 
-app.listen(3000, () => {
-    console.log('Minimal RAG Engine is running on port 3000.');
-    console.log('To test: curl -X POST http://localhost:3000/ask -H "Content-Type: application/json" -d \'{"query": "Merhaba, nasılsın?"}\'');
+const PORT = Number(process.env.PORT) || 3000;
+app.listen(PORT, () => {
+    console.log(`Minimal RAG Engine is running on port ${PORT}.`);
+    console.log(`To test: curl -X POST http://localhost:${PORT}/ask -H "Content-Type: application/json" -d '{"query": "Merhaba, nasılsın?"}'`);
 });

@@ -276,9 +276,10 @@ const engine = new RAGEngine({
 
 // Endpoint'i Express'e bağlayın
 app.post('/api/chat', createRagMiddleware(engine));
-
-app.listen(3000, () => {
-    console.log('⚡ AI-RAG-ENGINE http://localhost:3000/api/chat üzerinde aktif');
+ 
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`⚡ AI-RAG-ENGINE http://localhost:${PORT}/api/chat üzerinde aktif`);
 });
 ```
 

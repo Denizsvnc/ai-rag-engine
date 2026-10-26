@@ -1,4 +1,10 @@
 export const ENGINE_DEFAULTS = {
+    // Server settings
+    SERVER: {
+        PORT: 3000,
+        HOST: '0.0.0.0',
+    },
+
     // SML (Semantic Model Layer) settings
     SML: {
         DEFAULT_MODEL: 'Xenova/all-MiniLM-L6-v2', // Lightweight and fast ONNX model

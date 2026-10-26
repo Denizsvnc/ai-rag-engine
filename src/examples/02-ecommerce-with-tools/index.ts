@@ -68,7 +68,8 @@ const ragEngine = new RAGEngine({
 // 4. Attach middleware to Express route
 app.use('/api/chat', createRagMiddleware(ragEngine));
 
-app.listen(3000, () => {
-    console.log('E-Ticaret Agentic RAG Sunucusu 3000 portunda çalışıyor.');
-    console.log('Test için POST /api/chat {"query": "Laptop stokta var mı, ayrıca veresiye alabilir miyim?"} isteği atın.');
+const PORT = Number(process.env.PORT) || 3000;
+app.listen(PORT, () => {
+    console.log(`E-Ticaret Agentic RAG Sunucusu ${PORT} portunda çalışıyor.`);
+    console.log(`Test için POST http://localhost:${PORT}/api/chat {"query": "Laptop stokta var mı, ayrıca veresiye alabilir miyim?"} isteği atın.`);
 });
