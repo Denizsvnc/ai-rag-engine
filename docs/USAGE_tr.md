@@ -97,3 +97,4 @@ const reserve: IAgentTool<{ sku: string }> = {
 ```
 
 Mutasyon gerektiren tool'lar için dönen `confirmationRequests` kullanıcıya sunulmalı ve onay alındıktan sonra istek `context.confirmationTicket` ile yinelenmelidir.
+

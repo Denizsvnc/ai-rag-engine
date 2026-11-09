@@ -36,3 +36,4 @@ npm view @denizsevinc/ai-rag-engine versions --json --registry=https://registry.
 npm publish ./denizsevinc-ai-rag-engine-2.2.0.tgz --access public --tag latest --registry=https://registry.npmjs.org/
 npm view @denizsevinc/ai-rag-engine@2.2.0 dist.integrity --registry=https://registry.npmjs.org/
 ```
+

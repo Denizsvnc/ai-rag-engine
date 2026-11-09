@@ -47,3 +47,4 @@ npm run start:worker
 ```
 
 Bei npm-Installation stehen CLI-Befehle als `npx ai-rag-migrate`, `npx ai-rag-server` und `npx ai-rag-worker` zur Verfügung. SDK-Exporte umfassen `PostgresIngestionStore`, `QueuedIngestionService`, `IngestionWorker` und `BullMQJobQueue`.
+

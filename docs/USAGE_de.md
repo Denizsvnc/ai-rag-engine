@@ -68,3 +68,4 @@ const engine = new RAGEngine({
 const answer = await engine.query('Wie lange ist die Rueckgabefrist?', { tenantId: 'acme', userId: 'u1', roles: ['viewer'] });
 await vectors.close();
 ```
+
