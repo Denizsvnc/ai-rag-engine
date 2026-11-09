@@ -1,6 +1,6 @@
 # npm Paketveröffentlichungsbereitschaft & Release-Bericht
 
-**Ziel-Paket:** `@denizsevinc/ai-rag-engine`  
+**Ziel-Paket:** `@denizsvnc/ai-rag-engine`  
 **Vorgeschlagene Version:** `2.2.0`  
 **Repository-URL:** `https://github.com/Denizsvnc/ai-rag-engine`  
 **Datum:** 9. November 2026  
@@ -26,7 +26,7 @@ Sämtliche obligatorischen Prüfungen für Build, Paketierung, Sicherheit, Typde
 | **Sicherheitsregression** | **PASS** | `npm run test:security` | 50 Tests, 49 bestanden, 0 Fehler |
 | **Distributions-Build** | **PASS** | `npm run build` | `clean`, `build:types`, `build:js` (Node22 ESM) |
 | **Paketinhalt-Prüfung** | **PASS** | `npm run test:package` | 71 Dateien freigegeben, 124 relative Imports verifiziert |
-| **Tarball-Integrität** | **PASS** | `npm pack` | `denizsevinc-ai-rag-engine-2.2.0.tgz` generiert |
+| **Tarball-Integrität** | **PASS** | `npm pack` | `denizsvnc-ai-rag-engine-2.2.0.tgz` generiert |
 | **Sicherheits-Audit** | **PASS** | `npm audit --audit-level=high` | 0 Sicherheitslücken |
 | **Konsumententest** | **PASS** | `npm run test:consumer` | Installation in externem Projekt erfolgreich |
 | **Konsumenten-Typecheck**| **PASS** | `tsc --noEmit` (Konsument) | TS `7.0.2` & `5.8.3` mit `NodeNext` & `Bundler` bestanden |
@@ -38,9 +38,9 @@ Sämtliche obligatorischen Prüfungen für Build, Paketierung, Sicherheit, Typde
 
 ## 3. Paketinformationen
 
-- **Paketname:** `@denizsevinc/ai-rag-engine`
+- **Paketname:** `@denizsvnc/ai-rag-engine`
 - **Version:** `2.2.0`
-- **Dateiname:** `denizsevinc-ai-rag-engine-2.2.0.tgz`
+- **Dateiname:** `denizsvnc-ai-rag-engine-2.2.0.tgz`
 - **Größe (komprimiert):** `142.9 kB`
 - **Größe (entpackt):** `546.4 kB`
 - **Dateienanzahl:** 71

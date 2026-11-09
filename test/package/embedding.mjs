@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { env } from '@huggingface/transformers';
-import { SMLEngine, LocalFaqAdapter } from '@denizsevinc/ai-rag-engine';
+import { SMLEngine, LocalFaqAdapter } from '@denizsvnc/ai-rag-engine';
 const previous = env.cacheDir;
 env.cacheDir = path.resolve('unused-global-model-cache');
 try {

@@ -2,7 +2,7 @@
 
 ## Çalışma Zamanı ve Modül Sözleşmesi
 
-Yayınlandıktan sonra `@denizsevinc/ai-rag-engine` paketini, yayın öncesinde ise yerel `.tgz` dosyasını kurun. ESM kullanın (uygulamada `"type": "module"`). CommonJS `require()` desteklenen bir sözleşme değildir; CommonJS uygulamaları dinamik `import()` kullanabilir. Node.js 22.14+ gereklidir (test matrisi Node 22 ve 24'tür). TypeScript 5.8+ önerilir; `NodeNext` ve `Bundler` çözünürlükleri katı kontrollerle test edilmiştir. `skipLibCheck` zorunlu değildir. Desteklenen export'lar root API ve `./package.json`'dur.
+Yayınlandıktan sonra `@denizsvnc/ai-rag-engine` paketini, yayın öncesinde ise yerel `.tgz` dosyasını kurun. ESM kullanın (uygulamada `"type": "module"`). CommonJS `require()` desteklenen bir sözleşme değildir; CommonJS uygulamaları dinamik `import()` kullanabilir. Node.js 22.14+ gereklidir (test matrisi Node 22 ve 24'tür). TypeScript 5.8+ önerilir; `NodeNext` ve `Bundler` çözünürlükleri katı kontrollerle test edilmiştir. `skipLibCheck` zorunlu değildir. Desteklenen export'lar root API ve `./package.json`'dur.
 
 Kütüphane asla otomatik olarak `.env` yüklemez. Kütüphaneyi import etmek sunucu başlatmaz, veritabanı veya Redis bağlantısı açmaz ve model indirmez. Transformers kütüphanesi ilk embedding çağrısında tembelce (lazily) yüklenir.
 
@@ -15,7 +15,7 @@ Kütüphane asla otomatik olarak `.env` yüklemez. Kütüphaneyi import etmek su
 ## LLM Sağlayıcı Yapılandırması
 
 ```js
-import { RAGEngine, CustomLLMAdapter } from '@denizsevinc/ai-rag-engine';
+import { RAGEngine, CustomLLMAdapter } from '@denizsvnc/ai-rag-engine';
 
 const provider = new CustomLLMAdapter({
   endpoint: 'http://127.0.0.1:8000/v1/chat/completions',
@@ -35,7 +35,7 @@ Diğer kurucular: `new OpenAIAdapter(apiKey, model)`, `new GeminiAdapter(apiKey,
 ## Yerel Embedding, SSS ve Yönlendirme
 
 ```js
-import { SMLEngine, LocalFaqAdapter } from '@denizsevinc/ai-rag-engine';
+import { SMLEngine, LocalFaqAdapter } from '@denizsvnc/ai-rag-engine';
 
 const embeddings = new SMLEngine({
   modelName: 'Xenova/all-MiniLM-L6-v2',
@@ -52,7 +52,7 @@ await faq.setFaqs([
 ## Vektör Deposu ve Arama
 
 ```js
-import { PostgresVectorAdapter, RAGEngine } from '@denizsevinc/ai-rag-engine';
+import { PostgresVectorAdapter, RAGEngine } from '@denizsvnc/ai-rag-engine';
 
 const vectors = new PostgresVectorAdapter({
   connectionString: process.env.DATABASE_URL,
@@ -81,7 +81,7 @@ await vectors.close();
 
 ```ts
 import { z } from 'zod';
-import type { IAgentTool } from '@denizsevinc/ai-rag-engine';
+import type { IAgentTool } from '@denizsvnc/ai-rag-engine';
 
 const reserve: IAgentTool<{ sku: string }> = {
   name: 'reserve_item',

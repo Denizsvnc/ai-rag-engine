@@ -1,6 +1,6 @@
 # npm Paket Yayın Hazırlığı ve Mühendislik Raporu
 
-**Hedef npm Paketi:** `@denizsevinc/ai-rag-engine`  
+**Hedef npm Paketi:** `@denizsvnc/ai-rag-engine`  
 **Önerilen Sürüm:** `2.2.0`  
 **Depo URL:** `https://github.com/Denizsvnc/ai-rag-engine`  
 **Tarih:** 9 Kasım 2026  
@@ -26,7 +26,7 @@ Tüm zorunlu yerel derleme, paketleme, güvenlik, tip tanımları ve bağımsız
 | **Güvenlik Regresyonları** | **PASS** | `npm run test:security` | 50 test, 49 geçti, 0 hata, 1 atlandı |
 | **Dağıtım Derlemesi** | **PASS** | `npm run build` | `clean`, `build:types`, `build:js` (Node22 ESM) |
 | **Paket İçerik Denetimi** | **PASS** | `npm run test:package` | 71 dosya onaylandı, 124 göreceli import doğrulandı |
-| **Tarball Bütünlüğü** | **PASS** | `npm pack` | `denizsevinc-ai-rag-engine-2.2.0.tgz` oluşturuldu |
+| **Tarball Bütünlüğü** | **PASS** | `npm pack` | `denizsvnc-ai-rag-engine-2.2.0.tgz` oluşturuldu |
 | **Güvenlik Açığı Denetimi** | **PASS** | `npm audit --audit-level=high` | 0 zafiyet |
 | **Bağımsız Tüketici Testi**| **PASS** | `npm run test:consumer` | Harici geçici projede kurulum, yan etkisiz import doğrulandı |
 | **Tüketici Tip Denetimi** | **PASS** | `tsc --noEmit` (tüketici) | TS `7.0.2` & `5.8.3` ile `NodeNext` & `Bundler` başarılı |
@@ -40,9 +40,9 @@ Tüm zorunlu yerel derleme, paketleme, güvenlik, tip tanımları ve bağımsız
 
 ## 3. Paket Bilgileri
 
-- **Paket Adı:** `@denizsevinc/ai-rag-engine`
+- **Paket Adı:** `@denizsvnc/ai-rag-engine`
 - **Sürüm:** `2.2.0`
-- **Tarball Dosyası:** `denizsevinc-ai-rag-engine-2.2.0.tgz`
+- **Tarball Dosyası:** `denizsvnc-ai-rag-engine-2.2.0.tgz`
 - **Sıkıştırılmış Boyut:** `142.9 kB`
 - **Açılmış Boyut:** `546.4 kB`
 - **Dosya Sayısı:** 71

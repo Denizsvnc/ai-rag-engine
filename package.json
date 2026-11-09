@@ -1,5 +1,5 @@
 {
-  "name": "@denizsevinc/ai-rag-engine",
+  "name": "@denizsvnc/ai-rag-engine",
   "version": "2.2.0",
   "description": "TypeScript RAG engine with pluggable providers, local semantic routing, tenant-aware retrieval, and durable document ingestion.",
   "main": "dist/index.js",

@@ -11,7 +11,7 @@ const { stdout } = await exec('npm', ['pack', '--dry-run', '--ignore-scripts', '
 const parsed = JSON.parse(stdout);
 const pack = Array.isArray(parsed) ? parsed[0] : Object.values(parsed)[0];
 const files = new Set(pack.files.map(file => file.path));
-assert.equal(pkg.name, '@denizsevinc/ai-rag-engine');
+assert.equal(pkg.name, '@denizsvnc/ai-rag-engine');
 assert.equal(pkg.type, 'module');
 assert.equal(pkg.publishConfig.access, 'public');
 assert.equal(pkg.exports['.'].import, './' + pkg.main);

@@ -3,7 +3,7 @@ import express from 'express';
 import { Pool } from 'pg';
 import Redis from 'ioredis';
 import { pipeline } from '@huggingface/transformers';
-import { createAuthToken, RAGEngine, SMLEngine, LocalFaqAdapter } from '@denizsevinc/ai-rag-engine';
+import { createAuthToken, RAGEngine, SMLEngine, LocalFaqAdapter } from '@denizsvnc/ai-rag-engine';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -48,7 +48,7 @@ const common = {
 const token = tenantId => createAuthToken({ userId: 'customer', tenantId, roles: ['editor', 'admin'] }, secret);
 const headers = tenantId => ({ authorization: `Bearer ${token(tenantId)}`, 'content-type': 'application/json' });
 const run = (entry, extra = {}) => {
-    const child = spawn(process.execPath, [path.join('node_modules/@denizsevinc/ai-rag-engine/dist', entry)], { env: { ...common, ...extra }, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(process.execPath, [path.join('node_modules/@denizsvnc/ai-rag-engine/dist', entry)], { env: { ...common, ...extra }, stdio: ['ignore', 'pipe', 'pipe'] });
     child.logs = ''; child.stdout.on('data', data => { child.logs += data; }); child.stderr.on('data', data => { child.logs += data; });
     children.push(child); return child;
 };
@@ -71,9 +71,9 @@ try {
     common.PRIVATE_LLM_MODEL_FAST = 'flan-t5-small'; common.PRIVATE_LLM_MODEL_SMART = 'flan-t5-small';
     await writeFile('empty-faq.json', '[]');
     common.FAQ_FILE_PATH = path.resolve('empty-faq.json');
-    const metadata = JSON.parse(await readFile('node_modules/@denizsevinc/ai-rag-engine/package.json', 'utf8'));
+    const metadata = JSON.parse(await readFile('node_modules/@denizsvnc/ai-rag-engine/package.json', 'utf8'));
     assert.equal(metadata.bin['ai-rag-worker'], 'dist/worker.js');
-    const migration = await exec(process.execPath, ['node_modules/@denizsevinc/ai-rag-engine/dist/scripts/migrate-vector.js'], { env: common });
+    const migration = await exec(process.execPath, ['node_modules/@denizsvnc/ai-rag-engine/dist/scripts/migrate-vector.js'], { env: common });
     assert.match(migration.stdout, /schemas initialized/); pass('installed migration CLI');
     const runtimeUrl = new URL(process.env.PG_TEST_URL);
     runtimeUrl.searchParams.set('user', common.RUNTIME_DB_USER); runtimeUrl.searchParams.set('password', common.RUNTIME_DB_PASSWORD);

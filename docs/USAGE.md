@@ -2,7 +2,7 @@
 
 ## Runtime and module contract
 
-Install `@denizsevinc/ai-rag-engine` after publication, or its local `.tgz` before publication. Use ESM (`"type": "module"` in the application). CommonJS `require()` is not a supported contract; CommonJS applications can use asynchronous `import()`. Node.js 22.14+ is required; Node 22/24 are the explicit test matrix. TypeScript 5.8+ is recommended; NodeNext and Bundler resolution are validated with strict checking. `skipLibCheck` is not required. Supported exports are the root API and `./package.json`; internal `dist/` paths are private. CLI commands are separate entry points.
+Install `@denizsvnc/ai-rag-engine` after publication, or its local `.tgz` before publication. Use ESM (`"type": "module"` in the application). CommonJS `require()` is not a supported contract; CommonJS applications can use asynchronous `import()`. Node.js 22.14+ is required; Node 22/24 are the explicit test matrix. TypeScript 5.8+ is recommended; NodeNext and Bundler resolution are validated with strict checking. `skipLibCheck` is not required. Supported exports are the root API and `./package.json`; internal `dist/` paths are private. CLI commands are separate entry points.
 
 The library never automatically loads `.env`. Applications may call `dotenv.config()` themselves. The server/worker/migration CLIs explicitly load `.env`. Importing the root library creates no server, connection, model download, or background worker. Native Transformers is imported lazily on the first embedding initialization.
 
@@ -17,7 +17,7 @@ The engine does not own externally supplied pools/clients. Close PostgreSQL adap
 ## Provider configuration
 
 ```js
-import { RAGEngine, CustomLLMAdapter } from '@denizsevinc/ai-rag-engine';
+import { RAGEngine, CustomLLMAdapter } from '@denizsvnc/ai-rag-engine';
 const provider = new CustomLLMAdapter({
   endpoint: 'http://127.0.0.1:8000/v1/chat/completions',
   model: 'your-deployed-model'
@@ -35,7 +35,7 @@ OpenRouter fallback from `createFromEnv()` requires `ALLOW_PUBLIC_OPENSOURCE_LLM
 ## Local embeddings, FAQ and routing
 
 ```js
-import { SMLEngine, LocalFaqAdapter } from '@denizsevinc/ai-rag-engine';
+import { SMLEngine, LocalFaqAdapter } from '@denizsvnc/ai-rag-engine';
 const embeddings = new SMLEngine({
   modelName: 'Xenova/all-MiniLM-L6-v2',
   cacheDir: './models',
@@ -54,7 +54,7 @@ FAQ entries without `tenantId` are deliberately global. Model weights are separa
 `MemoryVectorAdapter` supports tenant/ID upsert and in-memory dense/sparse/hybrid retrieval. Its `search()` also supports context-free data; only use tenant-tagged documents and trusted filters in multi-tenant applications. Restart loses state. SDK users can implement `IVectorStoreAdapter` for other stores without Express.
 
 ```js
-import { PostgresVectorAdapter, RAGEngine } from '@denizsevinc/ai-rag-engine';
+import { PostgresVectorAdapter, RAGEngine } from '@denizsvnc/ai-rag-engine';
 const vectors = new PostgresVectorAdapter({
   connectionString: process.env.DATABASE_URL,
   tableName: 'rag_documents', modelName: 'Xenova/all-MiniLM-L6-v2',
@@ -81,7 +81,7 @@ Import `IAgentTool` for types and use Zod schemas for validation:
 
 ```ts
 import { z } from 'zod';
-import type { IAgentTool } from '@denizsevinc/ai-rag-engine';
+import type { IAgentTool } from '@denizsvnc/ai-rag-engine';
 const reserve: IAgentTool<{ sku: string }> = {
   name: 'reserve_item', description: 'Reserve inventory for an authenticated customer',
   parameters: { type: 'object', properties: { sku: { type: 'string', description: 'Inventory SKU' } }, required: ['sku'] },

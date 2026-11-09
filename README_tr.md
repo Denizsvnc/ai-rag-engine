@@ -6,7 +6,7 @@
 
 **Değiştirilebilir LLM ve vektör adaptörleri, yerel semantik FAQ/tool yönlendirme, tenant bağlamı ve dayanıklı doküman alımı sağlayan Node.js/TypeScript RAG kütüphanesi.**
 
-[![Sürüm](https://img.shields.io/badge/npm-@denizsevinc/ai--rag--engine-6C5CE7?logo=npm&logoColor=white)](https://www.npmjs.com/package/@denizsevinc/ai-rag-engine)
+[![Sürüm](https://img.shields.io/badge/npm-@denizsvnc/ai--rag--engine-6C5CE7?logo=npm&logoColor=white)](https://www.npmjs.com/package/@denizsvnc/ai-rag-engine)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-22+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![CI](https://github.com/Denizsvnc/ai-rag-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Denizsvnc/ai-rag-engine/actions)
@@ -22,6 +22,6 @@
 
 </div>
 
-Hedef paket `@denizsevinc/ai-rag-engine@2.2.0` için yerel yayın hazırlığı yapılmaktadır; npm'de henüz yayımlandığı iddia edilmez. ESM ve Node.js 22.14+ gereklidir. Bellek adaptörleri yeniden başlatmada veriyi korumaz. Model ağırlıkları pakete dahil değildir; embedding kullanımı ilk çalıştırmada yerel cache yoksa indirme gerektirebilir. Güvenlik filtreleri savunma katmanıdır; her türlü saldırının veya kişisel verinin %100 tespitini matematiksel olarak garanti etmez.
+Hedef paket `@denizsvnc/ai-rag-engine@2.2.0` için yerel yayın hazırlığı yapılmaktadır; npm'de henüz yayımlandığı iddia edilmez. ESM ve Node.js 22.14+ gereklidir. Bellek adaptörleri yeniden başlatmada veriyi korumaz. Model ağırlıkları pakete dahil değildir; embedding kullanımı ilk çalıştırmada yerel cache yoksa indirme gerektirebilir. Güvenlik filtreleri savunma katmanıdır; her türlü saldırının veya kişisel verinin %100 tespitini matematiksel olarak garanti etmez.
 
 Kurulum örnekleri, mimari sınırlar ve API kullanımı için [ana README](README.md), [kullanım kılavuzu](docs/USAGE.md) ve [yayın kontrol listesi](docs/RELEASING.md) belgelerini inceleyiniz.

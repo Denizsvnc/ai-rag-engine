@@ -32,7 +32,7 @@ npm run test:consumer
 npm audit --audit-level=high
 npm pack --dry-run
 npm pack
-shasum -a 256 denizsevinc-ai-rag-engine-2.2.0.tgz
+shasum -a 256 denizsvnc-ai-rag-engine-2.2.0.tgz
 ```
 
 Only when the repository owner is ready to authenticate and publish:
@@ -40,10 +40,10 @@ Only when the repository owner is ready to authenticate and publish:
 ```sh
 npm login --registry=https://registry.npmjs.org/
 npm whoami --registry=https://registry.npmjs.org/
-npm view @denizsevinc/ai-rag-engine versions --json --registry=https://registry.npmjs.org/
+npm view @denizsvnc/ai-rag-engine versions --json --registry=https://registry.npmjs.org/
 # Confirm namespace rights, intended version and reviewed tarball hash before proceeding.
-npm publish ./denizsevinc-ai-rag-engine-2.2.0.tgz --access public --tag latest --registry=https://registry.npmjs.org/
-npm view @denizsevinc/ai-rag-engine@2.2.0 dist.integrity --registry=https://registry.npmjs.org/
+npm publish ./denizsvnc-ai-rag-engine-2.2.0.tgz --access public --tag latest --registry=https://registry.npmjs.org/
+npm view @denizsvnc/ai-rag-engine@2.2.0 dist.integrity --registry=https://registry.npmjs.org/
 ```
 
 A 404 from `npm view` is expected for a genuinely new name but is not an authorization check. `npm login`/`npm publish` were not executed by the preparation agent. Do not store tokens in the repository, `.npmrc`, logs or CI artifacts. Prefer owner-approved short-lived authentication and enforced account security.

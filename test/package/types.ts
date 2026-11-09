@@ -1,6 +1,6 @@
 import { RAGEngine, SMLEngine, PostgresVectorAdapter, IngestionWorker, QueuedIngestionService, createApiRoutes,
     type IVectorStoreAdapter, type ILLMProvider, type IAgentTool, type EngineConfig, type IIngestionBackend,
-    type ConfirmationNonceStore, type QueryContext, type EngineMetricsSummary } from '@denizsevinc/ai-rag-engine';
+    type ConfirmationNonceStore, type QueryContext, type EngineMetricsSummary } from '@denizsvnc/ai-rag-engine';
 const vectors: IVectorStoreAdapter = { async search() { return []; } };
 const provider: ILLMProvider = { async generate() { return { content: 'typed' }; } };
 const config: EngineConfig = { inputs: { vectorStore: vectors }, llmProvider: provider, smlConfig: { enabled: false } };

@@ -6,7 +6,7 @@
 
 **TypeScript RAG library with pluggable LLM and vector adapters, local semantic routing, tenant-aware retrieval, and durable document ingestion.**
 
-[![Version](https://img.shields.io/badge/npm-@denizsevinc/ai--rag--engine-6C5CE7?logo=npm&logoColor=white)](https://www.npmjs.com/package/@denizsevinc/ai-rag-engine)
+[![Version](https://img.shields.io/badge/npm-@denizsvnc/ai--rag--engine-6C5CE7?logo=npm&logoColor=white)](https://www.npmjs.com/package/@denizsvnc/ai-rag-engine)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-22+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![CI](https://github.com/Denizsvnc/ai-rag-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Denizsvnc/ai-rag-engine/actions)
@@ -22,7 +22,7 @@
 
 </div>
 
-**Publication status:** prepared locally for `@denizsevinc/ai-rag-engine@2.2.0`; this is not a claim that it is already available on npm. Scope ownership and publication remain the maintainer's responsibility.
+**Publication status:** prepared locally for `@denizsvnc/ai-rag-engine@2.2.0`; this is not a claim that it is already available on npm. Scope ownership and publication remain the maintainer's responsibility.
 
 ## Requirements and installation
 
@@ -31,7 +31,7 @@ ESM only. Node.js **22.14 or newer**; the compatibility matrix covers Node 22 an
 After publication:
 
 ```sh
-npm install @denizsevinc/ai-rag-engine
+npm install @denizsvnc/ai-rag-engine
 ```
 
 Before publication, install a locally built artifact:
@@ -40,7 +40,7 @@ Before publication, install a locally built artifact:
 npm ci
 npm pack
 # From a different project:
-npm install /absolute/path/to/denizsevinc-ai-rag-engine-2.2.0.tgz
+npm install /absolute/path/to/denizsvnc-ai-rag-engine-2.2.0.tgz
 ```
 
 ## Quick Start
@@ -48,7 +48,7 @@ npm install /absolute/path/to/denizsevinc-ai-rag-engine-2.2.0.tgz
 This deterministic example needs no credentials, model download, HTTP server, or database. The provider and vector adapter are test doubles demonstrating the integration contract; use real adapters for application data.
 
 ```js
-import { RAGEngine } from '@denizsevinc/ai-rag-engine';
+import { RAGEngine } from '@denizsvnc/ai-rag-engine';
 
 const engine = new RAGEngine({
   smlConfig: { enabled: false },

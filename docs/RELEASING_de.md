@@ -25,13 +25,13 @@ npm run test:package
 npm run test:consumer
 npm audit --audit-level=high
 npm pack
-shasum -a 256 denizsevinc-ai-rag-engine-2.2.0.tgz
+shasum -a 256 denizsvnc-ai-rag-engine-2.2.0.tgz
 
 # Veröffentlichung (nach Maintainer-Login):
 npm login --registry=https://registry.npmjs.org/
 npm whoami --registry=https://registry.npmjs.org/
-npm view @denizsevinc/ai-rag-engine versions --json --registry=https://registry.npmjs.org/
-npm publish ./denizsevinc-ai-rag-engine-2.2.0.tgz --access public --tag latest --registry=https://registry.npmjs.org/
-npm view @denizsevinc/ai-rag-engine@2.2.0 dist.integrity --registry=https://registry.npmjs.org/
+npm view @denizsvnc/ai-rag-engine versions --json --registry=https://registry.npmjs.org/
+npm publish ./denizsvnc-ai-rag-engine-2.2.0.tgz --access public --tag latest --registry=https://registry.npmjs.org/
+npm view @denizsvnc/ai-rag-engine@2.2.0 dist.integrity --registry=https://registry.npmjs.org/
 ```
 

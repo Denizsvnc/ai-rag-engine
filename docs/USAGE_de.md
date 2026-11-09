@@ -2,14 +2,14 @@
 
 ## Laufzeit und Modulspezifikation
 
-Installieren Sie nach der Veröffentlichung `@denizsevinc/ai-rag-engine` oder vorab das lokale `.tgz`-Paket. Verwenden Sie ESM (`"type": "module"`). CommonJS `require()` wird nicht unterstützt; CommonJS-Anwendungen können dynamisches `import()` nutzen. Node.js 22.14+ ist erforderlich (Testmatrix: Node 22 und 24). TypeScript 5.8+ wird empfohlen; `NodeNext` und `Bundler` werden strikt unterstützt.
+Installieren Sie nach der Veröffentlichung `@denizsvnc/ai-rag-engine` oder vorab das lokale `.tgz`-Paket. Verwenden Sie ESM (`"type": "module"`). CommonJS `require()` wird nicht unterstützt; CommonJS-Anwendungen können dynamisches `import()` nutzen. Node.js 22.14+ ist erforderlich (Testmatrix: Node 22 und 24). TypeScript 5.8+ wird empfohlen; `NodeNext` und `Bundler` werden strikt unterstützt.
 
 Die Bibliothek lädt niemals automatisch `.env`-Dateien und erzeugt beim Import keine Hintergrundprozesse, Datenbankverbindungen oder Modelldownloads.
 
 ## Initialisierung und Konfiguration
 
 ```js
-import { RAGEngine, CustomLLMAdapter } from '@denizsevinc/ai-rag-engine';
+import { RAGEngine, CustomLLMAdapter } from '@denizsvnc/ai-rag-engine';
 
 const provider = new CustomLLMAdapter({
   endpoint: 'http://127.0.0.1:8000/v1/chat/completions',
@@ -27,7 +27,7 @@ const engine = new RAGEngine({
 ## Lokale Embeddings, FAQ und semantisches Routing
 
 ```js
-import { SMLEngine, LocalFaqAdapter } from '@denizsevinc/ai-rag-engine';
+import { SMLEngine, LocalFaqAdapter } from '@denizsvnc/ai-rag-engine';
 
 const embeddings = new SMLEngine({
   modelName: 'Xenova/all-MiniLM-L6-v2',
@@ -44,7 +44,7 @@ await faq.setFaqs([
 ## Persistente Vektoren mit PostgreSQL
 
 ```js
-import { PostgresVectorAdapter, RAGEngine } from '@denizsevinc/ai-rag-engine';
+import { PostgresVectorAdapter, RAGEngine } from '@denizsvnc/ai-rag-engine';
 
 const vectors = new PostgresVectorAdapter({
   connectionString: process.env.DATABASE_URL,

@@ -6,7 +6,7 @@ This file follows Semantic Versioning. Entries are maintained by the repository 
 
 ### Added
 
-- Scoped npm distribution preparation for `@denizsevinc/ai-rag-engine`, explicit Node.js/ESM contract and package metadata.
+- Scoped npm distribution preparation for `@denizsvnc/ai-rag-engine`, explicit Node.js/ESM contract and package metadata.
 - Package allowlist verification and independent JavaScript/strict TypeScript consumer tests.
 - PostgreSQL/pgvector retrieval, document version manifests and revision-aware shared query caching.
 - Separate BullMQ ingestion worker, shared PostgreSQL upload/outbox, tenant quotas, retries and crash recovery.
@@ -21,7 +21,7 @@ This file follows Semantic Versioning. Entries are maintained by the repository 
 
 ### Migration notes
 
-- Package identity changes from the repository's unscoped `ai-rag-engine` to `@denizsevinc/ai-rag-engine`. Update imports and installation commands. Registry scope ownership remains unverified until the owner authenticates.
+- Package identity changes from the repository's unscoped `ai-rag-engine` to `@denizsvnc/ai-rag-engine`. Update imports and installation commands. Registry scope ownership remains unverified until the owner authenticates.
 - Node.js 20 is no longer in the supported matrix; use Node.js 22.14+.
 - `LocalFaqAdapter()` starts empty. Supply `filePath` or call `setFaqs()`; checkout demo FAQs are not business defaults.
 - Internal `dist/` files are private; public entry points remain the root API and the documented CLI commands.

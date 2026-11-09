@@ -15,7 +15,7 @@ for (const name of ['writeFileSync', 'mkdirSync', 'renameSync', 'appendFileSync'
 syncBuiltinESMExports();
 // Native model runtime must not even be loaded for import or mock-only consumers.
 register(pathToFileURL('./no-model-loader.mjs'));
-const sdk = await import('@denizsevinc/ai-rag-engine');
+const sdk = await import('@denizsvnc/ai-rag-engine');
 assert.deepEqual({ ...process.env }, snapshot.env);
 assert.deepEqual(fs.readdirSync('.').sort(), snapshot.files);
 for (const name of ['RAGEngine', 'SMLEngine', 'PostgresVectorAdapter', 'MemoryVectorAdapter', 'RedisCacheAdapter', 'BullMQJobQueue', 'IngestionWorker', 'ConfirmationService', 'createApiRoutes', 'createAuthToken']) assert.equal(typeof sdk[name], 'function', name);

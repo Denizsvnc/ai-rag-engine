@@ -6,7 +6,7 @@
 
 **TypeScript-/Node.js-Bibliothek für RAG mit austauschbaren LLM- und Vektoradaptern, lokalem semantischem FAQ-/Tool-Routing, Mandantenisolierung und persistenter Dokumentenaufnahme.**
 
-[![Version](https://img.shields.io/badge/npm-@denizsevinc/ai--rag--engine-6C5CE7?logo=npm&logoColor=white)](https://www.npmjs.com/package/@denizsevinc/ai-rag-engine)
+[![Version](https://img.shields.io/badge/npm-@denizsvnc/ai--rag--engine-6C5CE7?logo=npm&logoColor=white)](https://www.npmjs.com/package/@denizsvnc/ai-rag-engine)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-22+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![CI](https://github.com/Denizsvnc/ai-rag-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Denizsvnc/ai-rag-engine/actions)
@@ -22,6 +22,6 @@
 
 </div>
 
-Die lokale Veröffentlichungsvorbereitung zielt auf `@denizsevinc/ai-rag-engine@2.2.0`; eine bereits erfolgte npm-Veröffentlichung wird nicht behauptet. ESM und Node.js 22.14+ sind erforderlich. In-Memory-Adapter sind nicht dauerhaft. Modellgewichte werden separat geladen. Sicherheitsfilter bieten robuste Abwehrlinien, garantieren jedoch keine vollständige Angriffs- oder PII-Erkennung.
+Die lokale Veröffentlichungsvorbereitung zielt auf `@denizsvnc/ai-rag-engine@2.2.0`; eine bereits erfolgte npm-Veröffentlichung wird nicht behauptet. ESM und Node.js 22.14+ sind erforderlich. In-Memory-Adapter sind nicht dauerhaft. Modellgewichte werden separat geladen. Sicherheitsfilter bieten robuste Abwehrlinien, garantieren jedoch keine vollständige Angriffs- oder PII-Erkennung.
 
 Installationsbeispiele, Betriebsgrenzen und API-Details finden Sie in der [README](README.md), im [Usage Guide](docs/USAGE.md) und in der [Release Checklist](docs/RELEASING.md).
