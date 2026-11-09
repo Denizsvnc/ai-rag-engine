@@ -1,3 +1,4 @@
+import type { IIngestionBackend } from '../interfaces/ingestion.interface.js';
 import { randomUUID } from 'node:crypto';
 import { Readable, PassThrough, pipeline as streamPipeline } from 'node:stream';
 import { promisify } from 'node:util';
@@ -5,15 +6,18 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import type { IVectorStoreAdapter, VectorDocument } from '../interfaces/vector.interface';
-import { SMLEngine } from '../core/sml-engine';
-import { PIIGuard, type PIIPolicy } from '../core/security/pii-guard';
-import type { IJobQueue, Job, JobStatus } from '../core/queue/job-queue.interface';
-import { InMemoryJobQueue } from '../core/queue/in-memory-queue';
+import type { IVectorStoreAdapter, VectorDocument } from '../interfaces/vector.interface.js';
+import { SMLEngine } from '../core/sml-engine.js';
+import { PIIGuard, type PIIPolicy } from '../core/security/pii-guard.js';
+import type { IJobQueue, Job, JobStatus } from '../core/queue/job-queue.interface.js';
+import { InMemoryJobQueue } from '../core/queue/in-memory-queue.js';
 
 const pipeline = promisify(streamPipeline);
 
 export interface DocumentUploadPayload {
+    documentId?: string | undefined;
+    idempotencyKey?: string | undefined;
+    encoding?: 'utf8' | 'base64' | undefined;
     filename: string;
     content: string | Buffer | NodeJS.ReadableStream;
     mimeType?: string | undefined;
@@ -37,6 +41,7 @@ export interface IngestionJobResult {
 }
 
 export interface DocumentIngestionConfig {
+    backend?: IIngestionBackend | undefined;
     vectorStore?: IVectorStoreAdapter | undefined;
     smlEngine?: SMLEngine | undefined;
     jobQueue?: IJobQueue | undefined;
@@ -53,6 +58,8 @@ const DANGEROUS_EXTENSIONS = new Set([
 ]);
 
 export class DocumentIngestionService {
+    private workerReady: Promise<void> = Promise.resolve();
+    private backend?: IIngestionBackend | undefined;
     private vectorStore?: IVectorStoreAdapter | undefined;
     private smlEngine?: SMLEngine | undefined;
     private jobQueue: IJobQueue;
@@ -68,7 +75,8 @@ export class DocumentIngestionService {
         this.chunkOverlap = config?.chunkOverlap ?? 50;
         this.piiPolicy = config?.piiPolicy;
 
-        this.initWorker();
+        this.backend = config?.backend;
+        if (!this.backend) this.initWorker();
     }
 
     /**
@@ -464,6 +472,8 @@ export class DocumentIngestionService {
         stream: NodeJS.ReadableStream,
         options?: StreamIngestionOptions
     ): Promise<{ jobId: string; status: JobStatus }> {
+        if (this.backend) return this.backend.submitDocument({ filename, content: stream, tenantId: options?.tenantId, userId: options?.userId });
+        await this.workerReady;
         const safety = await DocumentIngestionService.validateStreamSafety(filename, stream);
         if (!safety.safe) {
             throw new Error(`[SecurityException] Document rejected: ${safety.reason}`);
@@ -496,6 +506,8 @@ export class DocumentIngestionService {
      * Supports String, Buffer, or ReadableStream payloads.
      */
     public async submitDocument(payload: DocumentUploadPayload): Promise<{ jobId: string; status: JobStatus }> {
+        if (this.backend) return this.backend.submitDocument(payload);
+        await this.workerReady;
         // If content is a ReadableStream, delegate directly to submitStream
         if (payload.content && typeof (payload.content as any).pipe === 'function') {
             return this.submitStream(payload.filename, payload.content as NodeJS.ReadableStream, {
@@ -505,7 +517,7 @@ export class DocumentIngestionService {
             });
         }
 
-        const buffer = this.toBuffer(payload.content as string | Buffer);
+        const buffer = this.toBuffer(payload.content as string | Buffer, payload.encoding);
         const safetyCheck = DocumentIngestionService.validateFileSafety(payload.filename, buffer);
 
         if (!safetyCheck.safe) {
@@ -531,13 +543,19 @@ export class DocumentIngestionService {
      * Retrieves the status and progress of an ingestion job.
      */
     public async getJobStatus(jobId: string, tenantId?: string): Promise<Job | null> {
+        if (this.backend) return this.backend.getJobStatus(jobId, tenantId);
         const job = await this.jobQueue.getJob(jobId);
         if (tenantId !== undefined && job?.data?.tenantId !== tenantId) return null;
         return job;
     }
 
+    public async retryJob(jobId: string, tenantId: string): Promise<void> {
+        if (!this.backend?.retryJob) throw new Error('Job retry requires a durable ingestion backend.');
+        await this.backend.retryJob(jobId, tenantId);
+    }
+
     private initWorker(): void {
-        this.jobQueue.process('document-ingest', async (job, updateProgress) => {
+        this.workerReady = Promise.resolve(this.jobQueue.process('document-ingest', async (job, updateProgress) => {
             const data = job.data;
 
             // Handle spooled stream from disk
@@ -619,11 +637,18 @@ export class DocumentIngestionService {
             };
 
             return result;
-        });
+        }));
+        void this.workerReady.catch(() => {});
     }
 
-    private toBuffer(content: string | Buffer): Buffer {
+    private toBuffer(content: string | Buffer, encoding?: 'utf8' | 'base64'): Buffer {
+        if (encoding !== undefined && encoding !== 'utf8' && encoding !== 'base64') throw new Error('Invalid encoding.');
         if (Buffer.isBuffer(content)) return content;
+        if (encoding === 'utf8') return Buffer.from(content, 'utf8');
+        if (encoding === 'base64') {
+            if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(content)) throw new Error('Invalid base64 content.');
+            return Buffer.from(content, 'base64');
+        }
         // Check if valid base64
         const base64Regex = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/;
         if (content.length > 50 && base64Regex.test(content) && !content.includes(' ')) {

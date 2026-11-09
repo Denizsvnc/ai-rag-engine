@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { LRUCache } from 'lru-cache';
-import type { ICacheAdapter } from '../interfaces/cache.interface';
+import type { ICacheAdapter } from '../interfaces/cache.interface.js';
 
 export class CacheManager implements ICacheAdapter {
     private memoryCache: LRUCache<string, any>;

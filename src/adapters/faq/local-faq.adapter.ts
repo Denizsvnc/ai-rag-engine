@@ -1,8 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
-import type { IFAQAdapter, FAQItem, FAQMatchResult } from '../../interfaces/faq.interface';
-import { SMLEngine } from '../../core/sml-engine';
-import { dotProduct } from '../../utils/math';
+import type { IFAQAdapter, FAQItem, FAQMatchResult } from '../../interfaces/faq.interface.js';
+import { SMLEngine } from '../../core/sml-engine.js';
+import { dotProduct } from '../../utils/math.js';
 
 export interface LocalFaqAdapterOptions {
     filePath?: string | undefined;

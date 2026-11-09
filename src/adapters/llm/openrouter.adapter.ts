@@ -1,4 +1,4 @@
-import { OpenAIAdapter } from './openai.adapter';
+import { OpenAIAdapter } from './openai.adapter.js';
 
 export class OpenRouterAdapter extends OpenAIAdapter {
     constructor(

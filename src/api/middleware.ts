@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
-import { RAGEngine } from '../core/engine';
-import type { QueryContext } from '../interfaces/query-context.interface';
+import { RAGEngine } from '../core/engine.js';
+import type { QueryContext } from '../interfaces/query-context.interface.js';
 
 export function createRagMiddleware(engine: RAGEngine) {
     let isInitialized = false;

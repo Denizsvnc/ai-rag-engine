@@ -12,13 +12,14 @@
   },
   "files": [
     "dist",
+    "docs",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
     "dev": "tsx watch src/api/server.ts",
     "build:types": "tsc --emitDeclarationOnly",
-    "build:js": "esbuild src/index.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/index.js && esbuild src/api/server.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/api/server.js",
+    "build:js": "node tools/build.mjs",
     "build": "npm run build:types && npm run build:js",
     "typecheck": "tsc --noEmit",
     "start": "node dist/api/server.js",
@@ -26,7 +27,11 @@
     "benchmark": "tsx test/performance/smoke-benchmark.ts",
     "example:ecommerce": "tsx src/examples/02-ecommerce-with-tools/index.ts",
     "example:minimal": "tsx src/examples/01-minimal-express/index.ts",
-    "test:security": "node --import tsx --test test/security/*.test.ts test/unit/security/*.test.ts test/integration/security-boundaries.test.ts test/integration/distributed-confirmation.test.ts test/unit/governed-tools.test.ts"
+    "test:security": "node --import tsx --test test/security/*.test.ts test/unit/security/*.test.ts test/integration/security-boundaries.test.ts test/integration/distributed-confirmation.test.ts test/unit/governed-tools.test.ts",
+    "db:migrate": "node dist/scripts/migrate-vector.js",
+    "start:worker": "node dist/worker.js",
+    "prepack": "npm run build",
+    "test:consumer": "node test/consumer/run.mjs"
   },
   "keywords": [
     "rag",
@@ -46,19 +51,27 @@
   "type": "module",
   "dependencies": {
     "@huggingface/transformers": "4.3.1",
+    "bullmq": "6.7.2",
     "dotenv": "16.6.1",
     "express": "5.3.0",
     "ioredis": "6.0.0",
     "lru-cache": "10.4.3",
-    "zod": "4.6.7"
+    "pg": "8.23.1",
+    "zod": "4.6.7",
+    "@types/pg": "8.23.1",
+    "@types/express": "5.0.6",
+    "@types/node": "26.6.5"
   },
   "devDependencies": {
     "@types/dotenv": "6.1.1",
-    "@types/express": "5.0.6",
-    "@types/node": "26.6.5",
     "esbuild": "0.28.2",
     "ts-node": "10.9.2",
     "tsx": "4.23.15",
     "typescript": "7.0.2"
+  },
+  "bin": {
+    "ai-rag-server": "dist/api/server.js",
+    "ai-rag-worker": "dist/worker.js",
+    "ai-rag-migrate": "dist/scripts/migrate-vector.js"
   }
 }

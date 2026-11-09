@@ -1,10 +1,12 @@
-import { Router } from 'express';
-import { RAGEngine } from '../core/engine';
-import { createRagMiddleware } from './middleware';
-import { PrometheusExporter } from '../core/metrics/prometheus-exporter';
-import { createAuthMiddleware, requireRoles, type AuthMiddlewareOptions } from './auth';
+import { Router, type RequestHandler } from 'express';
+import { IngestionConflictError, IngestionQuotaError } from '../core/ingestion/postgres-ingestion-store.js';
+import { RAGEngine } from '../core/engine.js';
+import { createRagMiddleware } from './middleware.js';
+import { PrometheusExporter } from '../core/metrics/prometheus-exporter.js';
+import { createAuthMiddleware, requireRoles, type AuthMiddlewareOptions } from './auth.js';
 
 export interface ApiRouteOptions {
+    rateLimiter?: RequestHandler | undefined;
     auth?: AuthMiddlewareOptions | undefined;
     enforceAuth?: boolean | undefined;
 }
@@ -30,6 +32,7 @@ export function createApiRoutes(engine: RAGEngine, options?: ApiRouteOptions): R
 
     // Apply authentication middleware to all incoming API traffic
     router.use(authMiddleware);
+    if (options?.rateLimiter) router.use(options.rateLimiter);
 
     // 2. Main RAG query endpoint (Authenticated & Tenant-Scoped)
     router.post('/query', createRagMiddleware(engine));
@@ -59,7 +62,7 @@ export function createApiRoutes(engine: RAGEngine, options?: ApiRouteOptions): R
     // Strictly requires 'admin', 'editor', or 'ingest_agent' role.
     router.post('/ingest', requireRoles(['admin', 'editor', 'ingest_agent']), async (req, res) => {
         try {
-            const { filename, content, mimeType } = req.body || {};
+            const { filename, content, mimeType, documentId, encoding } = req.body || {};
             if (!filename || !content) {
                 res.status(400).json({
                     error: "Missing required fields: 'filename' and 'content' are required for document ingestion."
@@ -69,13 +72,13 @@ export function createApiRoutes(engine: RAGEngine, options?: ApiRouteOptions): R
 
             // Scope document ingestion to caller tenantId
             const tenantId = req.auth?.tenantId;
-            const result = await engine.ingestDocument({ filename, content, mimeType, tenantId, userId: req.auth!.userId });
+            const result = await engine.ingestDocument({ filename, content, mimeType, documentId, encoding, idempotencyKey: typeof req.headers['idempotency-key'] === 'string' ? req.headers['idempotency-key'] : undefined, tenantId, userId: req.auth!.userId });
             res.status(202).json({
                 message: 'Document accepted for asynchronous ingestion and PII sanitization.',
                 ...result
             });
         } catch (error: any) {
-            res.status(400).json({ error: error.message || 'Failed to submit document for ingestion.' });
+            res.status(error instanceof IngestionQuotaError ? 429 : error instanceof IngestionConflictError ? 409 : 400).json({ error: error.message || 'Failed to submit document for ingestion.' });
         }
     });
 
@@ -90,12 +93,21 @@ export function createApiRoutes(engine: RAGEngine, options?: ApiRouteOptions): R
             }
             res.json({
                 id: job.id, status: job.status, progress: job.progress,
-                createdAt: job.createdAt, updatedAt: job.updatedAt, completedAt: job.completedAt,
+                createdAt: job.createdAt, updatedAt: job.updatedAt, completedAt: job.completedAt, attemptsMade: job.attemptsMade,
                 result: job.result, ...(job.error ? { error: 'Ingestion failed.' } : {})
             });
         } catch (error: any) {
             res.status(500).json({ error: error.message || 'Failed to retrieve job status.' });
         }
+    });
+
+    router.post('/ingest/status/:jobId/retry', requireRoles(['admin', 'editor', 'ingest_agent']), async (req, res) => {
+        const jobId = String(req.params.jobId);
+        try {
+            if (!await engine.getIngestionStatus(jobId, req.auth!.tenantId)) { res.status(404).json({ error: 'Job not found.' }); return; }
+            await engine.retryIngestion(jobId, req.auth!.tenantId);
+            res.status(202).json({ jobId, status: 'queued' });
+        } catch { res.status(409).json({ error: 'Job cannot be retried.' }); }
     });
 
     return router;

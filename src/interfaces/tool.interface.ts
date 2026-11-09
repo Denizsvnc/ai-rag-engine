@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { QueryContext } from './query-context.interface';
+import type { QueryContext } from './query-context.interface.js';
 
 export interface ToolParameterSchema {
     type: 'object';

@@ -7,7 +7,7 @@ import {
     OllamaAdapter,
     type IAgentTool,
     type IRulesAdapter
-} from '../../index';
+} from '../../index.js';
 
 const app = express();
 app.use(express.json());

@@ -1,10 +1,10 @@
-import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../interfaces/llm.interface';
-import { OpenAIAdapter } from './openai.adapter';
-import { GeminiAdapter } from './gemini.adapter';
-import { OpenRouterAdapter } from './openrouter.adapter';
-import { CustomLLMAdapter } from './custom.adapter';
-import { OllamaAdapter } from './ollama.adapter';
-import { FallbackLLMProvider } from './fallback.adapter';
+import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../interfaces/llm.interface.js';
+import { OpenAIAdapter } from './openai.adapter.js';
+import { GeminiAdapter } from './gemini.adapter.js';
+import { OpenRouterAdapter } from './openrouter.adapter.js';
+import { CustomLLMAdapter } from './custom.adapter.js';
+import { OllamaAdapter } from './ollama.adapter.js';
+import { FallbackLLMProvider } from './fallback.adapter.js';
 
 export interface TieredLLMConfig {
     fastProvider: ILLMProvider;

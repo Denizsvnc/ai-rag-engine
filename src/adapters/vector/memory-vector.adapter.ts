@@ -1,8 +1,8 @@
-import type { IVectorStoreAdapter, VectorDocument } from '../../interfaces/vector.interface';
-import { SMLEngine } from '../../core/sml-engine';
-import { dotProduct } from '../../utils/math';
-import { BM25Index } from '../../core/vector/bm25';
-import { reciprocalRankFusion, type HybridScoredDocument } from '../../core/vector/hybrid-search';
+import type { IVectorStoreAdapter, VectorDocument } from '../../interfaces/vector.interface.js';
+import { SMLEngine } from '../../core/sml-engine.js';
+import { dotProduct } from '../../utils/math.js';
+import { BM25Index } from '../../core/vector/bm25.js';
+import { reciprocalRankFusion, type HybridScoredDocument } from '../../core/vector/hybrid-search.js';
 
 interface StoredDocument extends VectorDocument {
     embedding: number[] | Float32Array;
@@ -18,10 +18,16 @@ export class MemoryVectorAdapter implements IVectorStoreAdapter {
      * Adds documents to memory, computes their embeddings, and indexes them in BM25.
      */
     public async addDocuments(docs: Omit<VectorDocument, 'score'>[]): Promise<void> {
+        const prepared: StoredDocument[] = [];
         for (const doc of docs) {
             console.log(`[MemoryVector] Vectorizing document: ${doc.id}`);
             const embedding = await this.smlEngine.getEmbedding(doc.content);
-            this.documents.push({ ...doc, embedding });
+            prepared.push({ ...doc, embedding });
+        }
+        for (const doc of prepared) {
+            const index = this.documents.findIndex(existing => existing.id === doc.id && existing.metadata?.tenantId === doc.metadata?.tenantId);
+            if (index < 0) this.documents.push(doc);
+            else this.documents[index] = doc;
         }
         // Update BM25 lexical index
         this.bm25Index.index(this.documents);
@@ -100,9 +106,9 @@ export class MemoryVectorAdapter implements IVectorStoreAdapter {
     /**
      * Deletes a document by ID from both Dense memory and BM25 index.
      */
-    public async deleteDocument(id: string): Promise<boolean> {
+    public async deleteDocument(id: string, filter?: Record<string, any>): Promise<boolean> {
         const initialLen = this.documents.length;
-        this.documents = this.documents.filter(d => d.id !== id);
+        this.documents = this.documents.filter(d => d.id !== id || !this.matchesFilter(d, filter));
         this.bm25Index = new BM25Index();
         this.bm25Index.index(this.documents);
         return this.documents.length < initialLen;
@@ -111,8 +117,12 @@ export class MemoryVectorAdapter implements IVectorStoreAdapter {
     /**
      * Clears all stored documents.
      */
-    public async clear(): Promise<void> {
-        this.documents = [];
-        this.bm25Index.clear();
+    public async clear(filter?: Record<string, any>): Promise<void> {
+        this.documents = this.documents.filter(doc => !this.matchesFilter(doc, filter));
+        this.bm25Index.index(this.documents);
+    }
+
+    private matchesFilter(doc: VectorDocument, filter?: Record<string, any>): boolean {
+        return !filter || Object.entries(filter).every(([key, value]) => doc.metadata?.[key] === value);
     }
 }

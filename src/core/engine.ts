@@ -1,20 +1,20 @@
-import type { EngineConfig, RAGResponse } from '../interfaces/engine-config.interface';
-import { CacheManager } from './cache-manager';
-import { SMLEngine } from './sml-engine';
-import { ToolRegistry } from './tool-registry';
-import { PromptBuilder } from './prompt-builder';
-import { SecurityGuard } from './security/security-guard';
-import { ConfirmationService } from './security/confirmation';
-import type { VectorDocument } from '../interfaces/vector.interface';
-import type { ILLMRequest } from '../interfaces/llm.interface';
-import { TokenTracker, type EngineMetricsSummary } from './metrics/token-tracker';
-import { DocumentIngestionService, type DocumentUploadPayload } from '../services/document-ingestion.service';
-import type { Job } from './queue/job-queue.interface';
-import type { QueryContext } from '../interfaces/query-context.interface';
-import type { ToolAuditLog } from '../interfaces/tool.interface';
+import type { EngineConfig, RAGResponse } from '../interfaces/engine-config.interface.js';
+import { CacheManager } from './cache-manager.js';
+import { SMLEngine } from './sml-engine.js';
+import { ToolRegistry } from './tool-registry.js';
+import { PromptBuilder } from './prompt-builder.js';
+import { SecurityGuard } from './security/security-guard.js';
+import { ConfirmationService } from './security/confirmation.js';
+import type { VectorDocument } from '../interfaces/vector.interface.js';
+import type { ILLMRequest } from '../interfaces/llm.interface.js';
+import { TokenTracker, type EngineMetricsSummary } from './metrics/token-tracker.js';
+import { DocumentIngestionService, type DocumentUploadPayload } from '../services/document-ingestion.service.js';
+import type { Job } from './queue/job-queue.interface.js';
+import type { QueryContext } from '../interfaces/query-context.interface.js';
+import type { ToolAuditLog } from '../interfaces/tool.interface.js';
 
-import type { ICacheAdapter } from '../interfaces/cache.interface';
-import { MemoryVectorAdapter } from '../adapters/vector/memory-vector.adapter';
+import type { ICacheAdapter } from '../interfaces/cache.interface.js';
+import { MemoryVectorAdapter } from '../adapters/vector/memory-vector.adapter.js';
 
 export class RAGEngine {
     private confirmationService: ConfirmationService | undefined;
@@ -56,6 +56,7 @@ export class RAGEngine {
             vectorStore,
             smlEngine: this.smlEngine,
             jobQueue: config.ingestion?.jobQueue,
+            backend: config.ingestion?.backend,
             chunkSize: config.ingestion?.chunkSize,
             chunkOverlap: config.ingestion?.chunkOverlap,
             piiPolicy: config.security?.pii
@@ -192,7 +193,9 @@ export class RAGEngine {
 
         // 2. Multi-Tenant & Role-Isolated Cache lookup (P0 Security Isolation)
         const scope = JSON.stringify([context?.tenantId ?? null, context?.userId ?? null, context?.roles?.slice().sort() ?? []]);
-        const cacheKey = `v2:${scope}:${sanitizedPrompt}`;
+        const revision = this.config.cache?.enabled !== false && context?.tenantId && this.config.inputs.vectorStore?.getRevision
+            ? await this.config.inputs.vectorStore.getRevision(context.tenantId) : '0';
+        const cacheKey = `v3:${scope}:${revision}:${sanitizedPrompt}`;
 
         if (this.config.cache?.enabled !== false && !context?.skipCache && !context?.confirmationTicket) {
             const cachedResponse = await this.cacheManager.get(cacheKey);
@@ -580,6 +583,10 @@ export class RAGEngine {
      */
     public async getIngestionStatus(jobId: string, tenantId?: string): Promise<Job | null> {
         return this.ingestionService.getJobStatus(jobId, tenantId);
+    }
+
+    public async retryIngestion(jobId: string, tenantId: string): Promise<void> {
+        await this.ingestionService.retryJob(jobId, tenantId);
     }
 
     public getIngestionService(): DocumentIngestionService {

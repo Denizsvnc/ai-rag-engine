@@ -54,7 +54,7 @@ describe('RAG Evaluation System & Prometheus Telemetry', () => {
             tokensSaved: 12000,
             estimatedCostUsd: 0.0135,
             estimatedCostSavedUsd: 0.036,
-            latency: { minMs: 2, maxMs: 250, avgMs: 45, p95Ms: 180 }
+            latency: { minMs: 2, maxMs: 250, avgMs: 45, p50Ms: 20, p95Ms: 180, p99Ms: 240, sumMs: 4500, count: 100, buckets: [] }
         };
 
         const exportedText = PrometheusExporter.exportMetrics(mockSummary, {

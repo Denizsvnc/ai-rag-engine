@@ -1,5 +1,7 @@
 # Güvenlik incelemesi ve düzeltme kaydı
 
+9 Kasım güncellemesi: cache invalidation, latency metrikleri ve pgvector veri katmanındaki sonraki değişiklikler [ayrı geliştirme kaydında](production-data-layer.md) belgelenmiştir. Aşağıdaki sonuçlar 27 Ekim commit incelemesinin tarihsel kaydıdır.
+
 Tarih: 27 Ekim 2026. İncelenen başlangıç commit'i: `cd6fa63` (v2.1.0).
 Kaynak: kullanıcı tarafından paylaşılan teknik inceleme ve mevcut çalışma ağacı.
 
@@ -91,3 +93,9 @@ Redis cache adaptörünün mevcut bellek fallback'i için instance'lar arasında
 Rakip karşılaştırmaları, 6/10 production puanı, Recall@5 iyileşmesi, %90 faithfulness ve üretim p95 hedefleri bu çalışmada doğrulanmış ölçümler değildir. Tam penetrasyon testi, dış LLM kalite değerlendirmesi veya eş donanımda rakip benchmark'ı yapılmadı. Bağımlılık audit'inin sıfır sonucu tüm kaynak kodun açık içermediği anlamına gelmez.
 
 Teknik referanslar: [JWT BCP / RFC 8725](https://www.rfc-editor.org/rfc/rfc8725.html), [Redis SET NX PX](https://redis.io/docs/latest/commands/set/).
+
+## 9 Kasım 2026 — Kalıcı worker ve paket tüketicisi doğrulaması
+
+Producer/consumer ayrımı, PostgreSQL raw upload/outbox, tenant idempotency/quota, sürüm manifestiyle atomic replace, revision cache anahtarı, Redis rate limit ve LLM timeout eklendi. Worker PII'yi chunking öncesinde maskeler; HTTP durum yanıtları raw dosya döndürmez. Retrieval/tool içerikleri prompt içinde escape edilir ve güvenilmeyen veri olarak işaretlenir; bu bütün prompt injection saldırılarına karşı garanti değildir.
+
+183 testin tamamı gerçek Redis ve pgvector etkin halde geçti; ayrıca npm tarball'ı bağımsız projeye kurularak gerçek MiniLM ve flan-t5-small ile API → worker → retrieval → üretim, worker SIGKILL/restart, tenant sınırı ve cache yenilenmesi doğrulandı. Kurulum, migration, kapsam ve ortam sınırları: [durable-ingestion.md](durable-ingestion.md). Docker runtime, GitHub CI, yüksek yük ve geniş TR/EN kalite benchmark'ı bu doğrulamaya dahil değildir.

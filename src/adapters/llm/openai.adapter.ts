@@ -1,4 +1,5 @@
-import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../interfaces/llm.interface';
+import { providerTimeoutSignal } from '../../utils/http.js';
+import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../interfaces/llm.interface.js';
 
 export class OpenAIAdapter implements ILLMProvider {
     protected apiKey: string;
@@ -53,6 +54,7 @@ export class OpenAIAdapter implements ILLMProvider {
 
         const response = await fetch(this.endpoint, {
             method: 'POST',
+                signal: providerTimeoutSignal(),
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${this.apiKey}`

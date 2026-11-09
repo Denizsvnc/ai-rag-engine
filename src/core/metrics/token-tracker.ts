@@ -24,6 +24,10 @@ export interface EngineMetricsSummary {
         maxMs: number;
         p50Ms: number;
         p95Ms: number;
+        p99Ms: number;
+        sumMs: number;
+        count: number;
+        buckets: Array<{ leMs: number; count: number }>;
     };
 }
 
@@ -46,6 +50,9 @@ export class TokenTracker {
     private totalTokensConsumed = 0;
     private totalTokensSaved = 0;
     private latencies: number[] = [];
+    private latencySumMs = 0;
+    private readonly latencyBoundsMs = [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000];
+    private latencyBucketCounts = this.latencyBoundsMs.map(() => 0);
 
     constructor(options?: TokenTrackerOptions) {
         this.costPerThousand = options?.costPerThousandTokensUsd ?? 0.003;
@@ -73,6 +80,13 @@ export class TokenTracker {
         usage?: { promptTokens: number; completionTokens: number } | undefined;
         latencyMs: number;
     }): ResponseMetrics {
+        if (!Number.isFinite(event.latencyMs) || event.latencyMs < 0) {
+            throw new Error('Latency must be finite and non-negative.');
+        }
+        this.latencySumMs += event.latencyMs;
+        for (let i = 0; i < this.latencyBoundsMs.length; i++) {
+            if (event.latencyMs <= this.latencyBoundsMs[i]!) this.latencyBucketCounts[i]!++;
+        }
         this.totalQueries++;
         this.latencies.push(event.latencyMs);
         if (this.latencies.length > 5000) {
@@ -179,7 +193,11 @@ export class TokenTracker {
                 minMs,
                 maxMs,
                 p50Ms,
-                p95Ms
+                p95Ms,
+                p99Ms: count > 0 ? sortedLatencies[Math.min(Math.floor(count * 0.99), count - 1)]! : 0,
+                sumMs: this.latencySumMs,
+                count: this.totalQueries,
+                buckets: this.latencyBoundsMs.map((leMs, index) => ({ leMs, count: this.latencyBucketCounts[index]! }))
             }
         };
     }
@@ -194,5 +212,7 @@ export class TokenTracker {
         this.totalTokensConsumed = 0;
         this.totalTokensSaved = 0;
         this.latencies = [];
+        this.latencySumMs = 0;
+        this.latencyBucketCounts.fill(0);
     }
 }

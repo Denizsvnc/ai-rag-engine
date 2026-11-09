@@ -11,6 +11,7 @@ RUN npm ci
 
 # Copy source code and default data assets
 COPY src/ ./src/
+COPY tools/ ./tools/
 
 # Compile TypeScript types and bundle production JavaScript
 RUN npm run build

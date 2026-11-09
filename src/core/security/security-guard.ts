@@ -1,7 +1,7 @@
-import type { SecurityConfig, InjectionCheckResult } from './security.types';
-import { InputSanitizer } from './sanitizer';
-import { InjectionDetector } from './injection-detector';
-import { PIIGuard } from './pii-guard';
+import type { SecurityConfig, InjectionCheckResult } from './security.types.js';
+import { InputSanitizer } from './sanitizer.js';
+import { InjectionDetector } from './injection-detector.js';
+import { PIIGuard } from './pii-guard.js';
 
 /**
  * Enterprise Security Guardrail for the RAG Engine.

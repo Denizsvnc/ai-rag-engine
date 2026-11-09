@@ -1,4 +1,4 @@
-import type { IAgentTool } from './tool.interface';
+import type { IAgentTool } from './tool.interface.js';
 
 export interface ILLMRequest {
     systemPrompt: string;

@@ -1,4 +1,4 @@
-import type { IRulesAdapter } from '../../interfaces/rules.interface';
+import type { IRulesAdapter } from '../../interfaces/rules.interface.js';
 
 export class StaticRulesAdapter implements IRulesAdapter {
     private rules: string[];

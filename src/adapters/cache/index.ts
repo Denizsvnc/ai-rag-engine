@@ -1,1 +1,1 @@
-export * from './redis-cache.adapter';
+export * from './redis-cache.adapter.js';

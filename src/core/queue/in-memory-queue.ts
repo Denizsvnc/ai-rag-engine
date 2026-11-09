@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import type { IJobQueue, Job, JobHandler, JobStatus } from './job-queue.interface';
+import type { IJobQueue, Job, JobHandler, JobStatus } from './job-queue.interface.js';
 
 export interface InMemoryQueueOptions {
     concurrency?: number | undefined;
+    maxPendingJobs?: number | undefined;
     maxRetainedJobs?: number | undefined;
 }
 
@@ -13,12 +14,18 @@ export class InMemoryJobQueue<TData = any, TResult = any> implements IJobQueue<T
     private activeJobsCount = 0;
     private isClosed = false;
 
+    private readonly maxPendingJobs: number;
+    private drainWaiters: Array<() => void> = [];
     private readonly concurrency: number;
     private readonly maxRetainedJobs: number;
 
     constructor(options?: InMemoryQueueOptions) {
+        this.maxPendingJobs = options?.maxPendingJobs ?? 1000;
         this.concurrency = options?.concurrency ?? 2;
         this.maxRetainedJobs = options?.maxRetainedJobs ?? 500;
+        for (const value of [this.concurrency, this.maxRetainedJobs, this.maxPendingJobs]) {
+            if (!Number.isInteger(value) || value < 1) throw new Error('Queue limits must be positive integers.');
+        }
     }
 
     public async add(type: string, data: TData, customJobId?: string): Promise<Job<TData, TResult>> {
@@ -27,6 +34,9 @@ export class InMemoryJobQueue<TData = any, TResult = any> implements IJobQueue<T
         }
 
         const id = customJobId || `job_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+        const existing = this.jobs.get(id);
+        if (existing) return { ...existing };
+        if (this.pendingQueue.length + this.activeJobsCount >= this.maxPendingJobs) throw new Error('Pending job limit exceeded.');
         const now = Date.now();
 
         const job: Job<TData, TResult> = {
@@ -63,6 +73,7 @@ export class InMemoryJobQueue<TData = any, TResult = any> implements IJobQueue<T
     public async close(): Promise<void> {
         this.isClosed = true;
         this.pendingQueue = [];
+        if (this.activeJobsCount > 0) await new Promise<void>(resolve => this.drainWaiters.push(resolve));
     }
 
     private async dispatch(): Promise<void> {
@@ -108,15 +119,15 @@ export class InMemoryJobQueue<TData = any, TResult = any> implements IJobQueue<T
             job.updatedAt = Date.now();
         } finally {
             this.activeJobsCount--;
+            if (this.activeJobsCount === 0) { for (const resolve of this.drainWaiters) resolve(); this.drainWaiters = []; }
+            this.pruneOldJobs();
             setImmediate(() => this.dispatch());
         }
     }
 
     private pruneOldJobs(): void {
         if (this.jobs.size <= this.maxRetainedJobs) return;
-        const keysToRemove = Array.from(this.jobs.keys()).slice(0, this.jobs.size - this.maxRetainedJobs);
-        for (const key of keysToRemove) {
-            this.jobs.delete(key);
-        }
+        const terminal = [...this.jobs.values()].filter(job => job.status === 'completed' || job.status === 'failed');
+        for (const job of terminal.slice(0, Math.max(0, terminal.length - this.maxRetainedJobs))) this.jobs.delete(job.id);
     }
 }

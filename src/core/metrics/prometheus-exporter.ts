@@ -1,4 +1,4 @@
-import type { EngineMetricsSummary } from './token-tracker';
+import type { EngineMetricsSummary } from './token-tracker.js';
 
 export interface PrometheusMetricOptions {
     circuitBreakerState?: 'CLOSED' | 'OPEN' | 'HALF_OPEN' | undefined;
@@ -43,8 +43,18 @@ export class PrometheusExporter {
         lines.push('# TYPE rag_latency_ms summary');
         lines.push(`rag_latency_ms{quantile="0.5"} ${summary.latency.p50Ms}`);
         lines.push(`rag_latency_ms{quantile="0.95"} ${summary.latency.p95Ms}`);
-        lines.push(`rag_latency_ms_sum ${summary.latency.avgMs * summary.totalQueries}`);
-        lines.push(`rag_latency_ms_count ${summary.totalQueries}`);
+        lines.push(`rag_latency_ms_sum ${summary.latency.sumMs}`);
+        lines.push(`rag_latency_ms_count ${summary.latency.count}`);
+
+        // Cumulative histogram supports aggregation across engine instances.
+        lines.push('# HELP rag_query_duration_seconds Query execution duration in seconds');
+        lines.push('# TYPE rag_query_duration_seconds histogram');
+        for (const bucket of summary.latency.buckets) {
+            lines.push(`rag_query_duration_seconds_bucket{le="${bucket.leMs / 1000}"} ${bucket.count}`);
+        }
+        lines.push(`rag_query_duration_seconds_bucket{le="+Inf"} ${summary.latency.count}`);
+        lines.push(`rag_query_duration_seconds_sum ${summary.latency.sumMs / 1000}`);
+        lines.push(`rag_query_duration_seconds_count ${summary.latency.count}`);
 
         // 7. Active Cache Size
         if (options?.activeCacheSize !== undefined) {

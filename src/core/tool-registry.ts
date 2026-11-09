@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
-import type { IAgentTool } from '../interfaces/tool.interface';
-import { SMLEngine } from './sml-engine';
+import type { IAgentTool } from '../interfaces/tool.interface.js';
+import { SMLEngine } from './sml-engine.js';
 
 interface RegistrySchema {
     version: string;

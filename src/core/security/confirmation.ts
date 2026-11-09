@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 import { z } from 'zod';
-import { resolveSecret } from './secrets';
-import { MemoryConfirmationNonceStore, type ConfirmationNonceStore } from './nonce-store';
-import type { QueryContext } from '../../interfaces/query-context.interface';
+import { resolveSecret } from './secrets.js';
+import { MemoryConfirmationNonceStore, type ConfirmationNonceStore } from './nonce-store.js';
+import type { QueryContext } from '../../interfaces/query-context.interface.js';
 
 const ticketPayloadSchema = z.object({
     toolName: z.string().min(1), argsHash: z.string().regex(/^[a-f0-9]{64}$/),

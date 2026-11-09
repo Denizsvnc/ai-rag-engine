@@ -44,11 +44,12 @@ export class BM25Index {
 
         let totalLength = 0;
 
-        for (const doc of docs) {
-            this.documents.set(doc.id, doc);
+        const uniqueDocs = new Map(docs.map(doc => [JSON.stringify([doc.metadata?.tenantId ?? null, doc.id]), doc]));
+        for (const [key, doc] of uniqueDocs) {
+            this.documents.set(key, doc);
             const tokens = this.tokenize(doc.content);
             const length = tokens.length;
-            this.docLengths.set(doc.id, length);
+            this.docLengths.set(key, length);
             totalLength += length;
 
             const termFreq = new Map<string, number>();
@@ -62,10 +63,10 @@ export class BM25Index {
                 }
             }
 
-            this.docTermFreqs.set(doc.id, termFreq);
+            this.docTermFreqs.set(key, termFreq);
         }
 
-        this.docCount = docs.length;
+        this.docCount = uniqueDocs.size;
         this.avgDocLength = this.docCount > 0 ? totalLength / this.docCount : 0;
     }
 

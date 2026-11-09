@@ -1,4 +1,4 @@
-import { CustomLLMAdapter } from './custom.adapter';
+import { CustomLLMAdapter } from './custom.adapter.js';
 
 export interface OllamaConfig {
     /**

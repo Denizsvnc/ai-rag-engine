@@ -1,6 +1,8 @@
-export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed';
+export type JobStatus = 'pending' | 'queued' | 'processing' | 'completed' | 'failed';
 
 export interface Job<TData = any, TResult = any> {
+    attemptsMade?: number | undefined;
+    maxAttempts?: number | undefined;
     id: string;
     type: string;
     data: TData;
@@ -21,6 +23,6 @@ export type JobHandler<TData = any, TResult = any> = (
 export interface IJobQueue<TData = any, TResult = any> {
     add(type: string, data: TData, jobId?: string): Promise<Job<TData, TResult>>;
     getJob(id: string): Promise<Job<TData, TResult> | null>;
-    process(type: string, handler: JobHandler<TData, TResult>): void;
+    process(type: string, handler: JobHandler<TData, TResult>): void | Promise<void>;
     close(): Promise<void>;
 }

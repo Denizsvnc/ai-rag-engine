@@ -1,12 +1,14 @@
-import type { ConfirmationNonceStore } from '../core/security/nonce-store';
-import type { IVectorStoreAdapter } from './vector.interface';
-import type { IRulesAdapter } from './rules.interface';
-import type { IFAQAdapter } from './faq.interface';
-import type { ICacheAdapter } from './cache.interface';
-import type { IAgentTool } from './tool.interface';
-import type { ILLMProvider } from './llm.interface';
-import type { SecurityConfig } from '../core/security/security.types';
-import type { ResponseMetrics, TokenTrackerOptions } from '../core/metrics/token-tracker';
+import type { IIngestionBackend } from './ingestion.interface.js';
+import type { IJobQueue } from '../core/queue/job-queue.interface.js';
+import type { ConfirmationNonceStore } from '../core/security/nonce-store.js';
+import type { IVectorStoreAdapter } from './vector.interface.js';
+import type { IRulesAdapter } from './rules.interface.js';
+import type { IFAQAdapter } from './faq.interface.js';
+import type { ICacheAdapter } from './cache.interface.js';
+import type { IAgentTool } from './tool.interface.js';
+import type { ILLMProvider } from './llm.interface.js';
+import type { SecurityConfig } from '../core/security/security.types.js';
+import type { ResponseMetrics, TokenTrackerOptions } from '../core/metrics/token-tracker.js';
 
 export interface EngineConfig {
     llmProvider: ILLMProvider;
@@ -42,9 +44,10 @@ export interface EngineConfig {
     } | undefined;
     metrics?: TokenTrackerOptions | undefined;
     ingestion?: {
+        backend?: IIngestionBackend | undefined;
         chunkSize?: number | undefined;
         chunkOverlap?: number | undefined;
-        jobQueue?: any | undefined;
+        jobQueue?: IJobQueue | undefined;
     } | undefined;
 }
 

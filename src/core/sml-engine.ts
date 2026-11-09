@@ -1,8 +1,13 @@
-import { pipeline, env, FeatureExtractionPipeline } from '@huggingface/transformers';
+import { pipeline, env } from '@huggingface/transformers';
 import { LRUCache } from 'lru-cache';
-import { dotProduct } from '../utils/math';
+import { dotProduct } from '../utils/math.js';
 
-env.cacheDir = './data/models';
+env.cacheDir = process.env.RAG_MODEL_CACHE_DIR || './data/models';
+
+/** Stable SDK boundary: transformer implementation types are kept private. */
+export interface EmbeddingExtractor {
+    (text: string | string[], options: { pooling: 'mean'; normalize: boolean }): Promise<{ data: Float32Array; dims: number[] }>;
+}
 
 export class CircuitBreakerOpenError extends Error {
     constructor(message: string) {
@@ -23,7 +28,7 @@ export interface SMLEngineConfig {
 export class SMLEngine {
     private readonly modelName: string;
     private readonly dtype: 'q8' | 'fp32' | 'fp16' | 'q4';
-    private extractorPromise: Promise<FeatureExtractionPipeline> | null = null;
+    private extractorPromise: Promise<EmbeddingExtractor> | null = null;
     private embeddingCache: LRUCache<string, Float32Array>;
 
     // Circuit Breaker State Machine
@@ -70,7 +75,7 @@ export class SMLEngine {
     /**
      * Thread-safe pipeline initializer guarded by a Circuit Breaker.
      */
-    public async init(): Promise<FeatureExtractionPipeline> {
+    public async init(): Promise<EmbeddingExtractor> {
         // Evaluate circuit breaker state
         if (this.circuitState === 'OPEN') {
             const timeSinceLastFailure = Date.now() - this.lastFailureTime;
@@ -94,7 +99,14 @@ export class SMLEngine {
                     // Success: Reset circuit breaker to healthy CLOSED state
                     this.circuitState = 'CLOSED';
                     this.failureCount = 0;
-                    return pipelineInstance;
+                    const extract: EmbeddingExtractor = async (text, options) => {
+                        const output = await pipelineInstance(text, options);
+                        const values: ArrayLike<number | bigint> = output.data;
+                        const data = output.data instanceof Float32Array ? output.data
+                            : Float32Array.from({ length: values.length }, (_, index) => Number(values[index]));
+                        return { data, dims: output.dims };
+                    };
+                    return extract;
                 })
                 .catch((err) => {
                     this.failureCount++;

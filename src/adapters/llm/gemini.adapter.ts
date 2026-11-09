@@ -1,4 +1,5 @@
-import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../interfaces/llm.interface';
+import { providerTimeoutSignal } from '../../utils/http.js';
+import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../interfaces/llm.interface.js';
 
 export class GeminiAdapter implements ILLMProvider {
     private apiKey: string;
@@ -56,6 +57,7 @@ export class GeminiAdapter implements ILLMProvider {
 
         const response = await fetch(url, {
             method: 'POST',
+                signal: providerTimeoutSignal(),
             headers: {
                 'Content-Type': 'application/json'
             },

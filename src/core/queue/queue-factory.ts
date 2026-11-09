@@ -1,6 +1,6 @@
-import type { IJobQueue } from './job-queue.interface';
-import { InMemoryJobQueue } from './in-memory-queue';
-import { BullMQJobQueue, type BullMQQueueOptions } from './bullmq-queue';
+import type { IJobQueue } from './job-queue.interface.js';
+import { InMemoryJobQueue } from './in-memory-queue.js';
+import { BullMQJobQueue, type BullMQQueueOptions } from './bullmq-queue.js';
 
 export interface QueueConfig {
     driver?: 'memory' | 'bullmq' | undefined;

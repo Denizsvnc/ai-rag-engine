@@ -1,58 +1,89 @@
-services:
-  rag-engine:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: ai-rag-engine
-    restart: unless-stopped
-    ports:
-      - "${PORT:-3000}:3000"
-    environment:
-      - PORT=3000
-      - HOST=0.0.0.0
-      - NODE_ENV=production
-      # If connecting to the internal Redis service for BullMQ queues:
-      - REDIS_URL=redis://redis:6379
-      - CONFIRMATION_REDIS_URL=redis://redis:6379
-    env_file:
-      - path: .env
-        required: false
-    volumes:
-      # Persistent cache and vector store data
-      - rag_data:/app/data
-    depends_on:
-      redis:
-        condition: service_healthy
-        required: false
-    networks:
-      - rag_network
+x-application: &application
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: ai-rag-engine:local
+  env_file:
+    - path: .env
+      required: false
+  environment: &runtime
+    NODE_ENV: production
+    VECTOR_STORE: postgres
+    VECTOR_AUTO_MIGRATE: 'false'
+    INGESTION_QUEUE: bullmq
+    REDIS_URL: redis://redis:6379
+    DATABASE_URL: postgresql://rag_runtime:${RUNTIME_DB_PASSWORD:?Set a random hex RUNTIME_DB_PASSWORD}@postgres:5432/rag
+  volumes:
+    - rag_data:/app/data
+  networks: [rag_network]
 
-  # ----------------------------------------------------------------------------
-  # Optional Redis Service for BullMQ Distributed Background Ingestion Queues
-  # ----------------------------------------------------------------------------
-  redis:
-    image: redis:7-alpine
-    container_name: ai-rag-redis
+services:
+  migrate:
+    <<: *application
+    command: [node, dist/scripts/migrate-vector.js]
+    restart: 'no'
+    environment:
+      <<: *runtime
+      DATABASE_URL: postgresql://rag_owner:${POSTGRES_PASSWORD:?Set a random hex POSTGRES_PASSWORD}@postgres:5432/rag
+      RUNTIME_DB_USER: rag_runtime
+      RUNTIME_DB_PASSWORD: ${RUNTIME_DB_PASSWORD}
+    depends_on:
+      postgres: {condition: service_healthy}
+    healthcheck: {disable: true}
+
+  rag-engine:
+    <<: *application
     restart: unless-stopped
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    command: redis-server --appendonly yes --appendfsync always --maxmemory-policy noeviction --loglevel warning
-    volumes:
-      - redis_data:/data
+    environment:
+      <<: *runtime
+      HOST: 0.0.0.0
+      PORT: '3000'
+    ports: ['127.0.0.1:${PORT:-3000}:3000']
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+
+  ingestion-worker:
+    <<: *application
+    command: [node, dist/worker.js]
+    restart: unless-stopped
+    stop_grace_period: 40s
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+    # This process has no HTTP listener; job recovery uses BullMQ locks/stall detection.
+    healthcheck: {disable: true}
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rag
+      POSTGRES_USER: rag_owner
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes: [postgres_data:/var/lib/postgresql/data]
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: [CMD-SHELL, pg_isready -U rag_owner -d rag]
       interval: 5s
       timeout: 3s
       retries: 5
-    networks:
-      - rag_network
+    networks: [rag_network]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --appendfsync always --maxmemory-policy noeviction --loglevel warning
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks: [rag_network]
 
 volumes:
   rag_data:
-    driver: local
   redis_data:
-    driver: local
-
+  postgres_data:
 networks:
   rag_network:
-    driver: bridge

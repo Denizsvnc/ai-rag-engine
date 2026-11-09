@@ -1,4 +1,5 @@
-import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../interfaces/llm.interface';
+import { providerTimeoutSignal } from '../../utils/http.js';
+import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../interfaces/llm.interface.js';
 
 export interface CustomLLMConfig {
     /**
@@ -129,6 +130,7 @@ export class CustomLLMAdapter implements ILLMProvider {
         try {
             response = await fetch(this.endpoint, {
                 method: 'POST',
+                signal: providerTimeoutSignal(),
                 headers,
                 body: JSON.stringify(body)
             });

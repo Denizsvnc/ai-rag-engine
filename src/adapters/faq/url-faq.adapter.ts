@@ -1,4 +1,4 @@
-import type { IFAQAdapter } from '../../interfaces/faq.interface';
+import type { IFAQAdapter } from '../../interfaces/faq.interface.js';
 
 export class UrlFaqAdapter implements IFAQAdapter {
     private endpoint: string;

@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
-import { RAGEngine, createRagMiddleware, OpenAIAdapter, OllamaAdapter } from '../../index';
+import { RAGEngine, createRagMiddleware, OpenAIAdapter, OllamaAdapter } from '../../index.js';
 
 const app = express();
 app.use(express.json());

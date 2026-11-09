@@ -10,7 +10,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![CI](https://github.com/Denizsvnc/ai-rag-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Denizsvnc/ai-rag-engine/actions)
-[![Tests](https://img.shields.io/badge/Tests-148%2F148_Passing-success?logo=checkmarx&logoColor=white)](test/)
+[![Tests](https://img.shields.io/badge/Tests-183%2F183_Passing-success?logo=checkmarx&logoColor=white)](test/)
 [![GitHub Stars](https://img.shields.io/github/stars/Denizsvnc/ai-rag-engine?style=social)](https://github.com/Denizsvnc/ai-rag-engine/stargazers)
 [![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-all--MiniLM--L6--v2_(q8)-FF5722?logo=onnx&logoColor=white)](https://huggingface.co/docs/transformers.js)
 [![Security](https://img.shields.io/badge/OWASP-Prompt_Injection_Guarded-blueviolet?logo=shield&logoColor=white)](#-owasp-prompt-injection--visitor-trust-boundary)
@@ -153,7 +153,7 @@ Modern enterprise applications cannot afford sending every raw user question dir
 * **Non-Blocking Architecture:** Document ingestion (PDF stream decoding, chunking, PII redaction, and 384-dimensional ONNX vector generation) is CPU-heavy. Synchronous handling would freeze Express event loops.
 * **Pluggable Queue Adapters (`IJobQueue`):**
   * **Zero-Dependency `InMemoryJobQueue`:** Active by default with concurrent worker scheduling and progress tracking. Runs out of the box with zero external infrastructure (no Redis required for tests or single-node apps).
-  * **Enterprise `BullMQJobQueue`:** Backed by Redis with distributed worker pools, retries, and exponential backoff for large-scale Kubernetes deployments.
+  * **`BullMQJobQueue`:** Explicit producer/consumer separation, bounded concurrency and retries with exponential backoff. Production defaults to a separate worker, shared PostgreSQL uploads/outbox and atomic pgvector document replacement. [Setup and guarantees](docs/durable-ingestion.md).
 * **Two-Step REST Workflow:**
   1. `POST /api/ingest` runs pre-flight magic byte safety checks and returns `202 Accepted` with a `jobId`.
   2. `GET /api/ingest/status/:jobId` reports real-time progress (`0% -> 30% -> 70% -> 100%`) and processing metrics.
@@ -237,7 +237,7 @@ The server will initialize the ONNX embedding pipeline and listen on `http://loc
 ### 4. 🐳 Docker & Container Deployment
 
 #### 1-Command Startup with Docker Compose
-Starts both `ai-rag-engine` and the Redis BullMQ background queue:
+Starts the API, a separate ingestion worker, PostgreSQL/pgvector, Redis and a one-shot migration. Set independent random `JWT_SECRET`, `CONFIRMATION_SECRET`, `POSTGRES_PASSWORD` and `RUNTIME_DB_PASSWORD` first. See [configuration and migration](docs/durable-ingestion.md):
 ```bash
 docker compose up -d
 ```
@@ -447,38 +447,8 @@ npm run example:minimal
 | **`TokenTracker`** | 20,000 | **5,288,382 ops/s** | **0.17 µs** | 0.29 µs | Real-time FinOps Telemetry |
 
 ### Automated Test Suite Summary
-```text
-✔ Security Layer - JWT Authentication & RBAC Guard (9/9 passing)
-✔ Security Layer - Cryptographic Mutation Confirmation Tickets (7/7 passing)
-✔ Security Layer - Protected Administrative Endpoints & Tenant Audit Scoping (7/7 passing)
-✔ Security Layer - Cache Role Isolation & Multi-Tenant FAQ Boundary (2/2 passing)
-✔ Retrieval Layer - Hybrid Search & Engine Query Pipeline (3/3 passing)
-✔ Resiliency & Engineering Quality - Failure Recovery & Buffers (5/5 passing)
-✔ Integration - Express API Routes (3/3 passing)
-✔ Integration - RAGEngine Full Lifecycle (7/7 passing)
-✔ Integration - Document Ingestion & PII Protection Pipeline (4/4 passing)
-✔ Chaos & Concurrency - Init Mutex & Parallel Requests (2/2 passing)
-✔ Chaos & Fault Injection - Cascade Failover & Resiliency (4/4 passing)
-✔ Security - Full Pentest & Evasion Audit (5/5 passing)
-✔ Core Engine - CacheManager & Data Freshness (7/7 passing)
-✔ FAQ Layer - LocalFaqAdapter (4/4 passing)
-✔ Centralized Cache - RedisCacheAdapter (3/3 passing)
-✔ SML Engine - Circuit Breaker Pattern & Cooldown (2/2 passing)
-✔ Governed Tool Execution - RBAC, Zod & Mutation Guard (4/4 passing)
-✔ Hybrid Search - BM25 & Reciprocal Rank Fusion (3/3 passing)
-✔ Asynchronous Queue - InMemory & BullMQ (4/4 passing)
-✔ LLM Adapters & Multi-Tier Failover (6/6 passing)
-✔ Math Utilities - Dot Product (4/4 passing)
-✔ Multi-Tenancy & Tenant Isolation (2/2 passing)
-✔ Deep Enterprise Multi-Tenant Isolation & Anti-Poisoning (3/3 passing)
-✔ Security Guard - PIIGuard & Data Sovereignty (6/6 passing)
-✔ RAG Evaluation System & Prometheus Telemetry (3/3 passing)
-✔ Security Layer - Prompt Injection & Boundary Framing (11/11 passing)
-✔ Streaming Ingestion & Backpressure Management (5/5 passing)
-✔ FinOps Metrics - TokenTracker (5/5 passing)
+The full suite passes **183 tests with no skips** when both test services are configured. It covers security boundaries, cache and pgvector persistence, durable queue recovery, retry/idempotency and tenant quotas. See [worker setup and independent package verification](docs/durable-ingestion.md).
 
-Total: 148 tests passing across 24 test suites (0 errors, 100% pass rate)
-```
 
 ---
 
@@ -562,4 +532,7 @@ Feel free to use it in commercial products, open-source projects, and enterprise
 
 Authentication is required by default. Production requires independent random JWT_SECRET and CONFIRMATION_SECRET values (32+ bytes). Mutating SDK tools require a shared Redis nonce store. Boolean confirmation is ignored; verification is async and proposals are returned in confirmationRequests.
 
-See [verified findings, test evidence and migration instructions](docs/security-review.md). The 148-test result includes the real Redis test with REDIS_TEST_URL configured.
+See [verified findings, test evidence and migration instructions](docs/security-review.md). The current 183-test result includes real Redis and pgvector tests with REDIS_TEST_URL and PG_TEST_URL configured.
+
+
+Persistent PostgreSQL/pgvector retrieval, tenant-scoped upserts/deletes, Redis invalidation fixes and cumulative latency histograms are now available. See the [setup, migration and validation guide](docs/production-data-layer.md).

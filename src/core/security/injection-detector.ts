@@ -1,4 +1,4 @@
-import type { RiskLevel } from './security.types';
+import type { RiskLevel } from './security.types.js';
 
 export interface DetectionResult {
     isRisk: boolean;

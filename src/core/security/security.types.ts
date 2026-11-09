@@ -1,4 +1,4 @@
-import type { PIIPolicy } from './pii-guard';
+import type { PIIPolicy } from './pii-guard.js';
 
 export type RiskLevel = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
 

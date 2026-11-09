@@ -1,4 +1,4 @@
-import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../interfaces/llm.interface';
+import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../interfaces/llm.interface.js';
 
 export interface FallbackProviderOptions {
     logFailover?: boolean;

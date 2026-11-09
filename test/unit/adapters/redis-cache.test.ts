@@ -107,3 +107,77 @@ describe('Centralized Cache - RedisCacheAdapter', () => {
         assert.strictEqual(afterDelete, null);
     });
 });
+
+
+test('regex invalidation deletes remote entries and preserves other namespaces', async () => {
+    const client = new MockRedisClient();
+    const a = new RedisCacheAdapter({ client, keyPrefix: 'scope:' });
+    const b = new RedisCacheAdapter({ client, keyPrefix: 'other:' });
+    await a.set('product:1', { price: 10 });
+    await a.set('product:2', { price: 20 });
+    await b.set('product:1', { price: 30 });
+    const pattern = /product/g;
+    pattern.lastIndex = 3;
+    assert.equal(await a.invalidate(pattern), 2);
+    assert.equal(pattern.lastIndex, 3);
+    assert.equal(await a.get('product:1'), null);
+    assert.deepEqual(await b.get('product:1'), { price: 30 });
+});
+
+test('SCAN is preferred and clear handles duplicate and empty pages', async () => {
+    const base = new MockRedisClient();
+    await base.set('scope:1', '1'); await base.set('scope:2', '2'); await base.set('other:1', '3');
+    const calls: string[] = [];
+    const client = {
+        get: base.get.bind(base), set: base.set.bind(base), del: base.del.bind(base),
+        async keys() { throw new Error('KEYS must not run when SCAN exists'); },
+        async scan(cursor: string): Promise<[string, string[]]> {
+            calls.push(cursor);
+            if (cursor === '0') return ['1', ['scope:1', 'scope:1']];
+            if (cursor === '1') return ['2', []];
+            return ['0', ['scope:2', 'other:1']];
+        }
+    };
+    await new RedisCacheAdapter({ client, keyPrefix: 'scope:' }).clear();
+    assert.deepEqual(calls, ['0', '1', '2']);
+    assert.deepEqual([...base.storage.keys()], ['other:1']);
+});
+
+test('keyword invalidation matches query keys consistently with memory cache', async () => {
+    const client = new MockRedisClient();
+    const cache = new RedisCacheAdapter({ client });
+    await cache.set('tenant:alpha:what is LAPTOP stock?', 1);
+    await cache.set('tenant:alpha:phone stock?', 2);
+    assert.equal(await cache.invalidate('laptop'), 1);
+    assert.equal(await cache.get('tenant:alpha:what is LAPTOP stock?'), null);
+    assert.equal(await cache.get('tenant:alpha:phone stock?'), 2);
+});
+
+test('remote outages never resurrect invalidated local copies or acknowledge invalidation', async () => {
+    const base = new MockRedisClient();
+    let offline = false;
+    const client = {
+        set: base.set.bind(base),
+        async keys(pattern: string) { if (offline) throw new Error('offline'); return base.keys(pattern); },
+        async get(key: string) { if (offline) throw new Error('offline'); return base.get(key); },
+        async del(key: string | string[]) { if (offline) throw new Error('offline'); return base.del(key); }
+    };
+    const a = new RedisCacheAdapter({ client });
+    const b = new RedisCacheAdapter({ client });
+    await b.set('product', { price: 100 });
+    await a.delete('product');
+    offline = true;
+    assert.equal(await b.get('product'), null);
+    await assert.rejects(b.invalidate(/product/), /offline/);
+    await assert.rejects(b.clear(), /offline/);
+    offline = false;
+    await a.set('product', { price: 80 });
+    assert.deepEqual(await b.get('product'), { price: 80 });
+});
+
+test('missing enumeration capabilities fail explicitly; strict mode propagates read errors', async () => {
+    const client = { async get() { throw new Error('offline'); }, async set() { return 'OK'; }, async del() { return 0; } };
+    const cache = new RedisCacheAdapter({ client, enableFallbackMemory: false });
+    await assert.rejects(cache.get('x'), /offline/);
+    await assert.rejects(cache.clear(), /SCAN|KEYS/);
+});

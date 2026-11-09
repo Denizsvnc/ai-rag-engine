@@ -54,12 +54,24 @@ test('Asynchronous Queue - InMemory & BullMQ', async (t) => {
         assert.ok(queue instanceof InMemoryJobQueue);
     });
 
-    await t.test('BullMQJobQueue should produce actionable guidance when optional dependencies are absent', async () => {
-        const bullQueue = new BullMQJobQueue({ redisUrl: 'redis://127.0.0.1:6379' });
-        // Attempting to add a job without bullmq installed should reject with instructions
-        await assert.rejects(
-            async () => bullQueue.add('test', {}),
-            (err: any) => err.message.includes("Run 'npm install bullmq ioredis'")
-        );
+    await t.test('BullMQ rejects unsafe limits before connecting', () => {
+        assert.throws(() => new BullMQJobQueue({ attempts: 0 }), /positive integer/);
+        assert.throws(() => new BullMQJobQueue({ concurrency: 0 }), /positive integer/);
     });
+});
+
+test('memory queue bounds pending jobs and never prunes active work', async () => {
+    const queue = new InMemoryJobQueue({ concurrency: 1, maxPendingJobs: 2, maxRetainedJobs: 1 });
+    let finish!: () => void;
+    const gate = new Promise<void>(resolve => { finish = resolve; });
+    queue.process('work', async () => { await gate; return 'done'; });
+    const first = await queue.add('work', {}, 'same');
+    assert.equal((await queue.add('work', {}, 'same')).id, first.id);
+    await queue.add('work', {}, 'second');
+    await assert.rejects(queue.add('work', {}, 'third'), /limit/);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal((await queue.getJob(first.id))?.status, 'processing');
+    const closing = queue.close(); finish(); await closing;
+    assert.equal((await queue.getJob(first.id))?.status, 'completed');
+    await assert.rejects(queue.add('work', {}), /closed/i);
 });

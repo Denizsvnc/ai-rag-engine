@@ -1,4 +1,4 @@
-import type { VectorDocument } from '../../interfaces/vector.interface';
+import type { VectorDocument } from '../../interfaces/vector.interface.js';
 
 export interface HybridScoredDocument extends VectorDocument {
     denseRank?: number | undefined;
@@ -33,19 +33,21 @@ export function reciprocalRankFusion(
     // 1. Process Dense Vector results
     denseResults.forEach((doc, index) => {
         const rank = index + 1;
-        const existing = scoredDocs.get(doc.id) || { doc, rrfScore: 0 };
+        const key = JSON.stringify([doc.metadata?.tenantId ?? null, doc.id]);
+        const existing = scoredDocs.get(key) || { doc, rrfScore: 0 };
         existing.denseRank = rank;
         existing.rrfScore += 1 / (rrfK + rank);
-        scoredDocs.set(doc.id, existing);
+        scoredDocs.set(key, existing);
     });
 
     // 2. Process Sparse BM25 results
     sparseResults.forEach((doc, index) => {
         const rank = index + 1;
-        const existing = scoredDocs.get(doc.id) || { doc, rrfScore: 0 };
+        const key = JSON.stringify([doc.metadata?.tenantId ?? null, doc.id]);
+        const existing = scoredDocs.get(key) || { doc, rrfScore: 0 };
         existing.sparseRank = rank;
         existing.rrfScore += 1 / (rrfK + rank);
-        scoredDocs.set(doc.id, existing);
+        scoredDocs.set(key, existing);
     });
 
     // 3. Sort by fused RRF score descending

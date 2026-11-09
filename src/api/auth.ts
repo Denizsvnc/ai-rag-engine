@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { resolveSecret } from '../core/security/secrets';
+import { resolveSecret } from '../core/security/secrets.js';
 import { z } from 'zod';
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
 
