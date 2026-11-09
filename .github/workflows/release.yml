@@ -1,0 +1,46 @@
+name: Release Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_publish:
+        description: 'Type "publish" to confirm manual release authorization'
+        required: true
+        type: string
+
+jobs:
+  release:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Required for npm OIDC Trusted Publishing and provenance
+    steps:
+      - name: Check confirmation input
+        if: ${{ github.event.inputs.confirm_publish != 'publish' }}
+        run: |
+          echo "Release aborted: manual confirmation token did not match 'publish'."
+          exit 1
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Quality gates verification
+        run: |
+          npm run typecheck
+          npm run build
+          npm run test:package
+          npm audit --audit-level=high
+
+      - name: Publish package to npm with provenance
+        run: npm publish --access public --provenance
+

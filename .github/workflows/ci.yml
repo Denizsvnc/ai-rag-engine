@@ -5,6 +5,12 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      real_model_consumer:
+        description: Run the slower real-model packaged consumer integration
+        type: boolean
+        default: false
 
 jobs:
   test:
@@ -12,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20.x, 22.x]
+        node-version: [22.x, 24.x]
 
     services:
       redis:
@@ -53,19 +59,65 @@ jobs:
       - name: TypeScript Static Typecheck
         run: npm run typecheck
 
+      - name: Cache local embedding model
+        uses: actions/cache@v4
+        with:
+          path: data/models
+          key: minilm-q8-transformers-4.3.1
+
+      - name: Provision embedding model for integration tests
+        run: node --import tsx --input-type=module -e "import { SMLEngine } from './src/core/sml-engine.ts'; await new SMLEngine().init();"
+
       - name: Execute Full Automated Test Suite
         run: npm test
+
+      - name: Execute security regression tests with real Redis
+        run: npm run test:security
 
       - name: Run High-Throughput Smoke Benchmark
         run: npm run benchmark
 
-      - name: Build TypeScript Declarations and Bundles
-        run: npm run build
+      - name: Build and verify npm allowlist, declarations and CLI assets
+        run: npm run test:package
+
+      - name: Inspect npm pack dry run
+        run: npm pack --dry-run
 
       - name: Verify packed SDK as an independent customer project
-        if: matrix.node-version == '22.x'
         timeout-minutes: 15
         run: npm run test:consumer
+        env:
+          CONSUMER_MODEL_CACHE_DIR: ${{ github.workspace }}/data/models
+
+  real-model-consumer:
+    if: github.event_name == 'workflow_dispatch' && inputs.real_model_consumer
+    runs-on: ubuntu-latest
+    needs: test
+    timeout-minutes: 20
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: rag_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rag_test" --health-interval 5s
+          --health-timeout 3s --health-retries 5
+    env:
+      PG_TEST_URL: postgresql://postgres:test-only-password@127.0.0.1:5432/rag_test
+      REDIS_TEST_URL: redis://127.0.0.1:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: npm
+      - run: npm ci
+      - run: npm run test:consumer:integration
 
   docker-build:
     name: Docker Image Verification

@@ -1,0 +1,23 @@
+{
+  "success": true,
+  "generation": "real local Xenova/flan-t5-small q8",
+  "embedding": "real local MiniLM",
+  "project": "/private/var/folders/f4/99_bl5gd1qq0qq4zwhdd09nc0000gn/T/rag-consumer-4Z73mC",
+  "steps": [
+    "installed migration CLI",
+    "separate migration and runtime credentials",
+    "public health and authentication rejection",
+    "upload before worker, idempotency conflict and cross-tenant status rejection",
+    "real embedding -> BullMQ worker -> pgvector -> real local LLM answer",
+    "query cache hit",
+    "document replacement invalidates old query cache via data revision",
+    "worker SIGKILL mid-job and restart without duplicate chunks",
+    "unsafe upload rejection",
+    "API restart preserves shared job status",
+    "public SDK FAQ path with real embeddings"
+  ],
+  "package": "@denizsvnc/ai-rag-engine",
+  "version": "2.2.0",
+  "artifactSHA256": "ddefb877b0dc3d7da7c71e3877180cbad6e4ff2821d426b0c12e31535119e68b",
+  "generationWeights": "Verified against official Hugging Face SHA256 metadata before test"
+}

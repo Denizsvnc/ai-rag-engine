@@ -1,5 +1,5 @@
 import { Queue, Worker, UnrecoverableError, type Job as BullJob } from 'bullmq';
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 import type { IJobQueue, Job, JobHandler } from './job-queue.interface.js';
 
 export interface BullMQQueueOptions {

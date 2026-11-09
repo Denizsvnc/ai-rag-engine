@@ -62,7 +62,7 @@ export class ToolRegistry {
         await fs.writeFile(
             this.registryPath,
             JSON.stringify({ version: '1.0.0', tools: updatedRegistryTools }, null, 2),
-            'utf-8'
+            { encoding: 'utf-8', mode: 0o600 }
         );
     }
 

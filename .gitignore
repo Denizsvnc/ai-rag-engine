@@ -17,6 +17,7 @@ dist/
 build/
 out/
 *.tsbuildinfo
+*.tgz
 
 # Logs
 logs/

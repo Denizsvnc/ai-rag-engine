@@ -1,4 +1,4 @@
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 import { LRUCache } from 'lru-cache';
 import type { ICacheAdapter } from '../../interfaces/cache.interface.js';
 

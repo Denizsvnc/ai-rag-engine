@@ -16,6 +16,7 @@ describe('SML Engine - Circuit Breaker Pattern', () => {
     test('should trip to OPEN state when consecutive failures reach threshold', async () => {
         const sml = new SMLEngine({
             modelName: 'non-existent/model-for-failure-test',
+            localFilesOnly: true,
             circuitBreakerThreshold: 2,
             circuitBreakerCooldownMs: 500
         });

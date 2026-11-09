@@ -15,10 +15,10 @@ const cache = process.env.CONSUMER_NPM_CACHE || path.join(tmpdir(), 'rag-npm-cac
 const installFlags = process.env.CONSUMER_BIN_LINKS === 'false' ? ['--bin-links=false'] : [];
 console.log(`Consumer project: ${project}`);
 await exec(npm, ['pack', '--pack-destination', project], { cwd: root, maxBuffer: 5 * 1024 * 1024 });
-const tarball = path.join(project, `${metadata.name}-${metadata.version}.tgz`);
+const tarball = path.join(project, `${metadata.name.replace('@', '').replace('/', '-')}-${metadata.version}.tgz`);
 await writeFile(path.join(project, 'package.json'), JSON.stringify({ name: 'rag-customer-verification', version: '1.0.0', private: true, type: 'module' }, null, 2));
 await copyFile(new URL('./customer.mjs', import.meta.url), path.join(project, 'customer.mjs'));
-await writeFile(path.join(project, 'types.ts'), `import { RAGEngine, PostgresVectorAdapter, QueuedIngestionService, IngestionWorker, type IIngestionBackend, type EngineMetricsSummary } from 'ai-rag-engine';
+await writeFile(path.join(project, 'types.ts'), `import { RAGEngine, PostgresVectorAdapter, QueuedIngestionService, IngestionWorker, type IIngestionBackend, type EngineMetricsSummary } from '${metadata.name}';
 const store = new PostgresVectorAdapter({ connectionString: 'postgresql://example.invalid/test' });
 const engine = new RAGEngine({ inputs: { vectorStore: store }, llmProvider: { async generate() { return { content: 'typed' }; } } });
 const factory: typeof IngestionWorker = IngestionWorker;
@@ -45,7 +45,7 @@ try {
 }
 for (const file of ['index.js', 'api/server.js', 'worker.js', 'scripts/migrate-vector.js']) {
     const built = await readFile(path.join(root, 'dist', file));
-    const installed = await readFile(path.join(project, 'node_modules/ai-rag-engine/dist', file));
+    const installed = await readFile(path.join(project, 'node_modules', metadata.name, 'dist', file));
     if (!built.equals(installed)) throw new Error('Installed package differs from current build: ' + file);
 }
 console.log('Strict NodeNext consumer typecheck and installed artifact parity passed.');

@@ -1,25 +1,20 @@
 <div align="center">
 
-<img src="assets/logo.jpg" alt="AI-RAG-ENGINE Logo" width="160" style="border-radius: 28px; box-shadow: 0 12px 40px rgba(124, 108, 245, 0.45); margin-bottom: 16px;" />
+<img src="https://raw.githubusercontent.com/Denizsvnc/ai-rag-engine/main/assets/logo.jpg" alt="AI-RAG-ENGINE Logo" width="160" style="border-radius: 28px; box-shadow: 0 12px 40px rgba(124, 108, 245, 0.45); margin-bottom: 16px;" />
 
 # ⚡ AI-RAG-ENGINE
 
-**Enterprise-Grade Agentic RAG Architecture with In-Process SML Intent Routing, Zero-Token Semantic FAQ Caching, Multi-Tiered LLM Failover & OWASP Prompt Injection Defense.**
+**TypeScript RAG library with pluggable LLM and vector adapters, local semantic routing, tenant-aware retrieval, and durable document ingestion.**
 
-[![Version](https://img.shields.io/badge/Version-2.1.0-6C5CE7?logo=semver&logoColor=white)](package.json)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Version](https://img.shields.io/badge/npm-@denizsevinc/ai--rag--engine-6C5CE7?logo=npm&logoColor=white)](https://www.npmjs.com/package/@denizsevinc/ai-rag-engine)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-22+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![CI](https://github.com/Denizsvnc/ai-rag-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Denizsvnc/ai-rag-engine/actions)
-[![Tests](https://img.shields.io/badge/Tests-183%2F183_Passing-success?logo=checkmarx&logoColor=white)](test/)
-[![GitHub Stars](https://img.shields.io/github/stars/Denizsvnc/ai-rag-engine?style=social)](https://github.com/Denizsvnc/ai-rag-engine/stargazers)
-[![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-all--MiniLM--L6--v2_(q8)-FF5722?logo=onnx&logoColor=white)](https://huggingface.co/docs/transformers.js)
-[![Security](https://img.shields.io/badge/OWASP-Prompt_Injection_Guarded-blueviolet?logo=shield&logoColor=white)](#-owasp-prompt-injection--visitor-trust-boundary)
-[![PII Defense](https://img.shields.io/badge/PII-TCKN_&_Luhn_Guarded-blue?logo=security&logoColor=white)](#6--zero-bloat-pii-sanitization--data-sovereignty-routing)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
-### 🌐 Language / Dil / Sprache
+### 🌐 Documentation Languages
 
 **[English](README.md)** • **[Türkçe](README_tr.md)** • **[Deutsch](README_de.md)**
 
@@ -27,512 +22,95 @@
 
 </div>
 
-## 📌 Executive Summary
+**Publication status:** prepared locally for `@denizsevinc/ai-rag-engine@2.2.0`; this is not a claim that it is already available on npm. Scope ownership and publication remain the maintainer's responsibility.
 
-Modern enterprise applications cannot afford sending every raw user question directly to expensive, slow, and non-deterministic cloud LLMs. Doing so leads to sky-high token bills, 2-5 second latency spikes, data compliance liabilities, and vulnerability to prompt injection attacks.
+## Requirements and installation
 
-**AI-RAG-ENGINE** resolves these bottlenecks by introducing a **cost-minimizing, security-hardened waterfall pipeline**:
+ESM only. Node.js **22.14 or newer**; the compatibility matrix covers Node 22 and 24. TypeScript consumers should use TypeScript 5.8+ with NodeNext or Bundler resolution. Runtime applications do not need TypeScript or build tools.
 
-1. **🛡️ 1ms OWASP Guardrail:** Neutralizes jailbreaks, system prompt extractions, and role overrides before contacting any model.
-2. **💾 2ms LRU & Disk Cache:** Immediately serves repeated queries from memory/disk without invoking LLMs.
-3. **🎯 5ms Zero-Token Semantic FAQ:** Resolves paraphrased user questions via local 384-dimensional dot-product vector search against pre-computed embeddings (**0 LLM tokens consumed**).
-4. **🧠 In-Process Semantic Model Layer (SML):** Executes intent classification and agent tool routing locally on CPU using quantized ONNX (`all-MiniLM-L6-v2`) in under 15ms.
-5. **🔀 Multi-Tiered LLM Failover:** Automatically directs routine tasks to **Fast LLMs** (e.g. `gpt-4o-mini`, `gemini-1.5-flash`, `llama3.2`) and complex analytical inquiries to **Smart LLMs** (`gpt-4o`, `deepseek-r1`, `gemini-1.5-pro`), backed by automatic multi-provider fallback.
-6. **🔒 100% On-Premise Privacy Mode:** Out-of-the-box native adapters for **Ollama**, **vLLM**, **TGI**, and internal corporate VPC endpoints with `ALLOW_PUBLIC_OPENSOURCE_LLM=false` compliance enforcement.
+After publication:
 
----
+```sh
+npm install @denizsevinc/ai-rag-engine
+```
 
-## 🏛️ System Architecture
+Before publication, install a locally built artifact:
 
-### 1. Request Lifecycle Waterfall
-*Every query follows the cheapest, safest possible execution path. External LLMs are invoked only when local deterministic and semantic layers cannot fulfill the request.*
+```sh
+npm ci
+npm pack
+# From a different project:
+npm install /absolute/path/to/denizsevinc-ai-rag-engine-2.2.0.tgz
+```
 
-<div align="center">
+## Quick Start
 
-![AI-RAG-ENGINE Request Lifecycle](assets/pipeline.svg)
+This deterministic example needs no credentials, model download, HTTP server, or database. The provider and vector adapter are test doubles demonstrating the integration contract; use real adapters for application data.
 
-</div>
+```js
+import { RAGEngine } from '@denizsevinc/ai-rag-engine';
 
----
-
-### 2. Integration Topology & Endpoints
-*Flexible deployment options: consume as a standalone microservice with REST endpoints, or embed directly as an Express/Node.js library with enterprise failover.*
-
-<div align="center">
-
-![AI-RAG-ENGINE Integration Topology](assets/endpoints.svg)
-
-</div>
-
----
-
-### 3. Local SML Decision & Execution Mechanism (Deep Dive)
-*How AI-RAG-ENGINE eliminates slow, expensive cloud LLM prompt-based tool routing by utilizing in-process 384-dimensional ONNX vector dot products and deterministic threshold gates.*
-
-<div align="center">
-
-![AI-RAG-ENGINE Local SML Decision and Execution Mechanism](assets/sml-mechanism.svg)
-
-</div>
-
----
-
-### 4. Secure Document Ingestion & PII Protection Pipeline
-*Zero-bloat pre-flight magic byte defense, algorithmic TCKN/Luhn verification, BullMQ background worker queue, and local sovereignty routing.*
-
-<div align="center">
-
-![AI-RAG-ENGINE Secure Document Ingestion and PII Pipeline](assets/ingestion-pii-pipeline.svg)
-
-</div>
-
----
-
-## ✨ Key Engineering Pillars
-
-### 1. 🧠 In-Process Semantic Model Layer (SML) Decision & Tool Routing
-* **The Architectural Problem:** Traditional Agentic frameworks (e.g. LangChain, CrewAI, AutoGen) serialize massive tool JSON schemas into system prompts and query a remote cloud LLM (GPT-4 / Claude) just to ask: *"Which tool should be called?"*. This burns **800–2,000 tokens** and incurs **1.5–3.0 seconds of latency** before executing any tool.
-* **The SML Solution:** Decouples *Intent Routing* from *Text Generation*. Uses `@huggingface/transformers` to run quantized `Xenova/all-MiniLM-L6-v2 (q8)` in-process on CPU via ONNX Runtime (< 15MB RAM, ~8–12ms, 0 tokens).
-* **Pre-Computed Vector Registry:** Pre-generates normalized 384-dimensional unit vectors ($\vec{t}_i$) for all registered tools and persists them in `src/utils/tools-registry.json`.
-* **Mathematical Decision Gate:**
-  $$\text{Similarity Score} = \vec{q} \cdot \vec{t}_i = \sum_{k=1}^{384} q_k \cdot t_{ik}$$
-  * **Branch A ($\text{Score} \ge 0.50$): Deterministic Tool Action Triggered**
-    * High-confidence intent matched (e.g., `check_live_stock` with score `0.78`).
-    * Fast-tier LLM extracts compact JSON arguments (`{ productName: "laptop" }`).
-    * Native code execution (`tool.execute(args)`) directly queries live PostgreSQL, SAP ERP, or warehouse REST APIs.
-    * Real-time facts are injected directly into context with zero routing hallucinations.
-  * **Branch B ($\text{Score} < 0.50$): Standard Vector Retrieval**
-    * Falls back seamlessly to semantic top-k document retrieval when no transactional tool matches.
-
-### 2. 🎯 Zero-Token Semantic FAQ Engine
-* **Paraphrase Tolerance:** Matches varying user phrases (e.g., *"how many days do I have to return an item?"* vs *"ürünü kaç gün içinde iade edebilirim?"*) against verified enterprise knowledge.
-* **Vector Dot Product:** Utilizes SIMD-friendly vector dot-product similarity (cosine similarity for unit-length vectors) with a calibrated confidence threshold (`>= 0.60`).
-* **Instant Resolution:** Yields verified, auditable business answers in **< 10ms with 0 LLM token cost**.
-
-### 3. 🛡️ OWASP Prompt Injection & Visitor Trust Boundary
-* **Explicit Boundary Framing:** Wraps all raw visitor input inside isolated `<untrusted_visitor_message>` delimiters.
-* **Authoritative Security Directives:** Rigid English system prompts command the LLM that visitor text is untrusted data and can **never** alter system instructions, impersonate developers, or leak internal prompts.
-* **Unicode & Control Byte Sanitization:** Strips zero-width characters (`\u200B`, `\uFEFF`, `\u200D`) and invisible formatting tokens commonly used in evasive prompt injection payloads.
-* **Delimiter Neutralization:** Automatically defangs `<untrusted_visitor_message>` closing tags in user input to prevent context-escape attacks.
-* **0-Token Heuristic Interceptor:** High-confidence jailbreak patterns (DAN modes, "ignore previous instructions", developer override tricks) trigger an instant, safe refusal within 1ms without burning LLM tokens.
-
-### 4. 🔀 Multi-Tiered LLM Provider with Enterprise Failover
-* **Complexity-Based Routing:**
-  * **Fast Tier** (`gpt-4o-mini`, `gemini-1.5-flash`, `llama3.2:3b`): Handles short clarifications, tool parameter extraction, and conversational synthesis.
-  * **Smart Tier** (`gpt-4o`, `gemini-1.5-pro`, `deepseek-r1:8b`): Activated for multi-question prompts, comparative analysis, or complex reasoning.
-* **Cascading Failover:** If a primary provider (e.g., OpenAI) encounters rate limits (`429`) or network downtime, the engine fails over gracefully to Gemini, Ollama, or an internal enterprise server.
-* **Corporate Data Governance:** `ALLOW_PUBLIC_OPENSOURCE_LLM=false` prevents accidental transmission of corporate IP to public aggregator routers.
-
-### 5. 💾 Hybrid LRU Cache & Active Data Freshness (Preventing Stale Data)
-* **The Stale Data Problem:** In traditional RAG systems, if an item's price changes from **$1000 (X)** to **$800 (B)**, static vector embeddings and long-lived query caches continue serving the outdated $1000 price.
-* **The AI-RAG-ENGINE Freshness Architecture:**
-  1. **Volatile Facts Bypass Vectors via Live SML Tools:** Prices, real-time stock levels, and booking statuses are NEVER stored in static vector embeddings. The in-process SML routes pricing queries directly to an active database tool (`check_live_price`), querying the live PostgreSQL/ERP system at execution time.
-  2. **Zero-Stale Tool Caching Policy (`cacheToolResults: false`):** Volatile tool execution outputs bypass the 24-hour cache by default (or utilize micro-TTLs), ensuring catalog mutations are immediately visible to users.
-  3. **Active Cache Invalidation API:** When product data or policies change, backends trigger instant cache eviction across both RAM and persistent disk storage:
-     ```typescript
-     // Invalidate all queries related to a product or keyword
-     await engine.invalidateCache('laptop');
-     // Invalidate via regex pattern
-     await engine.invalidateCache(/_price$|fiyat/i);
-     ```
-  4. **Configurable TTL & Auto-Expiration:** LRU memory cache enforces configurable `ttlMs` expiration so stale entries self-evict automatically.
-
-### 6. 🔒 Zero-Bloat PII Sanitization & Data Sovereignty Routing
-* **The Compliance Challenge:** User queries and ingested PDF/text files often contain sensitive identity credentials like Turkish Republic Identity Numbers (TCKN), Credit Cards, IBANs, and contact details. In typical setups, developers either ignore this (risking massive GDPR / KVKK fines) or pull in bloated 500MB Python NLP libraries that choke production servers.
-* **The Zero-Bloat Solution:** Implemented in pure TypeScript with zero external dependencies, executing in under **4.03 microseconds** (245,408 ops/sec benchmarked):
-  1. **Algorithmic TCKN Mod-10 Checksum:** Validates 11-digit Turkish IDs against official government checksum formulas:
-     $$d_{10} = \left(\left(\sum \text{odd} \times 7 - \sum \text{even}\right) \bmod 10 + 10\right) \bmod 10, \quad d_{11} = \left(\sum_{k=1}^{10} d_k\right) \bmod 10$$
-     *Zero false positives:* Benign 11-digit numbers (order numbers, invoice tracking codes) remain completely untouched, while genuine TCKNs are redacted (`[TCKN_100*****46]`).
-  2. **Credit Card Luhn Algorithm:** Doubles alternating digits from right-to-left to verify authentic bank cards before masking (`[CARD_****_****_****_5671]`).
-  3. **IBAN & Contact Sanitization:** Regex-neutralizes Turkish (`TR..`) and European IBANs, emails, and phone numbers.
-* **Strict Data Sovereignty Routing:**
-  * **Public Cloud LLMs (OpenAI, Google Gemini):** PII is **guaranteed 100% masked**. Raw personal identification never crosses the corporate network perimeter.
-  * **On-Premise Local LLMs (Ollama, Private VPC):** If internal compliance permits (`allowUnmaskedForLocalLLM: true`), raw identifiers can optionally be preserved for internal reasoning without cloud exposure.
-
-### 7. ⚡ Asynchronous BullMQ & In-Memory Ingestion Queue
-* **Non-Blocking Architecture:** Document ingestion (PDF stream decoding, chunking, PII redaction, and 384-dimensional ONNX vector generation) is CPU-heavy. Synchronous handling would freeze Express event loops.
-* **Pluggable Queue Adapters (`IJobQueue`):**
-  * **Zero-Dependency `InMemoryJobQueue`:** Active by default with concurrent worker scheduling and progress tracking. Runs out of the box with zero external infrastructure (no Redis required for tests or single-node apps).
-  * **`BullMQJobQueue`:** Explicit producer/consumer separation, bounded concurrency and retries with exponential backoff. Production defaults to a separate worker, shared PostgreSQL uploads/outbox and atomic pgvector document replacement. [Setup and guarantees](docs/durable-ingestion.md).
-* **Two-Step REST Workflow:**
-  1. `POST /api/ingest` runs pre-flight magic byte safety checks and returns `202 Accepted` with a `jobId`.
-  2. `GET /api/ingest/status/:jobId` reports real-time progress (`0% -> 30% -> 70% -> 100%`) and processing metrics.
-* **Executable Magic Byte Defense:** Pre-flight inspection scans binary headers to reject disguised executables (`MZ` Windows PE, `\x7fELF` Linux, `#!` Shebang scripts, `0xCAFEBABE`, `.exe`, `.sh`, `.bin`, `.docm`) in under **1.26 µs**.
-
-### 8. 📊 FinOps Telemetry & Real-Time Token Cost Tracking
-* **The Visibility Deficit:** Engineering managers rarely know how many tokens their caching and semantic routing save versus raw LLM calls.
-* **Per-Response Cost Breakdown:** Every `engine.query()` response returns real-time metrics:
-  ```json
-  {
-    "answer": "14 gün içinde koşulsuz iade edebilirsiniz.",
-    "intent": "FAQ",
-    "resolvedBy": "SEMANTIC_FAQ",
-    "metrics": {
-      "tokensConsumed": 0,
-      "tokensSaved": 450,
-      "estimatedCostSavedUsd": 0.00135,
-      "latencyMs": 4.2,
-      "source": "FAQ"
+const engine = new RAGEngine({
+  smlConfig: { enabled: false },
+  cache: { enabled: false },
+  inputs: {
+    vectorStore: {
+      async search(_query, _topK, filter) {
+        if (filter?.tenantId !== 'demo') return [];
+        return [{ id: 'returns', content: 'Returns are accepted within 14 days.' }];
+      }
+    }
+  },
+  llmProvider: {
+    async generate({ systemPrompt }) {
+      return { content: systemPrompt.includes('14 days') ? 'Returns: 14 days.' : 'Unknown.' };
     }
   }
-  ```
-* **Cumulative FinOps Endpoint (`GET /api/metrics`):**
-  Returns total queries, zero-token resolution rate (e.g. `78.4%`), total tokens consumed vs saved, estimated dollar savings, and p95 latency distributions.
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-* **Node.js** >= 20.0.0
-* **npm** >= 10.0.0
-
-### 1. Installation
-```bash
-# Clone the repository
-git clone https://github.com/Denizsvnc/ai-rag-engine.git
-cd ai-rag-engine
-
-# Install dependencies
-npm install
-```
-
-### 2. Configure Environment
-Copy the `.env.example` template to `.env`:
-```bash
-cp .env.example .env
-```
-
-#### Option A: Local & Private Deployment (Ollama / vLLM / On-Premise)
-*Zero data leaves your private network.*
-```env
-ALLOW_PUBLIC_OPENSOURCE_LLM=false
-
-# Ollama local instance
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL_FAST=llama3.2:3b
-OLLAMA_MODEL_SMART=deepseek-r1:8b
-
-# Or generic OpenAI-compatible VPC endpoint (vLLM, TGI, LocalAI)
-CUSTOM_LLM_URL=http://internal-llm-service.corp.local:8000/v1/chat/completions
-CUSTOM_LLM_MODEL=meta-llama/Llama-3.2-3B-Instruct
-```
-
-#### Option B: Cloud Providers (OpenAI & Google Gemini)
-```env
-OPENAI_API_KEY=sk-proj-...
-OPENAI_MODEL_FAST=gpt-4o-mini
-OPENAI_MODEL_SMART=gpt-4o
-
-GEMINI_API_KEY=AIzaSy...
-GEMINI_MODEL=gemini-1.5-flash
-```
-
-### 3. Launch Development Server
-```bash
-npm run dev
-```
-The server will initialize the ONNX embedding pipeline and listen on `http://localhost:3000`.
-
-### 4. 🐳 Docker & Container Deployment
-
-#### 1-Command Startup with Docker Compose
-Starts the API, a separate ingestion worker, PostgreSQL/pgvector, Redis and a one-shot migration. Set independent random `JWT_SECRET`, `CONFIRMATION_SECRET`, `POSTGRES_PASSWORD` and `RUNTIME_DB_PASSWORD` first. See [configuration and migration](docs/durable-ingestion.md):
-```bash
-docker compose up -d
-```
-
-#### Standalone Container Build & Run
-```bash
-# Build the production image
-docker build -t ai-rag-engine .
-
-# Run container with environment configuration
-docker run -d \
-  --name ai-rag-engine \
-  -p 3000:3000 \
-  --env-file .env \
-  ai-rag-engine
-```
-
-Verify container status and health:
-```bash
-docker logs -f ai-rag-engine
-curl http://localhost:3000/api/health
-```
-
----
-
-## 💻 Usage & Code Examples
-
-### Option 1: Standalone Express Middleware
-Mount `createRagMiddleware` into an existing Express application in less than 10 lines:
-
-```typescript
-import express from 'express';
-import {
-    RAGEngine,
-    createRagMiddleware,
-    TieredLLMProvider,
-    LocalFaqAdapter,
-    StaticRulesAdapter
-} from 'ai-rag-engine';
-
-const app = express();
-app.use(express.json());
-
-// Initialize RAGEngine
-const engine = new RAGEngine({
-    llmProvider: TieredLLMProvider.createFromEnv(),
-    inputs: {
-        rules: new StaticRulesAdapter([
-            'The return window for all purchased electronics is 14 days.',
-            'Always maintain an institutional, polite, and helpful tone.'
-        ]),
-        faq: new LocalFaqAdapter({
-            filePath: './src/utils/faq-embeddings.json',
-            defaultMatchThreshold: 0.60
-        })
-    },
-    security: {
-        enabled: true,
-        blockHighRiskInjections: true
-    },
-    cache: {
-        enabled: true,
-        filePath: './src/utils/query-cache.json'
-    }
-});
-
-// Mount the RAG query endpoint
-app.post('/api/chat', createRagMiddleware(engine));
- 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`⚡ AI-RAG-ENGINE active on http://localhost:${PORT}/api/chat`);
-});
-```
-
----
-
-### Option 2: Programmatic Execution with Custom Tools
-
-```typescript
-import { RAGEngine, TieredLLMProvider, ToolRegistry } from 'ai-rag-engine';
-
-const engine = new RAGEngine({
-    llmProvider: TieredLLMProvider.createFromEnv()
 });
 
 await engine.init();
-
-// Register a custom live database tool
-engine.registerTool({
-    name: 'check_live_stock',
-    description: 'Check real-time warehouse inventory for a product',
-    parameters: {
-        type: 'object',
-        properties: {
-            productName: { type: 'string', description: 'Product identifier or name' }
-        },
-        required: ['productName']
-    },
-    execute: async (args) => {
-        return { inStock: true, unitsAvailable: 42, warehouseLocation: 'Berlin-01' };
-    }
+const result = await engine.query('What is the return window?', {
+  tenantId: 'demo', userId: 'demo-user', roles: ['viewer']
 });
-
-// Process query
-const result = await engine.process('Do you currently have laptops in stock?');
-console.log(result.answer);
-console.log(`Resolved by: ${result.resolvedBy} in ${result.latencyMs}ms`);
+console.log(result.answer); // Returns: 14 days.
 ```
 
----
+Importing the SDK does not start a server, load `.env`, open Redis/PostgreSQL connections, download models, or change the Transformers global environment. Constructors and explicit initialization perform the operations described in [the usage guide](docs/USAGE.md).
 
-## 📡 REST API Reference
+## Capabilities and operational boundaries
 
-### 1. `POST /api/query`
-Processes incoming user prompts through the complete RAG waterfall pipeline.
+| Capability | Implementation / boundary |
+| --- | --- |
+| LLM providers | OpenAI, Gemini, Ollama, private OpenAI-compatible endpoints, configurable fallback/tiering |
+| Semantic FAQ and tool routing | Local Transformers/ONNX embeddings; initial use downloads model files unless local-only |
+| In-memory vectors and queue | Development / single-process use; data does not survive restart |
+| Persistent vectors | PostgreSQL/pgvector, tenant-scoped CRUD, dense + PostgreSQL full-text RRF retrieval |
+| Durable ingestion | Separate BullMQ worker, PostgreSQL uploads/outbox, retries, idempotent replacement, revision-aware cache |
+| Security boundaries | Authenticated HTTP context, tool RBAC/schema checks, signed single-use approval, tenant-scoped data access |
+| Metrics | Token/latency accounting and Prometheus histogram export |
 
-#### Request Headers
-| Header | Value | Description |
-| :--- | :--- | :--- |
-| `Content-Type` | `application/json` | Required |
+Prompt filters and PII patterns are defenses with limitations, not guarantees of complete detection. PostgreSQL full-text retrieval is not BM25. The current PDF extractor is limited and does not perform OCR. The dependency tree includes native ONNX runtimes and is substantially larger than the SDK tarball; model weights are not bundled.
 
-#### Request Body
-```json
-{
-  "query": "What is your return policy for open-box items?",
-  "context": {
-    "userId": "usr_9876",
-    "region": "EU"
-  }
-}
-```
+## Documentation
 
-#### Response: Zero-Token Semantic FAQ Match (`200 OK`)
-```json
-{
-  "answer": "You can return any undamaged item in its original packaging within 14 days of delivery for a full refund.",
-  "intent": "FAQ",
-  "resolvedBy": "SEMANTIC_FAQ",
-  "appliedRules": [],
-  "latencyMs": 7
-}
-```
+- [Configuration, real providers, vectors, FAQ, tools and troubleshooting](docs/USAGE.md)
+- [Versioning, manual publication and release checklist](docs/RELEASING.md)
+- [Changelog](CHANGELOG.md)
+- [Detailed local release-readiness report](https://github.com/Denizsvnc/ai-rag-engine/blob/main/docs/NPM_RELEASE_READINESS.md)
 
-#### Response: High-Risk Prompt Injection Blocked (`200 OK`)
-```json
-{
-  "answer": "Güvenlik politikası nedeniyle bu talimat işlenemez. Lütfen yalnızca ürün ve hizmetlerimizle ilgili sorularınızı iletin.",
-  "intent": "SECURITY_BLOCKED",
-  "resolvedBy": "SECURITY_GUARD",
-  "appliedRules": [],
-  "latencyMs": 1
-}
-```
+## Repository verification
 
----
-
-### 2. `GET /api/health`
-Kubernetes and Docker container health liveness probe.
-
-```json
-{
-  "status": "ok",
-  "uptime": 348.12,
-  "timestamp": "2026-10-26T02:50:00.000Z"
-}
-```
-
----
-
-## 🧪 Testing & Verification
-
-The engine is covered by an automated test suite verifying all architectural boundaries:
-
-```bash
-# Run unit & integration tests (65 tests across 13 suites)
-npm test
-
-# Run high-throughput smoke benchmark
-npm run benchmark
-
-# Run k6 multi-user concurrent load test
-k6 run test/performance/k6-load-test.js
-
-# Run TypeScript strict type verification
+```sh
+npm ci
 npm run typecheck
-
-# Run production bundle build
-npm run build
-
-# Run interactive showcase examples
-npm run example:ecommerce
-npm run example:minimal
+PG_TEST_URL=postgresql://postgres:test@localhost/rag_test \
+REDIS_TEST_URL=redis://localhost:6379 npm test
+npm run test:security
+npm run test:package
+npm run test:consumer
+npm audit --audit-level=high
 ```
 
-### High-Throughput Smoke Benchmark Results
-*Executed on Apple Silicon M-series (100% in-process CPU, zero GPU required):*
+Tests with external services require disposable PostgreSQL/pgvector and Redis. Missing service variables explicitly skip those tests locally; CI provisions both and requires them. `test:consumer` installs the packed SDK in a separate project and verifies an inert ESM import, deterministic RAG and strict TypeScript declarations. `test:consumer:integration` adds actual local embeddings/generation and multi-process recovery; it requires test services and model downloads.
 
-| Benchmark Target | Iterations | Throughput | Avg Latency | p95 Latency | Architectural Role |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **`PIIGuard.sanitize`** | 10,000 | **226,182 ops/s** | **4.37 µs** | 5.33 µs | Algorithmic TCKN Mod-10 + Luhn Check |
-| **`CacheManager.get`** | 20,000 | **3,513,086 ops/s** | **0.23 µs** | 0.46 µs | In-Memory Hot Path Eviction |
-| **`RedisCacheAdapter.get`** | 20,000 | **4,650,397 ops/s** | **0.19 µs** | 0.25 µs | Multi-Instance JSON Serialization Path |
-| **`Dot Product` (384-dim)** | 50,000 | **1,486,386 ops/s** | **0.65 µs** | 1.75 µs | all-MiniLM-L6-v2 ONNX SIMD Math |
-| **`Document Chunking`** | 5,000 | **594,232 ops/s** | **1.66 µs** | 2.67 µs | Magic Bytes & Boundary Chunker |
-| **`BM25Index.search` (500 Docs)** | 2,000 | **14,938 ops/s** | **66.92 µs** | 77.21 µs | Sparse BM25 Keyword Search |
-| **`TokenTracker`** | 20,000 | **5,288,382 ops/s** | **0.17 µs** | 0.29 µs | Real-time FinOps Telemetry |
-
-### Automated Test Suite Summary
-The full suite passes **183 tests with no skips** when both test services are configured. It covers security boundaries, cache and pgvector persistence, durable queue recovery, retry/idempotency and tenant quotas. See [worker setup and independent package verification](docs/durable-ingestion.md).
-
-
----
-
-## 📂 Repository Directory Layout
-
-```text
-ai-rag-engine/
-├── assets/
-│   ├── logo.jpg               # Project visual identity
-│   ├── pipeline.svg           # 2D animated request lifecycle diagram
-│   ├── endpoints.svg          # 2D animated integration topology diagram
-│   ├── sml-mechanism.svg      # 2D animated SML decision engine diagram
-│   └── ingestion-pii-pipeline.svg # 2D animated secure ingestion & PII diagram
-├── dist/                      # Compiled production ESM & types
-├── src/
-│   ├── adapters/
-│   │   ├── cache/             # RedisCacheAdapter (multi-instance with LRU fallback)
-│   │   ├── faq/               # LocalFaqAdapter
-│   │   ├── llm/               # CustomLLM, Ollama, OpenAI, Gemini, OpenRouter, TieredLLM
-│   │   ├── rules/             # StaticRuleAdapter
-│   │   └── vector/            # MemoryVectorAdapter (Dense + BM25 + RRF)
-│   ├── api/                   # Express middleware, routes (/query, /ingest, /metrics)
-│   ├── core/
-│   │   ├── cache-manager.ts   # Dual-tier LRU + JSON disk cache (TTL & Invalidation)
-│   │   ├── engine.ts          # Main orchestrator pipeline & telemetry
-│   │   ├── metrics/           # TokenTracker (FinOps cost & latency tracking)
-│   │   ├── prompt-builder.ts  # Prompt injection defense & sandbox tags
-│   │   ├── queue/             # InMemoryJobQueue, BullMQJobQueue & QueueFactory
-│   │   ├── security/          # PIIGuard (TCKN/Luhn), Sanitizer & InjectionDetector
-│   │   ├── sml-engine.ts      # Local ONNX all-MiniLM-L6-v2 pipeline
-│   │   └── tool-registry.ts   # Semantic intent tool router
-│   ├── services/
-│   │   └── document-ingestion.service.ts # Streaming, magic bytes & PII redaction pipeline
-│   ├── examples/              # Ready-to-run reference implementations
-│   ├── interfaces/            # TypeScript contracts & type definitions
-│   └── utils/                 # Pre-computed 384-dim vector datasets
-├── test/
-│   ├── chaos/                 # Concurrency, mutex & cascading fault injection tests
-│   ├── integration/           # Full lifecycle, API & Ingestion integration tests
-│   ├── performance/           # High-throughput smoke benchmark & k6 load test
-│   ├── security/              # Adversarial injection & pentest audit tests
-│   ├── unit/                  # Cache, Redis, SML, LLM, Math, PII & Deep Isolation tests
-│   └── run-all.ts             # Cross-platform native Node.js test runner
-├── CLAUDE.md                  # Comprehensive agent customization & engineering guide
-├── LICENSE                    # MIT License
-├── package.json               # Package definitions & exact version pins
-├── README.md                  # English Documentation (Default)
-├── README_tr.md               # Türkçe Dokümantasyon
-└── README_de.md               # Deutsche Dokumentation
-```
-
----
-
-## ⭐ Support & Star the Project
-
-If **AI-RAG-ENGINE** saved you thousands of dollars in cloud LLM token expenses, accelerated your enterprise search, or helped secure your AI pipeline:
-
-⭐ **Please give this repository a Star on GitHub!** ⭐
-
-Your star directly helps developers and organizations discover how to build private, cost-efficient, and secure AI systems without vendor lock-in.
-
-<div align="center">
-
-[![GitHub stars](https://img.shields.io/github/stars/Denizsvnc/ai-rag-engine?style=for-the-badge&logo=github&color=F59E0B&logoColor=white)](https://github.com/Denizsvnc/ai-rag-engine/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/Denizsvnc/ai-rag-engine?style=for-the-badge&logo=github&color=6366F1&logoColor=white)](https://github.com/Denizsvnc/ai-rag-engine/network/members)
-[![Issues](https://img.shields.io/github/issues/Denizsvnc/ai-rag-engine?style=for-the-badge&logo=github&color=10B981&logoColor=white)](https://github.com/Denizsvnc/ai-rag-engine/issues)
-
-*Have an idea, found a bug, or want to contribute? Feel free to open an issue or pull request!*
-
-</div>
-
----
-
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE).
-Feel free to use it in commercial products, open-source projects, and enterprise integrations.
-
-
-### Security hardening migration (27 October 2026)
-
-Authentication is required by default. Production requires independent random JWT_SECRET and CONFIRMATION_SECRET values (32+ bytes). Mutating SDK tools require a shared Redis nonce store. Boolean confirmation is ignored; verification is async and proposals are returned in confirmationRequests.
-
-See [verified findings, test evidence and migration instructions](docs/security-review.md). The current 183-test result includes real Redis and pgvector tests with REDIS_TEST_URL and PG_TEST_URL configured.
-
-
-Persistent PostgreSQL/pgvector retrieval, tenant-scoped upserts/deletes, Redis invalidation fixes and cumulative latency histograms are now available. See the [setup, migration and validation guide](docs/production-data-layer.md).
+MIT licensed. [Issue tracker](https://github.com/Denizsvnc/ai-rag-engine/issues).

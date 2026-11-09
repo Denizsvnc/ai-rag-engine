@@ -151,7 +151,7 @@ export class CacheManager implements ICacheAdapter {
 
             await fs.mkdir(path.dirname(this.filePath), { recursive: true });
             // Write to temporary file first
-            await fs.writeFile(tmpPath, JSON.stringify(dataToSave, null, 2), 'utf-8');
+            await fs.writeFile(tmpPath, JSON.stringify(dataToSave, null, 2), { encoding: 'utf-8', mode: 0o600 });
             // Atomically replace target cache file
             await fs.rename(tmpPath, this.filePath);
         } catch (error) {

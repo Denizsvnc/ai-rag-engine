@@ -1,26 +1,30 @@
 {
-  "name": "ai-rag-engine",
-  "version": "2.1.0",
-  "description": "Lightweight, enterprise-ready Agentic RAG engine with local SML intent routing, zero-token semantic FAQ matching, multi-tiered LLM failover, and OWASP prompt injection defense.",
+  "name": "@denizsevinc/ai-rag-engine",
+  "version": "2.2.0",
+  "description": "TypeScript RAG engine with pluggable providers, local semantic routing, tenant-aware retrieval, and durable document ingestion.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
-    "dist",
-    "docs",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md",
+    "docs/USAGE.md",
+    "docs/RELEASING.md"
   ],
   "scripts": {
     "dev": "tsx watch src/api/server.ts",
-    "build:types": "tsc --emitDeclarationOnly",
+    "build:types": "tsc -p tsconfig.build.json",
     "build:js": "node tools/build.mjs",
-    "build": "npm run build:types && npm run build:js",
+    "build": "npm run clean && npm run build:types && npm run build:js",
     "typecheck": "tsc --noEmit",
     "start": "node dist/api/server.js",
     "test": "tsx test/run-all.ts",
@@ -31,7 +35,10 @@
     "db:migrate": "node dist/scripts/migrate-vector.js",
     "start:worker": "node dist/worker.js",
     "prepack": "npm run build",
-    "test:consumer": "node test/consumer/run.mjs"
+    "test:consumer": "node test/package/run.mjs",
+    "clean": "node tools/clean.mjs",
+    "test:consumer:integration": "node test/consumer/run.mjs",
+    "test:package": "npm run build && node tools/verify-package.mjs"
   },
   "keywords": [
     "rag",
@@ -46,7 +53,7 @@
     "gemini",
     "openrouter"
   ],
-  "author": "",
+  "author": "Denizsvnc (https://github.com/Denizsvnc)",
   "license": "MIT",
   "type": "module",
   "dependencies": {
@@ -63,9 +70,7 @@
     "@types/node": "26.6.5"
   },
   "devDependencies": {
-    "@types/dotenv": "6.1.1",
     "esbuild": "0.28.2",
-    "ts-node": "10.9.2",
     "tsx": "4.23.15",
     "typescript": "7.0.2"
   },
@@ -73,5 +78,20 @@
     "ai-rag-server": "dist/api/server.js",
     "ai-rag-worker": "dist/worker.js",
     "ai-rag-migrate": "dist/scripts/migrate-vector.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Denizsvnc/ai-rag-engine.git"
+  },
+  "homepage": "https://github.com/Denizsvnc/ai-rag-engine#readme",
+  "bugs": {
+    "url": "https://github.com/Denizsvnc/ai-rag-engine/issues"
+  },
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

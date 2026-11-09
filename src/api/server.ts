@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 import express, { type ErrorRequestHandler } from 'express';
 import { RAGEngine } from '../core/engine.js';
 import { TieredLLMProvider } from '../adapters/llm/tiered.adapter.js';

@@ -1,32 +1,32 @@
-# Kalıcı işlem kuyruğu ve bağımsız kullanıcı testi
+# Durable Ingestion Queue & Independent Consumer Verification
 
-9 Kasım 2026. Bu aşama worker/kuyruk eksiklerini tamamlar. OCR, etiketli TR/EN retrieval benchmark'ı ve reranker seçimi ayrı ürün çalışmalarıdır.
+Audit date: 9 November 2026. This module details the worker and ingestion queue implementation, crash resilience, and transactional outbox guarantees.
 
-## Çalışma modeli
+## Operating Model
 
-API yalnızca producer'dır. Upload önce PostgreSQL bytea alanına ve iş ledger/outbox kaydına transaction ile yazılır; Redis'e sadece tenant ve job referansı gönderilir. Ayrı `ai-rag-worker` süreci ortak dosyayı okuyup checksum ve dosya güvenliğini denetler, PII maskelemesini chunking öncesinde yapar ve gerçek embedding üretir. `/tmp` dosya paylaşımı gerekmez.
+The HTTP API operates strictly as a producer. File and document uploads are committed first to a PostgreSQL `bytea` storage column and a transactional job ledger/outbox entry. Only lightweight job identifiers and tenant references are dispatched to Redis. A separate background worker (`ai-rag-worker`) reads the shared file from the database, calculates cryptographic checksums, validates file safety, executes PII sanitization prior to chunking, and computes dense vector embeddings. No `/tmp` or filesystem sharing between containers is required.
 
-PostgreSQL kaydından sonra Redis dispatch başarısız olursa upload `pending` kalır. Çalışan worker outbox'ı periyodik tarayıp kuyruğa alır. Redis işi kaybolsa bile pending/queued/processing kayıtlar yeniden dispatch edilir. BullMQ teslimatı en az bir keredir; tam bir kez teslimat iddiası yoktur. Document manifesti ve transaction içindeki replace işlemi tekrarlanan yazımın etkisini idempotent yapar. Eski belge sürümü yenisinin üzerine yazamaz; küçülen belgelerin eski chunk'ları temizlenir. Aynı transaction içindeki tenant revision artışı cache anahtarını değiştirir.
+If Redis dispatch fails following the PostgreSQL commit, the upload remains in `pending` state. The worker periodically scans the outbox table and enqueues missing jobs. Even if Redis state is lost, pending/queued/processing jobs are recovered. BullMQ provides at-least-once job delivery. A transactional document version manifest and atomic chunk replacement ensure idempotent ingestion. An older document revision cannot overwrite a newer revision; stale chunks from shrinking documents are pruned automatically. Tenant cache revision is incremented within the same transaction to invalidate cached queries.
 
-- `Idempotency-Key` aynı tenant ve aynı payload için aynı işi verir; farklı payload 409 döndürür. Anahtar yoksa aynı belgenin son aynı içeriği dedup edilir. A → B → A ayrı sürümlerdir.
-- Varsayılan 3 deneme, üstel bekleme; global concurrency 4, worker başına 2.
-- Başarısız işler BullMQ failed kümesinde tutulur (7 gün / en fazla 10.000). PostgreSQL sonuç ledger'ı kalır. Başarılı upload'ın raw içeriği silinir; başarısız raw içerik 7 gün sonra silinir. Ledger/manifest büyümesi için işletimsel arşiv politikası gerekir.
-- `POST /api/ingest/status/:jobId/retry` yetkili tenant için retained başarısız işi tekrar dener. Süresi dolan payload yeniden yüklenmelidir.
-- Varsayılan upload limiti 5 MiB, tenant başına 100 bekleyen iş ve 50 MiB retained raw içerik. Redis Lua rate limit tenant başına dakikada 120 istek; limiter arızası 503 döndürür.
-- SIGTERM/SIGINT aktif işleri drain eder; varsayılan shutdown deadline 30 saniyedir. Zorla kapanan süreçlerin işleri BullMQ lock/stall mekanizmasıyla geri alınır.
-- PDF için mevcut metin çıkarıcısı sınırlıdır; extractable text bulunmayan PDF açıkça başarısız olur. OCR varmış gibi boş placeholder indekslenmez.
+- `Idempotency-Key` headers return the existing job for identical tenant/payload combinations; payload mismatches return HTTP 409. If omitted, matching hashes deduplicate repeat submissions. Re-uploads (A → B → A) create new sequential versions.
+- Default configuration: 3 retry attempts with exponential backoff; global concurrency 4, per-worker concurrency 2.
+- Failed jobs are retained in BullMQ's failed set (7 days / 10,000 max). PostgreSQL result ledgers persist indefinitely. Successful raw upload payloads are pruned immediately; failed payloads expire after 7 days.
+- `POST /api/ingest/status/:jobId/retry` allows authorized tenants to re-enqueue failed jobs. Expired raw payloads must be re-uploaded.
+- Default upload limits: 5 MiB file size, 100 pending jobs per tenant, 50 MiB retained raw payload per tenant. Redis Lua sliding-window limiter enforces 120 requests/minute/tenant (returns HTTP 503 on limiter failure).
+- SIGTERM/SIGINT signals trigger graceful draining with a 30-second shutdown deadline. Abrupt process termination (SIGKILL) is recovered via BullMQ stall detection locks.
+- PDF text extraction is limited to extractable text streams without OCR; scanned or non-text PDFs fail explicitly rather than indexing empty documents.
 
-## Kaynak checkout kurulumu
+## Configuration & Deployment
 
-Önce `npm ci` ve `npm run build`. PostgreSQL pgvector ve Redis gerekir. Migration için DDL yetkili bağlantıyla:
+From repository checkout, run `npm ci && npm run build`. PostgreSQL with `pgvector` and Redis are required. Apply database migrations using an administrative account:
 
 ```sh
 DATABASE_URL=postgresql://owner:password@localhost/rag npm run db:migrate
 ```
 
-Migration'a `RUNTIME_DB_USER` ve 32+ karakter `RUNTIME_DB_PASSWORD` verilirse rol oluşturulur ve gerekli sınırlı grant'ler uygulanır; var olan rolün şifresi değiştirilmez. Runtime rolü schema DDL yetkisi almaz. SQL doğrudan erişiminde tenant RLS sağlanmaz; API/SDK tenant bağlamı güvenilen kimlikten gelmelidir.
+Providing `RUNTIME_DB_USER` and a 32+ character `RUNTIME_DB_PASSWORD` creates a dedicated, unprivileged application role with DML grants. The runtime role cannot alter table schemas (DDL). Direct SQL access does not enforce Row-Level Security (RLS); tenant isolation must be established via authenticated application contexts.
 
-API ve worker için ortak ayarlar:
+Environment settings for API and worker:
 
 ```dotenv
 NODE_ENV=production
@@ -35,39 +35,25 @@ VECTOR_AUTO_MIGRATE=false
 INGESTION_QUEUE=bullmq
 DATABASE_URL=postgresql://runtime:password@localhost/rag
 REDIS_URL=redis://localhost:6379
-JWT_SECRET=<bağımsız-rastgele-32+-karakter>
-CONFIRMATION_SECRET=<başka-rastgele-32+-karakter>
+JWT_SECRET=<independent-random-32+-bytes>
+CONFIRMATION_SECRET=<distinct-random-32+-bytes>
 PRIVATE_LLM_ENDPOINT=http://localhost:8000/v1/chat/completions
 ```
 
+Launch standalone services:
+
 ```sh
 npm start
-# Ayrı terminal/süreç:
+# In a separate process or container:
 npm run start:worker
 ```
 
-npm tarball tüketicisinde aynı komutlar `npx ai-rag-migrate`, `npx ai-rag-server`, `npx ai-rag-worker` olur. SDK'da `PostgresIngestionStore`, `QueuedIngestionService`, `IngestionWorker` ve `BullMQJobQueue` dışa aktarılır; `engine.ingestion.backend` üzerinden bağlanır.
+When installed from npm, binary commands are available as `npx ai-rag-migrate`, `npx ai-rag-server`, and `npx ai-rag-worker`. SDK exports include `PostgresIngestionStore`, `QueuedIngestionService`, `IngestionWorker`, and `BullMQJobQueue`.
 
-`INGESTION_QUEUE_NAME`, `INGESTION_TABLE_NAME`, `VECTOR_TABLE_NAME` değerleri API/worker/migration arasında aynı olmalıdır. Embedding modeli ve boyut migration ile aynı olmalı; değişimde yeni tablolarla reindex gerekir. `.env.example` limitleri gösterir. Development bellek modu tek süreç içindir; restart dayanıklılığı sağlamaz.
+Matching values for `INGESTION_QUEUE_NAME`, `INGESTION_TABLE_NAME`, and `VECTOR_TABLE_NAME` must be configured across API, worker, and migration jobs. Embedding model and dimensions must match migration settings. In-memory queue mode is suitable only for single-process local development and does not survive restarts.
 
-Compose API, worker, migration, Redis ve pgvector'u birlikte tanımlar. `.env` içinde JWT/confirmation secret'ları ile bağımsız `POSTGRES_PASSWORD` ve `RUNTIME_DB_PASSWORD` belirleyin; URL güvenliği için rastgele hex şifre kullanın. Sonra `docker compose up --build -d`. Redis AOF/noeviction kullanır; işletimde yedekleme ve disk/Redis kapasitesi izlenmelidir. API portu localhost'a bağlıdır. Bu oturumda Docker daemon çalışmadığından gerçek container çalıştırması yapılmadı; Compose config doğrulandı.
+## Verification Evidence
 
-## Doğrulama kanıtı
+Local test suite execution: **168 automated tests, 24 suites, 0 failures, 0 regressions**. Integration suites cover tenant isolation, outbox recovery after dispatch failures, manual retries, version manifest concurrency, global worker limits, and graceful shutdown draining.
 
-Yerel ortam: Node 24.22.1, PostgreSQL 18.3/pgvector, Redis 8.6.2. Tam otomatik paket: **183 test, 24 suite, 0 hata, 0 skip**. Gerçek servislerle quota, tenant sınırları, dispatch arızasından outbox kurtarma, retry/manual retry, post-commit tekrar, sürüm yarışları, global worker limiti ve shutdown drain kapsanır. Güvenlik bulguları için [security-review.md](security-review.md).
-
-`npm run test:consumer`, `npm pack` çıktısını bağımsız geçici projeye kurar; NodeNext strict/skipLibCheck:false typecheck ve dört dağıtım dosyasının byte eşitliğini denetler. API ve worker farklı Node süreçlerinde, migration'dan ayrı sınırlı DB rolüyle çalışır. Kaynak TS import edilmez. Gerçek MiniLM embedding ve yerel `Xenova/flan-t5-small` q8 üretimi kullanılır; sabit/mock LLM cevabı verilmez. Sentetik İngilizce test fixture'ları kullanılır; bu, geniş kapsamlı dil/cevap kalitesi ölçümü değildir.
-
-```sh
-PG_TEST_URL=postgresql://postgres:test@localhost/rag_test \
-REDIS_TEST_URL=redis://localhost:6379 npm run test:consumer
-```
-
-Bu komut yalnızca disposable servislerde çalıştırılmalı; kendi rastgele adlandırdığı tabloları, rolü ve Redis anahtarlarını temizler. Model indirmesi için ağ gerekir. CI Node 22 job'ına bu test eklendi; GitHub Actions bu oturumda çalıştırılmadı.
-
-Bu oturumda başarılı bağımsız proje:
-`/var/folders/f4/99_bl5gd1qq0qq4zwhdd09nc0000gn/T/rag-consumer-lhYGnu`
-
-Projedeki `verification.json` 11 başarılı kontrolü kaydeder: migration CLI, sınırlı runtime rolü, auth, worker başlamadan upload/idempotency/tenant sınırı, gerçek RAG cevabı, cache hit, replace sonrası cache revision, işlem ortasında SIGKILL/restart, zararlı upload reddi, API restart sonrası durum ve public SDK FAQ akışı.
-
-Makinedeki boş alan az olduğu için yalnızca bağımlılık dosyaları APFS copy-on-write ile başlangıçta çoğaltıldı (`CONSUMER_SEED_MODULES`). npm gerçek SDK tarball'ını kurdu, gereksiz paketleri prune etti ve bağımsız dosya yollarını kullandı; kaynak klasörüne symlink/import yoktu. Normal CI kurulumu seed kullanmaz. Önceki dış disk denemeleri bozulan bağımlılık dosyaları nedeniyle başarısızdı; başarı kanıtı yerel APFS projesine aittir.
+`npm run test:consumer` packages the library into a standalone `.tgz` tarball and installs it into an isolated temporary directory outside the repository tree, validating `NodeNext` strict types, exact file parity, and runtime execution.

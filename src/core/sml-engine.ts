@@ -1,8 +1,5 @@
-import { pipeline, env } from '@huggingface/transformers';
 import { LRUCache } from 'lru-cache';
 import { dotProduct } from '../utils/math.js';
-
-env.cacheDir = process.env.RAG_MODEL_CACHE_DIR || './data/models';
 
 /** Stable SDK boundary: transformer implementation types are kept private. */
 export interface EmbeddingExtractor {
@@ -17,6 +14,8 @@ export class CircuitBreakerOpenError extends Error {
 }
 
 export interface SMLEngineConfig {
+    cacheDir?: string | undefined;
+    localFilesOnly?: boolean | undefined;
     modelName?: string | undefined;
     cacheSize?: number | undefined;
     dtype?: 'q8' | 'fp32' | 'fp16' | 'q4' | undefined;
@@ -27,6 +26,8 @@ export interface SMLEngineConfig {
 
 export class SMLEngine {
     private readonly modelName: string;
+    private readonly cacheDir: string;
+    private readonly localFilesOnly: boolean;
     private readonly dtype: 'q8' | 'fp32' | 'fp16' | 'q4';
     private extractorPromise: Promise<EmbeddingExtractor> | null = null;
     private embeddingCache: LRUCache<string, Float32Array>;
@@ -39,6 +40,8 @@ export class SMLEngine {
     private readonly cooldownMs: number;
 
     constructor(config?: SMLEngineConfig) {
+        this.cacheDir = config?.cacheDir ?? process.env.RAG_MODEL_CACHE_DIR ?? './data/models';
+        this.localFilesOnly = config?.localFilesOnly ?? false;
         this.modelName = config?.modelName ?? 'Xenova/all-MiniLM-L6-v2';
         this.dtype = config?.dtype ?? (config?.quantized === false ? 'fp32' : 'q8');
         this.failureThreshold = config?.circuitBreakerThreshold ?? 3;
@@ -92,9 +95,25 @@ export class SMLEngine {
 
         if (!this.extractorPromise) {
             console.log(`[SML] Loading ${this.modelName} (dtype: ${this.dtype})...`);
-            this.extractorPromise = pipeline('feature-extraction', this.modelName, {
-                dtype: this.dtype,
-            })
+            this.extractorPromise = import('@huggingface/transformers')
+                .then(async ({ pipeline, env }) => {
+                    const previousCacheDir = env.cacheDir;
+                    const previousAllowRemote = env.allowRemoteModels;
+                    try {
+                        if (this.cacheDir) {
+                            env.cacheDir = this.cacheDir;
+                        }
+                        if (this.localFilesOnly) {
+                            env.allowRemoteModels = false;
+                        }
+                        return await pipeline('feature-extraction', this.modelName, {
+                            dtype: this.dtype,
+                        });
+                    } finally {
+                        env.cacheDir = previousCacheDir;
+                        env.allowRemoteModels = previousAllowRemote;
+                    }
+                })
                 .then((pipelineInstance) => {
                     // Success: Reset circuit breaker to healthy CLOSED state
                     this.circuitState = 'CLOSED';

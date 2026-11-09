@@ -6,7 +6,7 @@ FROM node:22-slim AS builder
 WORKDIR /app
 
 # Install build dependencies
-COPY package*.json tsconfig.json ./
+COPY package*.json tsconfig*.json ./
 RUN npm ci
 
 # Copy source code and default data assets
@@ -41,11 +41,8 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Copy built code from builder stage
 COPY --from=builder /app/dist ./dist
 
-# Copy seed data and configuration utilities
-COPY src/utils/*.json ./src/utils/
-
 # Prepare directories for persistence and set non-root permissions
-RUN mkdir -p /app/data /app/src/utils && \
+RUN mkdir -p /app/data && \
     chown -R node:node /app
 
 # Run as non-privileged user for enterprise security

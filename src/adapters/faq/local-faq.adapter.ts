@@ -12,17 +12,17 @@ export interface LocalFaqAdapterOptions {
 
 /**
  * Loads pre-computed or dynamically embedded FAQs from a local JSON file.
- * Enables zero-token, sub-10ms semantic question answering via local cosine similarity.
+ * Matches questions using local cosine similarity without an LLM generation call.
  */
 export class LocalFaqAdapter implements IFAQAdapter {
-    private filePath: string;
+    private filePath: string | undefined;
     private smlEngine: SMLEngine;
     private defaultThreshold: number;
     private items: FAQItem[] = [];
     private isLoaded = false;
 
     constructor(options?: LocalFaqAdapterOptions) {
-        this.filePath = options?.filePath || './src/utils/faq-embeddings.json';
+        this.filePath = options?.filePath;
         this.smlEngine = options?.smlEngine || new SMLEngine();
         this.defaultThreshold = options?.defaultMatchThreshold ?? 0.60;
     }
@@ -32,6 +32,8 @@ export class LocalFaqAdapter implements IFAQAdapter {
      */
     public async init(): Promise<void> {
         if (this.isLoaded) return;
+        // No implicit demo data or repository-relative paths in a consumer application.
+        if (!this.filePath) { this.isLoaded = true; return; }
 
         try {
             const raw = await fs.readFile(path.resolve(this.filePath), 'utf-8');
