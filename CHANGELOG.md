@@ -2,6 +2,21 @@
 
 This file follows Semantic Versioning.
 
+## 2.3.0 — 2026-11-10
+
+### Added
+
+- **Reciprocal Rank Fusion (RRF) Tie-Breaking & Dense/Sparse Weights:** Introduced deterministic sparse lexical match prioritization on RRF score ties and optional configurable `weights: { dense, sparse }` parameter in `reciprocalRankFusion`.
+- **Unicode Combining Diacritics & Turkish Case Normalization in BM25:** Added `\p{M}` combining character preservation and Turkish `İ`/`ı` case handling in `BM25Index.tokenize`.
+- **PDF Security Hardening:** Strict rejection of encrypted/password-protected PDFs (`/Encrypt`), bounded zlib output ceiling (50MB) against zip-bomb denial of service, and explicit error throwing on scanned raster-only PDFs.
+- **Formal Invariant & Mutation Verification Suite:** Added property-based bounds testing, metamorphic relations (foreign tenant invariance, idempotent ingestion, BM25 monotonicity), FSM state machine invariants (circuit breaker, single-use ticket), 100% systematic mutation kill rate, and labeled bilingual RAG quality evaluation dataset.
+- **4-Category Performance Benchmark:** Separated CPU hot paths, in-memory async, local ONNX, and real network I/O with p50/p95/p99 percentiles.
+
+### Fixed
+
+- **Release Workflow CI Hardening:** Integrated Docker service containers (`pgvector/pgvector:pg17` and `redis:7-alpine`) in `.github/workflows/release.yml` with fail-closed quality gates before publishing.
+- **SML Concurrency Cache Isolation:** Proven that independent engines with empty cache directory and `localFilesOnly: true` strictly fail and cannot access models from parallel instances.
+
 ## 2.2.4 — 2026-11-10
 
 ### Fixed
