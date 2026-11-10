@@ -82,6 +82,33 @@ endobj
                 }
             );
         });
+
+        it('should strictly reject encrypted or password-protected PDF files', () => {
+            const encryptedPdf = '%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Encrypt 2 0 R >>\nendobj\n%%EOF';
+            assert.throws(
+                () => DocumentIngestionService.extractPdfText(Buffer.from(encryptedPdf, 'utf-8')),
+                {
+                    message: /Encrypted or password-protected PDF documents are not supported/
+                }
+            );
+        });
+
+        it('should throw an explicit error when PDF only contains raster image streams (no OCR text)', () => {
+            const scannedPdf = `%PDF-1.4
+1 0 obj
+<< /Type /XObject /Subtype /Image /Width 640 /Height 480 /ColorSpace /DeviceRGB /BitsPerComponent 8 >>
+stream
+...binary_raster_pixels_only...
+endstream
+endobj
+%%EOF`;
+            assert.throws(
+                () => DocumentIngestionService.extractPdfText(Buffer.from(scannedPdf, 'utf-8')),
+                {
+                    message: /PDF document contains no extractable text stream/
+                }
+            );
+        });
     });
 
     describe('SML Engine - Presets & Arbitrary Model Configurations', () => {

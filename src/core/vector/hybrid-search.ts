@@ -18,8 +18,11 @@ export function reciprocalRankFusion(
     denseResults: VectorDocument[],
     sparseResults: VectorDocument[],
     topK: number = 3,
-    rrfK: number = 60
+    rrfK: number = 60,
+    weights?: { dense?: number; sparse?: number }
 ): HybridScoredDocument[] {
+    const denseWeight = weights?.dense ?? 1.0;
+    const sparseWeight = weights?.sparse ?? 1.0;
     const scoredDocs = new Map<
         string,
         {
@@ -36,7 +39,7 @@ export function reciprocalRankFusion(
         const key = JSON.stringify([doc.metadata?.tenantId ?? null, doc.id]);
         const existing = scoredDocs.get(key) || { doc, rrfScore: 0 };
         existing.denseRank = rank;
-        existing.rrfScore += 1 / (rrfK + rank);
+        existing.rrfScore += denseWeight / (rrfK + rank);
         scoredDocs.set(key, existing);
     });
 
@@ -46,13 +49,18 @@ export function reciprocalRankFusion(
         const key = JSON.stringify([doc.metadata?.tenantId ?? null, doc.id]);
         const existing = scoredDocs.get(key) || { doc, rrfScore: 0 };
         existing.sparseRank = rank;
-        existing.rrfScore += 1 / (rrfK + rank);
+        existing.rrfScore += sparseWeight / (rrfK + rank);
         scoredDocs.set(key, existing);
     });
 
-    // 3. Sort by fused RRF score descending
+    // 3. Sort by fused RRF score descending with deterministic tie-breaking
     const fusedList = Array.from(scoredDocs.values());
-    fusedList.sort((a, b) => b.rrfScore - a.rrfScore);
+    fusedList.sort((a, b) => {
+        const diff = b.rrfScore - a.rrfScore;
+        if (Math.abs(diff) > 1e-9) return diff;
+        // In ties, prioritize exact lexical match (sparse rank) over continuous vector distance
+        return (a.sparseRank ?? Infinity) - (b.sparseRank ?? Infinity);
+    });
 
     return fusedList.slice(0, topK).map(({ doc, denseRank, sparseRank, rrfScore }) => ({
         ...doc,

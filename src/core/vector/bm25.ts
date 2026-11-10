@@ -26,12 +26,14 @@ export class BM25Index {
     }
 
     /**
-     * Tokenizes text into lowercase normalized alphanumeric terms.
+     * Tokenizes text into lowercase normalized alphanumeric terms with diacritical support.
      */
     private tokenize(text: string): string[] {
         return text
+            .replace(/İ/g, 'i')
+            .replace(/I/g, 'ı')
             .toLowerCase()
-            .replace(/[^\p{L}\p{N}\s\-_]/gu, ' ')
+            .replace(/[^\p{L}\p{N}\p{M}\s\-_]/gu, ' ')
             .split(/\s+/)
             .filter(t => t.length > 1);
     }

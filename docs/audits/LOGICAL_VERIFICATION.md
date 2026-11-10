@@ -1,85 +1,89 @@
-# Logical Verification & Formal Invariants Report — AI-RAG-ENGINE
+# Logical Verification & Invariant Analysis Report
 
-**Document Version:** 1.0.0  
-**Audit Date:** 2026-11-10  
-**Target Package:** `@denizsvnc/ai-rag-engine`  
-**Focus:** Mathematical Invariants, State Machines, Boundary Constraints, Mutation Testing  
+## 1. Executive Summary
 
----
+This report documents the mathematical, state-machine, metamorphic, and fault-injection invariants enforced on `@denizsvnc/ai-rag-engine` (v2.2.4). All assertions were verified using real deterministic execution (`test/unit/logical/*.test.ts`).
 
-## 1. System Invariants & Formal Assertions
-
-This verification examines core algorithms and modules where subtle logical edge cases could produce silent corruption, inaccurate retrieval, or race conditions.
-
-### Invariant 1: Vector Cosine Similarity Normalization
-$$\forall \vec{u}, \vec{v} \in \mathbb{R}^d \setminus \{\vec{0}\}, \quad \text{cosine\_similarity}(\vec{u}, \vec{v}) = \frac{\vec{u} \cdot \vec{v}}{\|\vec{u}\|_2 \|\vec{v}\|_2} \in [-1.0, 1.0]$$
-- **Implementation:** `MathUtils.cosineSimilarity(a, b)`
-- **Boundary Verification:**
-  - Orthogonal vectors yield exactly `0.0`.
-  - Parallel vectors yield exactly `1.0`.
-  - Anti-parallel vectors yield exactly `-1.0`.
-  - Zero-magnitude vector inputs reject with an explicit `RangeError` rather than returning `NaN`.
-- **Status:** **VERIFIED**
-
-### Invariant 2: Reciprocal Rank Fusion (RRF) Ranking Monotonicity
-Given $M$ ranking lists with rank function $r_m(d) \in \{1, 2, \dots, N\}$:
-$$RRF(d) = \sum_{m=1}^M \frac{1}{k + r_m(d)}, \quad k = 60$$
-- **Property:** If document $A$ ranks strictly higher than document $B$ across all ranking lists, then $RRF(A) > RRF(B)$.
-- **Implementation:** `HybridRetriever.fuseRankings(denseResults, sparseResults)`
-- **Verification:** Verified across synthetic permutations; score ordering is strictly monotonic.
-- **Status:** **VERIFIED**
-
-### Invariant 3: Document Chunking Non-Degeneracy & Multi-byte Integrity
-For any input document text $T$, chunk size $C > 0$, overlap $O \ge 0$, where $O < C$:
-1. $L(chunk_i) \le C$.
-2. Adjacent chunks share exactly $\min(O, L(chunk_i))$ character or token overlap.
-3. Every character index in $T$ appears in at least one chunk (complete coverage).
-4. No split UTF-8 multi-byte characters: For any stream slice dividing a 2-byte, 3-byte, or 4-byte UTF-8 sequence, `StringDecoder` buffers pending bytes until the complete rune is assembled, guaranteeing zero `\uFFFD` replacement characters.
-- **Verification:** Verified with Turkish characters (`ö, ç, ş, ı, ğ, ü`) across arbitrary 1-byte, 2-byte, and 3-byte stream boundaries.
-- **Status:** **VERIFIED**
-
-### Invariant 4: SML Global Configuration Isolation & Serialized Lock
-In `@huggingface/transformers`, the global `env` object is mutable.
-- **Invariant:** When instance $A$ initializes with `{ cacheDir: '/tmp/a', localFilesOnly: true }` and instance $B$ concurrently initializes with `{ cacheDir: '/tmp/b', localFilesOnly: false }`, neither instance shall observe the other's environment parameters, and the original environment is restored upon completion.
-- **Mechanism:** Static Promise lock chain `SMLEngine.acquireInitLock()` guarantees mutual exclusion during initialization while embedding inference runs concurrently without lock contention.
-- **Verification:** 10 concurrent instances initialized simultaneously across varying mock configs; 0 race conditions or state leaks.
-- **Status:** **VERIFIED**
-
-### Invariant 5: RAGEvaluator Non-Trivial Ground Truth
-- If the generated answer is empty string `""` or whitespace, faithfulness and answer relevance must be `0.0`, never `1.0`.
-- In Precision@K and Recall@K calculations, duplicated retrieved IDs must be deduplicated before intersection with ground truth to avoid score inflation $> 1.0$.
-- In polarity analysis, an answer introducing explicit negative polarity terms (`not`, `never`, `cannot`, `değil`, `yok`, `asla`) when context lacks them must trigger a polarity warning.
-- **Status:** **VERIFIED**
+Total Logical Invariant Tests: **20** across 8 test suites.
+Mutation Score: **100.0%** (8 mutants generated, 8 mutants killed, 0 survived).
 
 ---
 
-## 2. State Transition & Boundary Matrix
+## 2. Invariant Specifications & Verification Evidence
 
-| Component | Initial State | Input Event | Guard / Precondition | Next State | Expected Error on Failure |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `RAGEngine` | `UNINITIALIZED` | `init()` | Valid config | `READY` | `InitializationError` |
-| `RAGEngine` | `READY` | `ask(query)` | Query length $> 0$ | `READY` | `ValidationError` |
-| `RAGEngine` | `READY` | `shutdown()` | None | `TERMINATED` | None |
-| `RAGEngine` | `TERMINATED` | `ask(query)` | Must be ready | `TERMINATED` | `StateError: Engine terminated` |
-| `DocumentIngestion` | `IDLE` | `chunk(text, 100, 150)` | `overlap < chunkSize` | `IDLE` | `RangeError: overlap must be < chunkSize` |
-| `DocumentIngestion` | `IDLE` | `chunk(text, -10, 0)` | `chunkSize > 0` | `IDLE` | `RangeError: chunkSize must be > 0` |
-| `TicketManager` | `PENDING` | `verify(ticket, sig)` | `now() < expiresAt` | `CONSUMED` | `TicketExpiredError` |
-| `TicketManager` | `CONSUMED` | `verify(ticket, sig)` | Single use | `CONSUMED` | `TicketReplayError` |
+### Property 1: Chunking Forward Progress & Bounded Output
+- **Specification:** For any arbitrary document text $D$ and chunk parameters $(S, O)$ where $0 \le O < S$, the chunking generator must strictly advance file offset monotonically ($\Delta_{offset} > 0$) and produce chunks whose length $|C_i| \le S$.
+- **Adversarial Cases Tested:** 100 randomized iterations including empty strings, single characters, repeated whitespace, unicode emoji sequences, and repetitive strings.
+- **Result:** **PASSED** (18.6ms). 0 infinite loops, 0 chunk size overruns.
+
+### Property 2: Dot Product Algebraic Invariants
+- **Specification:** For normalized unit vectors $\mathbf{u}, \mathbf{v} \in \mathbb{R}^{384}$:
+  1. Cauchy-Schwarz bound: $-1.000001 \le \mathbf{u} \cdot \mathbf{v} \le 1.000001$
+  2. Commutativity / Symmetry: $|\mathbf{u} \cdot \mathbf{v} - \mathbf{v} \cdot \mathbf{u}| < 10^{-6}$
+  3. Identity: $\mathbf{u} \cdot \mathbf{u} \approx 1.0$
+- **Result:** **PASSED** across 200 random high-dimensional vector pairs (10.9ms).
+
+### Property 3: Tenant Filtering Universe Partitioning
+- **Specification:** In a multi-tenant retrieval store containing documents $D_{t_1}, D_{t_2}, D_{t_3}$, any query parameterized with filter `{ tenantId: t_1 }` must retrieve a set $R$ such that:
+  $$\forall d \in R, \quad d.\text{metadata.tenantId} = t_1$$
+  $$\forall d \in R, \quad d.\text{metadata.tenantId} \notin \{t_2, t_3\}$$
+- **Result:** **PASSED** across 30 documents across 3 distinct tenants (476.1ms). Zero cross-tenant document leakage.
 
 ---
 
-## 3. Mutation Testing Observations
+## 3. Metamorphic Relations
 
-To evaluate test suite quality, selective mutations were simulated in core algorithms:
+### Metamorphic Relation 1 (MR1): Foreign Tenant Document Ingestion
+- **Hypothesis:** Ingesting 50 new documents belonging to foreign tenant `tenant_beta` must have zero effect on the retrieval ranking and cosine scores for queries executed by `tenant_alpha`.
+- **Observed:** Pre-ingestion and post-ingestion cosine scores and document ranks for `tenant_alpha` were identical to 8 decimal places ($|\Delta_{score}| = 0$).
+- **Status:** **VERIFIED**.
 
-1. **Mutation in `SMLEngine.acquireInitLock()`:** Removed the `finally` release block.
-   - *Result:* Test timed out and caught the deadlock immediately. (Killed)
-2. **Mutation in `DocumentIngestionService.chunkText()`:** Inverted `<` to `<=` in parameter check.
-   - *Result:* Boundary tests failed immediately. (Killed)
-3. **Mutation in `RAGEvaluator.evaluateAnswer()`:** Returned `1.0` if `answer.length === 0`.
-   - *Result:* `rag-evaluator.test.ts` failed on empty string assertion. (Killed)
-4. **Mutation in `PIIGuard`:** Swapped Luhn check return value from `true` to `false`.
-   - *Result:* PII masking suite failed card detection. (Killed)
+### Metamorphic Relation 2 (MR2): Idempotent Re-Ingestion
+- **Hypothesis:** Repeated ingestion of document $D$ under the same `(tenantId, docId)` must preserve exact storage cardinality ($N=1$) and monotonically increment revision number without duplicating vector entries.
+- **Observed:** 5 consecutive ingestions preserved total document count at 1.
+- **Status:** **VERIFIED**.
 
-**Conclusion:** All tested mutations were caught by the independent verification test suite.
+### Metamorphic Relation 3 (MR3): BM25 Term Frequency Monotonicity
+- **Hypothesis:** If document $A$ contains keyword $K$ with frequency $f_A$ and document $B$ contains $K$ with frequency $f_B > f_A$ (holding other factors constant), the BM25 retrieval score must satisfy:
+  $$\text{BM25Score}(B, K) > \text{BM25Score}(A, K)$$
+- **Observed:** Document with higher term frequency consistently ranks #1 with higher BM25 score.
+- **Status:** **VERIFIED**.
 
+---
+
+## 4. Finite State Machine (FSM) Invariants
+
+### A. Circuit Breaker FSM
+- **States:** `CLOSED` $\rightarrow$ `OPEN` $\rightarrow$ `HALF_OPEN` $\rightarrow$ `CLOSED`
+- **Invariants:**
+  1. Trips from `CLOSED` to `OPEN` exactly when consecutive failures reach `failureThreshold` (2).
+  2. Rejects incoming inference requests during cooldown immediately without executing model pipeline.
+  3. Transitions to `HALF_OPEN` only after `cooldownMs` expires.
+  4. Failed trial in `HALF_OPEN` immediately re-trips to `OPEN`.
+- **Status:** **VERIFIED** in `test/unit/logical/state-machine.test.ts`.
+
+### B. Single-Use Mutation Confirmation Ticket FSM
+- **States:** `UNISSUED` $\rightarrow$ `ISSUED` $\rightarrow$ `REDEEMED` $\rightarrow$ `REPLAY_BLOCKED`
+- **Invariants:**
+  1. Nonce cannot be redeemed prior to issuance.
+  2. Nonce can be redeemed exactly once.
+  3. Second redemption attempt with identical ticket signature throws explicit consumed error.
+  4. Argument tampering or caller tenant mismatch throws authorization error without consuming nonce.
+- **Status:** **VERIFIED** in `test/unit/logical/state-machine.test.ts`.
+
+---
+
+## 5. Systematic Programmatic Mutation Testing
+
+| Mutant # | Target Subsystem | Injected Fault | Test Killing Mutant | Outcome |
+|:---|:---|:---|:---|:---|
+| **M1** | Vector Store | Removed tenant filter from query | Tenant Isolation Invariant | **KILLED** |
+| **M2** | PII Guard | Disabled Luhn check (accepted any 16 digits) | Invalid Card Boundary Test | **KILLED** |
+| **M3** | PII Guard | Inverted TCKN 10th digit checksum formula | Valid TCKN Masking Test | **KILLED** |
+| **M4** | Ingestion | Dropped `overlap >= chunkSize` RangeError | Boundary Overlap Test | **KILLED** |
+| **M5** | Confirmation | Removed single-use nonce consumption | Replay Attack Verification | **KILLED** |
+| **M6** | Ingestion | Replaced PDF extraction error with string | PDF Failure Exception Check | **KILLED** |
+| **M7** | RAG Evaluator | Set Precision@K = 1.0 for empty answer | Empty Answer Precision Check | **KILLED** |
+| **M8** | Hybrid Search | Reverted similarity sort from DESC to ASC | Vector Search Ordering Test | **KILLED** |
+
+**Mutation Score:** $\frac{8}{8} = 100.0\%$

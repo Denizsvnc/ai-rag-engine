@@ -88,4 +88,46 @@ describe('SML Engine - Concurrent Initialization & Global Env Isolation', () => 
         const emb = await healthyEngine.getEmbedding('resiliency verification');
         assert.equal(emb.length, 384);
     });
+
+    it('should prove cache isolation: empty directory with localFilesOnly fails and does not inherit models from parallel instance', async () => {
+        const emptyDir = path.resolve('tmp/test_empty_cache_isolation');
+        fs.mkdirSync(emptyDir, { recursive: true });
+
+        try {
+            const isolatedEngineWithoutModels = new SMLEngine({
+                modelName: 'Xenova/all-MiniLM-L6-v2',
+                dtype: 'q8',
+                cacheDir: emptyDir,
+                localFilesOnly: true,
+                circuitBreakerThreshold: 1
+            });
+
+            const validEngineWithModels = new SMLEngine({
+                modelName: 'Xenova/all-MiniLM-L6-v2',
+                dtype: 'q8',
+                cacheDir: path.resolve('data/models'),
+                localFilesOnly: true
+            });
+
+            // Run concurrently: valid engine must succeed, empty dir engine must fail
+            // If cache settings or env leaked, the empty dir engine would erroneously succeed
+            const [isolatedResult, validResult] = await Promise.allSettled([
+                isolatedEngineWithoutModels.init(),
+                validEngineWithModels.init()
+            ]);
+
+            assert.equal(
+                isolatedResult.status,
+                'rejected',
+                'Engine with empty cacheDir and localFilesOnly: true must fail to load models'
+            );
+            assert.equal(
+                validResult.status,
+                'fulfilled',
+                'Engine with valid cacheDir must succeed in parallel'
+            );
+        } finally {
+            fs.rmSync(emptyDir, { recursive: true, force: true });
+        }
+    });
 });

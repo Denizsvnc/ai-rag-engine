@@ -15,6 +15,28 @@ jobs:
     permissions:
       contents: read
       id-token: write # Required for npm OIDC Trusted Publishing and provenance
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 3s --health-retries 5
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: rag_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rag_test" --health-interval 5s
+          --health-timeout 3s --health-retries 5
+
+    env:
+      PG_TEST_URL: postgresql://postgres:test-only-password@127.0.0.1:5432/rag_test
+      REDIS_TEST_URL: redis://127.0.0.1:6379
+
     steps:
       - name: Check confirmation input
         if: ${{ github.event.inputs.confirm_publish != 'publish' }}
@@ -31,16 +53,27 @@ jobs:
           node-version: 22.x
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Set up Bun runtime
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - name: Install dependencies
         run: npm ci
 
-      - name: Quality gates verification
+      - name: Quality gates verification (Node.js & Real Services)
         run: |
           npm run typecheck
           npm run build
           npm test
+          npm run test:security
           npm run test:package
+          npm run test:consumer
+          npm run test:consumer:integration
           npm audit --audit-level=high
+
+      - name: Quality gates verification (Bun Runtime Compatibility)
+        run: npm run test:bun
 
       - name: Publish package to npm with provenance
         run: npm publish --access public --provenance

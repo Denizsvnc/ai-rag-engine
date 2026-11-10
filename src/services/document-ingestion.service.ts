@@ -224,10 +224,17 @@ export class DocumentIngestionService {
             ? rawContent
             : Buffer.from(rawContent, 'latin1');
 
+        // Security: Explicitly reject encrypted or password-protected PDF documents
+        const initialHeader = buffer.subarray(0, Math.min(buffer.length, 8192)).toString('latin1');
+        if (/\/Encrypt\s+(?:<<|\d+\s+\d+\s+R)/.test(initialHeader) || /\/Encrypt\b/.test(initialHeader)) {
+            throw new Error('Encrypted or password-protected PDF documents are not supported.');
+        }
+
         const decompressedStreams: string[] = [];
         const streamMarker = Buffer.from('stream');
         const endStreamMarker = Buffer.from('endstream');
         let pos = 0;
+        const MAX_DECOMPRESSED_STREAM_BYTES = 50 * 1024 * 1024; // 50 MB bound against decompression bombs
 
         // 1. Decompress and extract all binary/deflated stream objects
         while (pos < buffer.length) {
@@ -268,10 +275,10 @@ export class DocumentIngestionService {
             let decoded = '';
             if (isFlate && streamBytes.length > 0) {
                 try {
-                    decoded = zlib.inflateSync(streamBytes).toString('utf-8');
+                    decoded = zlib.inflateSync(streamBytes, { maxOutputLength: MAX_DECOMPRESSED_STREAM_BYTES }).toString('utf-8');
                 } catch {
                     try {
-                        decoded = zlib.inflateRawSync(streamBytes).toString('utf-8');
+                        decoded = zlib.inflateRawSync(streamBytes, { maxOutputLength: MAX_DECOMPRESSED_STREAM_BYTES }).toString('utf-8');
                     } catch {
                         // Fallback: decode directly in case stream is uncompressed or uses custom encoding
                         decoded = streamBytes.toString('utf-8');
