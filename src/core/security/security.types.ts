@@ -1,14 +1,27 @@
 import type { PIIPolicy } from './pii-guard.js';
 
+/**
+ * Assessed risk severity level for detected prompt injection or security anomalies.
+ */
 export type RiskLevel = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
 
+/**
+ * Result report generated after running injection vulnerability checks.
+ */
 export interface InjectionCheckResult {
+    /** Whether prompt injection or malicious anomaly was detected. */
     isRisk: boolean;
+    /** Classified risk level. */
     riskLevel: RiskLevel;
+    /** Identifiers or substrings of matched attack signatures. */
     matchedPatterns: string[];
+    /** Sanitized and neutral representation of the user input. */
     sanitizedInput: string;
 }
 
+/**
+ * Global security guardrail and data privacy configuration options.
+ */
 export interface SecurityConfig {
     /**
      * Whether prompt injection defense and input sanitization are enabled.

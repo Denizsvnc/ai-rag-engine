@@ -1,5 +1,16 @@
 /**
  * Cleanses and neutralizes raw untrusted visitor input.
+ *
+ * @remarks
+ * Strips invisible zero-width unicode characters, escapes LLM prompt delimiters
+ * (`<untrusted_visitor_message>`, `<im_start>`, etc.), and caps string length to mitigate token-flooding DoS.
+ *
+ * @example
+ * ```typescript
+ * import { InputSanitizer } from '@denizsvnc/ai-rag-engine';
+ *
+ * const cleaned = InputSanitizer.sanitize(userInput, 2000);
+ * ```
  */
 export class InputSanitizer {
     /**
@@ -14,17 +25,24 @@ export class InputSanitizer {
     private static readonly DELIMITER_ESCAPE_REGEX = /<\/?(?:untrusted_visitor_message|system|instruction|prompt|im_start|im_end|document|tool_result)[^>]*>/gi;
 
     /**
-     * Sanitizes raw visitor input by stripping invisible chars, neutralizing delimiter breakout tags,
-     * and bounding input length.
-     */
-    /**
      * Strips invisible zero-width unicode characters, byte-order marks, and control bytes.
+     *
+     * @param rawInput - Raw input string.
+     * @returns String without zero-width and control characters.
      */
     public static stripZeroWidth(rawInput: string): string {
         if (!rawInput) return '';
         return rawInput.replace(this.INVISIBLE_CHARS_REGEX, '');
     }
 
+    /**
+     * Sanitizes raw visitor input by stripping invisible chars, neutralizing delimiter breakout tags,
+     * and bounding input length.
+     *
+     * @param rawInput - Raw input string.
+     * @param maxLength - Maximum permitted length. @defaultValue 4000
+     * @returns Cleansed and escaped string safe for LLM context inclusion.
+     */
     public static sanitize(rawInput: string, maxLength: number = 4000): string {
         if (!rawInput) return '';
 

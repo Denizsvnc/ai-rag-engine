@@ -1,4 +1,5 @@
 import type { EngineConfig, RAGResponse } from '../interfaces/engine-config.interface.js';
+import type { z } from 'zod';
 import { CacheManager } from './cache-manager.js';
 import { SMLEngine } from './sml-engine.js';
 import { ToolRegistry } from './tool-registry.js';
@@ -15,6 +16,10 @@ import type { ToolAuditLog } from '../interfaces/tool.interface.js';
 
 import type { ICacheAdapter } from '../interfaces/cache.interface.js';
 import { MemoryVectorAdapter } from '../adapters/vector/memory-vector.adapter.js';
+import { AdaptiveIntelligenceOrchestrator } from './adaptive/adaptive-orchestrator.js';
+import { createStorage } from './storage/create-storage.js';
+import { StorageCapabilityRegistry } from './storage/storage-capability-registry.js';
+import type { StorageContainer } from '../interfaces/storage.interface.js';
 
 /**
  * Enterprise Production-Grade Retrieval-Augmented Generation (RAG) Engine.
@@ -44,6 +49,20 @@ import { MemoryVectorAdapter } from '../adapters/vector/memory-vector.adapter.js
  * console.log(response.answer, response.sources);
  * ```
  */
+interface HasSetSMLEngine {
+    setSMLEngine(engine: SMLEngine): void;
+}
+function hasSetSMLEngine(obj: unknown): obj is HasSetSMLEngine {
+    return typeof obj === 'object' && obj !== null && typeof (obj as HasSetSMLEngine).setSMLEngine === 'function';
+}
+
+interface HasInit {
+    init(): Promise<void>;
+}
+function hasInit(obj: unknown): obj is HasInit {
+    return typeof obj === 'object' && obj !== null && typeof (obj as HasInit).init === 'function';
+}
+
 export class RAGEngine {
     private confirmationService: ConfirmationService | undefined;
     private cacheManager: ICacheAdapter;
@@ -55,6 +74,9 @@ export class RAGEngine {
     private initPromise: Promise<void> | null = null;
     private auditLogs: ToolAuditLog[] = [];
     private readonly maxAuditLogs = 1000;
+    private adaptiveOrchestrator: AdaptiveIntelligenceOrchestrator | undefined;
+    private storageContainer?: StorageContainer | undefined;
+    private capabilityRegistry: StorageCapabilityRegistry;
 
     /**
      * Initializes a new instance of `RAGEngine` with the provided configuration.
@@ -65,6 +87,15 @@ export class RAGEngine {
         if (config.tools?.items.some(tool => tool.isMutating || tool.requiresConfirmation)) {
             this.confirmationService = new ConfirmationService(config.confirmation?.secret, undefined, config.confirmation?.nonceStore);
         }
+        if (config.storage) {
+            this.storageContainer = 'healthCheck' in config.storage
+                ? config.storage
+                : createStorage(config.storage);
+            this.capabilityRegistry = (this.storageContainer as any).registry;
+        } else {
+            this.capabilityRegistry = new StorageCapabilityRegistry();
+        }
+
         if (config.cache?.adapter) {
             this.cacheManager = config.cache.adapter;
         } else {
@@ -84,12 +115,22 @@ export class RAGEngine {
             circuitBreakerThreshold: config.smlConfig?.circuitBreakerThreshold,
             circuitBreakerCooldownMs: config.smlConfig?.circuitBreakerCooldownMs,
         });
-        const vectorStore = config.inputs?.vectorStore || new MemoryVectorAdapter(this.smlEngine);
-        if (typeof (vectorStore as any).setSMLEngine === 'function') {
-            (vectorStore as any).setSMLEngine(this.smlEngine);
+        const vectorStore = this.storageContainer?.config.vectors || config.inputs?.vectorStore || new MemoryVectorAdapter(this.smlEngine);
+        if (hasSetSMLEngine(vectorStore)) {
+            vectorStore.setSMLEngine(this.smlEngine);
         }
-        if (config.inputs?.faq && typeof (config.inputs.faq as any).setSMLEngine === 'function') {
-            (config.inputs.faq as any).setSMLEngine(this.smlEngine);
+        if (hasSetSMLEngine(config.inputs?.faq)) {
+            config.inputs.faq.setSMLEngine(this.smlEngine);
+        }
+
+        if (!config.storage) {
+            this.capabilityRegistry.register('vectors', vectorStore.constructor.name, vectorStore);
+            if (config.inputs?.graph) {
+                this.capabilityRegistry.register('graph', config.inputs.graph.constructor.name, config.inputs.graph);
+            }
+            if (this.cacheManager) {
+                this.capabilityRegistry.register('cache', this.cacheManager.constructor.name, this.cacheManager);
+            }
         }
         this.config = {
             ...config,
@@ -102,7 +143,7 @@ export class RAGEngine {
         this.ingestionService = new DocumentIngestionService({
             vectorStore,
             smlEngine: this.smlEngine,
-            jobQueue: config.ingestion?.jobQueue,
+            jobQueue: config.ingestion?.jobQueue as import('../services/document-ingestion.service.js').DocumentIngestionConfig['jobQueue'],
             backend: config.ingestion?.backend,
             chunkSize: config.ingestion?.chunkSize,
             chunkOverlap: config.ingestion?.chunkOverlap,
@@ -112,22 +153,62 @@ export class RAGEngine {
         if (config.tools && config.tools.items.length > 0) {
             this.toolRegistry = new ToolRegistry(this.smlEngine, config.tools.registryFilePath);
         }
+
+        if (config.adaptive?.enabled) {
+            this.adaptiveOrchestrator = new AdaptiveIntelligenceOrchestrator(config.adaptive, {
+                vectorStore,
+                graphStore: config.inputs?.graph as import('../interfaces/graph.interface.js').IGraphAdapter | undefined,
+                toolRegistry: this.toolRegistry,
+                cacheAdapter: this.cacheManager,
+                rulesAdapter: config.inputs?.rules
+            });
+        }
     }
 
     /**
-     * Records a tool audit log entry into a bounded ring buffer (max 1000 items)
-     * and redacts sensitive field values.
+     * Retrieves the active adaptive multi-strategy orchestrator instance if adaptive mode is enabled.
+     *
+     * @returns The `AdaptiveIntelligenceOrchestrator` instance, or `undefined` if adaptive features are disabled.
+     */
+    public getAdaptiveOrchestrator(): AdaptiveIntelligenceOrchestrator | undefined {
+        return this.adaptiveOrchestrator;
+    }
+
+    /**
+     * Retrieves the storage capability registry for inspecting active database capabilities.
+     *
+     * @returns The `StorageCapabilityRegistry` tracking all registered adapters.
+     */
+    public getStorageCapabilities(): StorageCapabilityRegistry {
+        return this.capabilityRegistry;
+    }
+
+    /**
+     * Gracefully closes underlying storage containers and connection pools.
+     */
+    public async close(): Promise<void> {
+        if (this.storageContainer) {
+            await this.storageContainer.close();
+        }
+    }
+
+    /**
+     * Records a tool audit log entry into a bounded in-memory ring buffer (maximum 1,000 entries)
+     * and redacts sensitive field values such as passwords, tokens, TCKN, and payment details.
+     *
+     * @param entry - Structured tool invocation audit log conforming to `ToolAuditLog`.
      */
     public recordAuditLog(entry: ToolAuditLog): void {
         let sanitizedArgs = entry.args;
         try {
             if (typeof sanitizedArgs === 'object' && sanitizedArgs !== null) {
-                sanitizedArgs = JSON.parse(JSON.stringify(sanitizedArgs));
-                for (const key of Object.keys(sanitizedArgs)) {
+                const argsRecord = JSON.parse(JSON.stringify(sanitizedArgs)) as Record<string, unknown>;
+                for (const key of Object.keys(argsRecord)) {
                     if (/password|secret|token|tckn|credit_?card|card_?num/i.test(key)) {
-                        sanitizedArgs[key] = '***REDACTED***';
+                        argsRecord[key] = '***REDACTED***';
                     }
                 }
+                sanitizedArgs = argsRecord;
             }
         } catch {
             // Keep original args if serialization fails
@@ -141,8 +222,13 @@ export class RAGEngine {
 
     /**
      * Initializes the engine, loads models into memory, and hydrates persistent caches.
-     * Thread-safe: Parallel concurrent invocations await the exact same mutex Promise.
-     * Resilient: Resets initPromise on failure so subsequent retries can succeed.
+     *
+     * @remarks
+     * - **Thread-Safe**: Parallel concurrent invocations await the exact same mutex Promise.
+     * - **Fault-Tolerant**: Resets the initialization promise on failure so subsequent attempts can retry.
+     *
+     * @returns Promise that resolves when all configured sub-systems (cache, SML, vector store, FAQ) are ready.
+     * @throws `Error` if any underlying component fails to initialize.
      */
     public async init(): Promise<void> {
         if (this.isInitialized) return;
@@ -151,8 +237,11 @@ export class RAGEngine {
             this.initPromise = (async () => {
                 try {
                     console.log('[RAGEngine] Initializing system...');
-                    if (this.config.cache?.enabled !== false && typeof (this.cacheManager as any).init === 'function') {
-                        await (this.cacheManager as any).init();
+                    if (this.storageContainer) {
+                        await this.storageContainer.init();
+                    }
+                    if (this.config.cache?.enabled !== false && hasInit(this.cacheManager)) {
+                        await this.cacheManager.init();
                     }
 
                     if (this.config.smlConfig?.enabled !== false) {
@@ -163,12 +252,12 @@ export class RAGEngine {
                         await this.toolRegistry.initialize(this.config.tools.items);
                     }
 
-                    if (this.config.inputs?.vectorStore && typeof (this.config.inputs.vectorStore as any).init === 'function') {
-                        await (this.config.inputs.vectorStore as any).init();
+                    if (hasInit(this.config.inputs?.vectorStore)) {
+                        await this.config.inputs.vectorStore.init();
                     }
 
-                    if (this.config.inputs?.faq && typeof (this.config.inputs.faq as any).init === 'function') {
-                        await (this.config.inputs.faq as any).init();
+                    if (hasInit(this.config.inputs?.faq)) {
+                        await this.config.inputs.faq.init();
                     }
 
                     this.isInitialized = true;
@@ -183,7 +272,21 @@ export class RAGEngine {
         return this.initPromise;
     }
 
-    public async registerTool(tool: any): Promise<void> {
+    /**
+     * Dynamically registers an agent tool into the tool registry for intent routing and execution.
+     *
+     * @param tool - The governed tool definition conforming to `IAgentTool`.
+     *
+     * @example
+     * ```typescript
+     * await engine.registerTool({
+     *   name: 'check_inventory',
+     *   description: 'Checks available warehouse stock for a product SKU.',
+     *   execute: async ({ sku }) => ({ sku, inStock: 42 })
+     * });
+     * ```
+     */
+    public async registerTool(tool: import('../interfaces/tool.interface.js').IAgentTool): Promise<void> {
         if (!this.toolRegistry) {
             this.toolRegistry = new ToolRegistry(this.smlEngine);
         }
@@ -257,15 +360,39 @@ export class RAGEngine {
             }
         }
 
+        // 1.5. Adaptive Multi-Strategy Orchestration (if enabled)
+        if (this.adaptiveOrchestrator) {
+            const execContext: import('../interfaces/strategy.interface.js').StrategyExecutionContext = {
+                query: sanitizedPrompt,
+                tenantId: context?.tenantId || 'default',
+                userId: context?.userId,
+                roles: context?.roles,
+                traversalDepth: context?.adaptiveOverrides?.maxHops,
+                topK: context?.adaptiveOverrides?.topK,
+                metadata: {
+                    requestedStrategy: context?.adaptiveOverrides?.strategy,
+                    requestedMode: context?.adaptiveOverrides?.mode
+                }
+            };
+            const adaptiveRes = await this.adaptiveOrchestrator.processQuery(
+                sanitizedPrompt,
+                execContext,
+                this.config.llmProvider
+            );
+            if (securityWarning) adaptiveRes.securityWarning = securityWarning;
+            return adaptiveRes;
+        }
+
         // 2. Multi-Tenant & Role-Isolated Cache lookup (P0 Security Isolation)
         const scope = JSON.stringify([context?.tenantId ?? null, context?.userId ?? null, context?.roles?.slice().sort() ?? []]);
-        const revision = this.config.cache?.enabled !== false && context?.tenantId && this.config.inputs.vectorStore?.getRevision
+        const revision = this.config.cache?.enabled !== false && context?.tenantId && this.config.inputs?.vectorStore?.getRevision
             ? await this.config.inputs.vectorStore.getRevision(context.tenantId) : '0';
         const cacheKey = `v3:${scope}:${revision}:${sanitizedPrompt}`;
 
         if (this.config.cache?.enabled !== false && !context?.skipCache && !context?.confirmationTicket) {
-            const cachedResponse = await this.cacheManager.get(cacheKey);
-            if (cachedResponse) {
+            const cachedRaw = await this.cacheManager.get(cacheKey);
+            if (cachedRaw && typeof cachedRaw === 'object' && 'answer' in cachedRaw) {
+                const cachedResponse = cachedRaw as RAGResponse;
                 const latencyMs = Date.now() - startTime;
                 const metrics = this.tokenTracker.trackQuery({
                     source: 'CACHE',
@@ -285,7 +412,7 @@ export class RAGEngine {
         }
 
         // 3. Zero-Token Semantic FAQ Matching within Tenant Boundary (P0 Tenant Isolation)
-        if (this.config.inputs.faq && this.config.inputs.faq.findBestMatch) {
+        if (this.config.inputs?.faq && this.config.inputs.faq.findBestMatch) {
             const faqMatch = await this.config.inputs.faq.findBestMatch(
                 sanitizedPrompt,
                 undefined,
@@ -319,8 +446,8 @@ export class RAGEngine {
         }
 
         let intent = 'RAG_QUERY';
-        let toolResultContext: Array<{ toolName: string; result: any }> = [];
-        let executedTools: Array<{ name: string; args: any }> = [];
+        let toolResultContext: Array<{ toolName: string; result: unknown }> = [];
+        let executedTools: Array<{ name: string; args: unknown }> = [];
         const confirmationRequests: NonNullable<RAGResponse['confirmationRequests']> = [];
         let mutatingToolAttempted = false;
 
@@ -440,7 +567,7 @@ export class RAGEngine {
                         }
 
                         // Barrier 3: Strict Zod Schema Validation
-                        const effectiveSchema = matchedTool.zodSchema || (matchedTool as any).schema;
+                        const effectiveSchema: z.ZodSchema | undefined = matchedTool.zodSchema || ('schema' in matchedTool ? (matchedTool as { schema?: z.ZodSchema }).schema : undefined);
                         if (effectiveSchema) {
                             const parseResult = effectiveSchema.safeParse(tc.arguments);
                             if (!parseResult.success) {
@@ -467,7 +594,7 @@ export class RAGEngine {
                                 });
                                 continue;
                             }
-                            tc.arguments = parseResult.data;
+                            tc.arguments = (parseResult.data as Record<string, unknown>) || {};
                         }
 
                         // Barrier 4: Execution & Audit Logging
@@ -487,8 +614,9 @@ export class RAGEngine {
                             });
                             toolResultContext.push({ toolName: tc.name, result: dbResult });
                             executedTools.push({ name: tc.name, args: tc.arguments });
-                        } catch (error: any) {
+                        } catch (error: unknown) {
                             const durationMs = Date.now() - toolExecStart;
+                            const errMsg = error instanceof Error ? error.message : String(error);
                             this.recordAuditLog({
                                 timestamp: new Date().toISOString(),
                                 toolName: tc.name,
@@ -497,10 +625,10 @@ export class RAGEngine {
                                 args: tc.arguments,
                                 isMutating: !!matchedTool.isMutating,
                                 status: 'EXECUTION_FAILED',
-                                error: error.message,
+                                error: errMsg,
                                 durationMs
                             });
-                            toolResultContext.push({ toolName: tc.name, result: { error: error.message } });
+                            toolResultContext.push({ toolName: tc.name, result: { error: errMsg } });
                         }
                     }
                 }
@@ -509,7 +637,7 @@ export class RAGEngine {
 
         // 4. Vector retrieval and active rules (P1 Hybrid Search Integration)
         let documents: VectorDocument[] = [];
-        if (this.config.inputs.vectorStore && intent !== 'TOOL_CALL') {
+        if (this.config.inputs?.vectorStore && intent !== 'TOOL_CALL') {
             const vectorFilter = context?.tenantId ? { tenantId: context.tenantId } : undefined;
             const topK = this.config.retrieval?.topK ?? 3;
             const strategy = this.config.retrieval?.strategy ?? (
@@ -530,7 +658,7 @@ export class RAGEngine {
         }
 
         let rules: string[] = [];
-        if (this.config.inputs.rules) {
+        if (this.config.inputs?.rules) {
             rules = await this.config.inputs.rules.getActiveRules(context?.tenantId);
         }
 
@@ -592,7 +720,10 @@ export class RAGEngine {
     }
 
     /**
-     * Retrieve structured audit logs for tool executions (supports tenant-level filtering).
+     * Retrieves recorded tool audit log entries, optionally filtered by tenant.
+     *
+     * @param tenantId - Optional tenant identifier to scope audit logs.
+     * @returns Array of `ToolAuditLog` records containing caller identity, tool name, sanitized arguments, and status.
      */
     public getAuditLogs(tenantId?: string): ToolAuditLog[] {
         if (!tenantId) return [...this.auditLogs];
@@ -600,61 +731,105 @@ export class RAGEngine {
     }
 
     /**
-     * Clear recorded audit logs.
+     * Clears all recorded tool audit log entries from memory.
      */
     public clearAuditLogs(): void {
         this.auditLogs = [];
     }
 
     /**
-     * Invalidate cached queries matching a specific key or regular expression.
+     * Invalidates cached query responses matching a string prefix or regular expression pattern.
      * Call this when catalog prices, warehouse stock, or corporate policies change.
+     *
+     * @param patternOrQuery - Exact query string prefix or regular expression to match.
+     * @returns Number of cache entries evicted.
      */
     public async invalidateCache(patternOrQuery: string | RegExp): Promise<number> {
         return this.cacheManager.invalidate(patternOrQuery);
     }
 
     /**
-     * Clear all cached queries from RAM and persistent disk storage.
+     * Clears all cached queries from RAM and persistent cache storage.
      */
     public async clearCache(): Promise<void> {
         return this.cacheManager.clear();
     }
 
+    /**
+     * Retrieves the underlying cache manager adapter instance.
+     *
+     * @returns Active `ICacheAdapter` instance.
+     */
     public getCacheManager(): ICacheAdapter {
         return this.cacheManager;
     }
 
     /**
      * Returns cumulative FinOps token usage, cost savings, and latency metrics.
+     *
+     * @returns `EngineMetricsSummary` with total queries, token counts, and estimated cost savings.
      */
     public getMetrics(): EngineMetricsSummary {
         return this.tokenTracker.getSummary();
     }
 
+    /**
+     * Retrieves the internal token tracker instance.
+     *
+     * @returns The active `TokenTracker` instance.
+     */
     public getTokenTracker(): TokenTracker {
         return this.tokenTracker;
     }
 
     /**
-     * Submits a document (PDF, TXT, MD, CSV, JSON) for background ingestion.
-     * Enforces magic byte security and enqueues heavy chunking and PII masking.
+     * Submits a document (PDF, TXT, MD, CSV, JSON) for asynchronous background ingestion.
+     * Enforces file magic byte inspection, chunking, PII masking, and background indexing.
+     *
+     * @param payload - The document upload payload conforming to `DocumentUploadPayload`.
+     * @returns An object containing the generated `jobId` and initial status string.
+     *
+     * @example
+     * ```typescript
+     * const job = await engine.ingestDocument({
+     *   filename: 'handbook.pdf',
+     *   content: pdfBuffer,
+     *   tenantId: 'tenant_acme'
+     * });
+     * console.log(`Ingestion queued with ID: ${job.jobId}`);
+     * ```
      */
     public async ingestDocument(payload: DocumentUploadPayload): Promise<{ jobId: string; status: string }> {
         return this.ingestionService.submitDocument(payload);
     }
 
     /**
-     * Retrieves the status of an ongoing or completed document ingestion job.
+     * Retrieves the status and progress of an ongoing or completed document ingestion job.
+     *
+     * @param jobId - Unique job ID returned by `ingestDocument()`.
+     * @param tenantId - Optional tenant ID to enforce tenant-scoped access.
+     * @returns The background `Job` record, or `null` if not found.
      */
     public async getIngestionStatus(jobId: string, tenantId?: string): Promise<Job | null> {
         return this.ingestionService.getJobStatus(jobId, tenantId);
     }
 
+    /**
+     * Retries a previously failed document ingestion job.
+     *
+     * @param jobId - The failed ingestion job ID.
+     * @param tenantId - Tenant identifier owning the job.
+     * @throws `Error` if the job is not found or cannot be retried.
+     */
     public async retryIngestion(jobId: string, tenantId: string): Promise<void> {
         await this.ingestionService.retryJob(jobId, tenantId);
     }
 
+    /**
+     * Retrieves the document ingestion service instance.
+     *
+     * @returns The active `DocumentIngestionService` instance.
+     */
     public getIngestionService(): DocumentIngestionService {
         return this.ingestionService;
     }

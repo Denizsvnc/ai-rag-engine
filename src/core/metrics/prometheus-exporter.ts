@@ -1,15 +1,41 @@
 import type { EngineMetricsSummary } from './token-tracker.js';
 
+/**
+ * Additional runtime parameters exposed in Prometheus metric output.
+ */
 export interface PrometheusMetricOptions {
+    /** Current status of the inference circuit breaker. */
     circuitBreakerState?: 'CLOSED' | 'OPEN' | 'HALF_OPEN' | undefined;
+    /** Current number of active entries in cache. */
     activeCacheSize?: number | undefined;
 }
 
 /**
  * Formats engine FinOps and runtime telemetry into OpenMetrics / Prometheus exposition format.
- * Can be scraped directly by Prometheus or Datadog agents via GET /api/metrics?format=prometheus.
+ *
+ * @remarks
+ * Produces Prometheus metrics text formatted with HELP and TYPE descriptors for scraping
+ * by Prometheus, Grafana Agent, or Datadog via standard endpoints (e.g. `GET /metrics`).
+ *
+ * @example
+ * ```typescript
+ * import { PrometheusExporter, TokenTracker } from '@denizsvnc/ai-rag-engine';
+ *
+ * const summary = tokenTracker.getSummary();
+ * const prometheusText = PrometheusExporter.exportMetrics(summary, {
+ *   activeCacheSize: 42,
+ *   circuitBreakerState: 'CLOSED'
+ * });
+ * ```
  */
 export class PrometheusExporter {
+    /**
+     * Serializes engine metrics summary into Prometheus / OpenMetrics plain text format.
+     *
+     * @param summary - Aggregated engine metrics from {@link TokenTracker}.
+     * @param options - Additional operational metrics (circuit breaker state, cache size).
+     * @returns Prometheus-formatted exposition string.
+     */
     public static exportMetrics(summary: EngineMetricsSummary, options?: PrometheusMetricOptions): string {
         const lines: string[] = [];
 

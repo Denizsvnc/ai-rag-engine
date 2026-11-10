@@ -16,39 +16,85 @@ import { InMemoryJobQueue } from '../core/queue/in-memory-queue.js';
 
 const pipeline = promisify(streamPipeline);
 
+/**
+ * Document upload payload submitted for ingestion.
+ */
 export interface DocumentUploadPayload {
+    /** Optional existing document ID to update or replace. */
     documentId?: string | undefined;
+    /** Idempotency key preventing duplicate queue processing. */
     idempotencyKey?: string | undefined;
+    /** Content encoding if passing string content. Defaults to `'utf8'`. */
     encoding?: 'utf8' | 'base64' | undefined;
+    /** Original filename including extension (e.g. `'handbook.pdf'`). */
     filename: string;
+    /** Raw document content as a string, Buffer, or Node.js Readable stream. */
     content: string | Buffer | NodeJS.ReadableStream;
+    /** Optional MIME type. Inferred from extension and magic bytes if omitted. */
     mimeType?: string | undefined;
+    /** Tenant identifier for multi-tenant isolation. */
     tenantId?: string | undefined;
+    /** Requesting user identifier. */
     userId?: string | undefined;
 }
 
+/**
+ * Options for stream-based direct document ingestion.
+ */
 export interface StreamIngestionOptions {
+    /** Optional MIME type of the stream. */
     mimeType?: string | undefined;
+    /** Tenant identifier for isolation. */
     tenantId?: string | undefined;
+    /** Requesting user ID. */
     userId?: string | undefined;
+    /** Progress callback invoked as chunks are indexed into vector store. */
     onProgress?: ((chunksCount: number) => void) | undefined;
 }
 
+/**
+ * Result metrics emitted upon successful ingestion of a document.
+ */
 export interface IngestionJobResult {
+    /** Name of the ingested document file. */
     filename: string;
+    /** Total number of vector chunks produced. */
     chunksCount: number;
+    /** Total number of sensitive PII entities redacted (TCKN, credit cards, IBAN). */
     piiEntitiesMasked: number;
+    /** Array of chunk document IDs written to vector store. */
     documentIds: string[];
+    /** ISO timestamp string when ingestion completed. */
     processedAt: string;
 }
 
+export interface DocumentJobData {
+    filename: string;
+    contentBase64?: string | undefined;
+    tenantId?: string | undefined;
+    userId?: string | undefined;
+    mimeType?: string | undefined;
+    isStreamSpool?: boolean | undefined;
+    tempFilePath?: string | undefined;
+}
+
+/**
+ * Configuration options for `DocumentIngestionService`.
+ */
 export interface DocumentIngestionConfig {
+    /** Durable PostgreSQL storage backend for upload blobs and manifests. */
     backend?: IIngestionBackend | undefined;
+    /** Vector store adapter where chunks and embeddings are indexed. */
     vectorStore?: IVectorStoreAdapter | undefined;
+    /** SML engine used for local chunk embedding computation. */
     smlEngine?: SMLEngine | undefined;
-    jobQueue?: IJobQueue | undefined;
+    /** Background job queue (`BullMQJobQueue` or `InMemoryJobQueue`). */
+    jobQueue?: IJobQueue<DocumentJobData, IngestionJobResult> | undefined;
+    /** Chunk size in characters. Defaults to 500. */
     chunkSize?: number | undefined;
+    /** Sliding window overlap between chunks in characters. Defaults to 50. */
     chunkOverlap?: number | undefined;
+    /** Custom PII policy rules for redaction. */
     piiPolicy?: PIIPolicy | undefined;
 }
 
@@ -59,12 +105,37 @@ const DANGEROUS_EXTENSIONS = new Set([
     '.docm', '.xlsm', '.pptm'
 ]);
 
+/**
+ * High-performance document ingestion pipeline with native PDF parsing, PII redaction, and background queueing.
+ *
+ * @remarks
+ * Features:
+ * - Native zlib/FlateDecode decompression for PDF streams without external binary dependencies.
+ * - Deep PII redaction (TCKN with checksum validation, Credit Cards with Luhn check, IBAN, emails, phones).
+ * - Automatic sliding window text chunking with natural boundary detection.
+ * - Streaming ingestion with backpressure to prevent Node.js event loop starvation.
+ *
+ * @example
+ * ```typescript
+ * const ingestion = new DocumentIngestionService({
+ *   vectorStore: memoryVectorAdapter,
+ *   smlEngine: smlEngine,
+ *   chunkSize: 500,
+ *   chunkOverlap: 50
+ * });
+ * const job = await ingestion.submitDocument({
+ *   filename: 'handbook.pdf',
+ *   content: pdfBuffer,
+ *   tenantId: 'tenant_acme'
+ * });
+ * ```
+ */
 export class DocumentIngestionService {
     private workerReady: Promise<void> = Promise.resolve();
     private backend?: IIngestionBackend | undefined;
     private vectorStore?: IVectorStoreAdapter | undefined;
     private smlEngine?: SMLEngine | undefined;
-    private jobQueue: IJobQueue;
+    private jobQueue: IJobQueue<DocumentJobData, IngestionJobResult>;
     private chunkSize: number;
     private chunkOverlap: number;
     private piiPolicy?: PIIPolicy | undefined;
@@ -72,7 +143,7 @@ export class DocumentIngestionService {
     constructor(config?: DocumentIngestionConfig) {
         this.vectorStore = config?.vectorStore;
         this.smlEngine = config?.smlEngine;
-        this.jobQueue = config?.jobQueue || new InMemoryJobQueue();
+        this.jobQueue = config?.jobQueue || new InMemoryJobQueue<DocumentJobData, IngestionJobResult>();
         this.chunkSize = config?.chunkSize ?? 500;
         this.chunkOverlap = config?.chunkOverlap ?? 50;
         this.piiPolicy = config?.piiPolicy;
@@ -560,8 +631,8 @@ export class DocumentIngestionService {
 
             documentIds.push(docId);
 
-            if (this.vectorStore && typeof (this.vectorStore as any).addDocuments === 'function') {
-                await (this.vectorStore as any).addDocuments([doc]);
+            if (this.vectorStore && typeof this.vectorStore.addDocuments === 'function') {
+                await this.vectorStore.addDocuments([doc]);
             }
 
             chunkIndex++;
@@ -625,7 +696,7 @@ export class DocumentIngestionService {
         if (this.backend) return this.backend.submitDocument(payload);
         await this.workerReady;
         // If content is a ReadableStream, delegate directly to submitStream
-        if (payload.content && typeof (payload.content as any).pipe === 'function') {
+        if (payload.content && typeof payload.content === 'object' && 'pipe' in payload.content && typeof (payload.content as { pipe?: unknown }).pipe === 'function') {
             return this.submitStream(payload.filename, payload.content as NodeJS.ReadableStream, {
                 mimeType: payload.mimeType,
                 userId: payload.userId,
@@ -658,8 +729,8 @@ export class DocumentIngestionService {
     /**
      * Retrieves the status and progress of an ingestion job.
      */
-    public async getJobStatus(jobId: string, tenantId?: string): Promise<Job | null> {
-        if (this.backend) return this.backend.getJobStatus(jobId, tenantId);
+    public async getJobStatus(jobId: string, tenantId?: string): Promise<Job<DocumentJobData, IngestionJobResult> | null> {
+        if (this.backend) return this.backend.getJobStatus(jobId, tenantId) as Promise<Job<DocumentJobData, IngestionJobResult> | null>;
         const job = await this.jobQueue.getJob(jobId);
         if (tenantId !== undefined && job?.data?.tenantId !== tenantId) return null;
         return job;
@@ -695,7 +766,7 @@ export class DocumentIngestionService {
 
             // Handle in-memory buffer / base64
             const { filename, contentBase64, tenantId } = data;
-            const buffer = Buffer.from(contentBase64, 'base64');
+            const buffer = Buffer.from(contentBase64 || '', 'base64');
 
             // 1. Re-validate safety
             updateProgress(10);
@@ -738,8 +809,8 @@ export class DocumentIngestionService {
 
             // 5. Store in vector store
             updateProgress(90);
-            if (this.vectorStore && typeof (this.vectorStore as any).addDocuments === 'function') {
-                await (this.vectorStore as any).addDocuments(sanitizedDocs);
+            if (this.vectorStore && typeof this.vectorStore.addDocuments === 'function') {
+                await this.vectorStore.addDocuments(sanitizedDocs);
             }
 
             updateProgress(100);

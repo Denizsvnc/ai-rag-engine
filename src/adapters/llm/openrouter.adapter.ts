@@ -1,8 +1,44 @@
 import { OpenAIAdapter, type OpenAIConfig } from './openai.adapter.js';
 
+/**
+ * Configuration options for the OpenRouter LLM adapter.
+ *
+ * @remarks
+ * Extends {@link OpenAIConfig} with OpenRouter default models and endpoints.
+ */
 export interface OpenRouterConfig extends OpenAIConfig {}
 
+/**
+ * LLM adapter connecting to the unified OpenRouter.ai API.
+ *
+ * @remarks
+ * Provides access to diverse open-source and proprietary models through an OpenAI-compatible interface.
+ * Enforces corporate data compliance policies: when `ALLOW_PUBLIC_OPENSOURCE_LLM=false`, instantiation is blocked.
+ *
+ * @example
+ * ```typescript
+ * import { OpenRouterAdapter } from '@denizsvnc/ai-rag-engine';
+ *
+ * const llm = new OpenRouterAdapter({
+ *   apiKey: process.env.OPENROUTER_API_KEY,
+ *   model: 'meta-llama/llama-3.2-3b-instruct:free'
+ * });
+ *
+ * const response = await llm.generate({
+ *   userPrompt: 'Summarize the given text.'
+ * });
+ * ```
+ */
 export class OpenRouterAdapter extends OpenAIAdapter {
+    /**
+     * Initializes a new instance of OpenRouterAdapter.
+     *
+     * @param configOrApiKey - OpenRouter configuration object or API key string.
+     * @param model - Model identifier override.
+     * @param endpoint - OpenRouter completion endpoint URL.
+     * @throws If corporate policy disallows public open-source models (`ALLOW_PUBLIC_OPENSOURCE_LLM=false`).
+     * @throws If API key is missing.
+     */
     constructor(
         configOrApiKey?: string | OpenRouterConfig,
         model?: string,
@@ -42,10 +78,22 @@ export class OpenRouterAdapter extends OpenAIAdapter {
         });
     }
 
+    /**
+     * Factory method creating an OpenRouter adapter tuned for low-latency tasks.
+     *
+     * @param apiKey - Optional API key override.
+     * @returns Configured OpenRouterAdapter instance.
+     */
     public static createFast(apiKey?: string): OpenRouterAdapter {
         return new OpenRouterAdapter(apiKey, process.env.OPENROUTER_MODEL_FAST || 'meta-llama/llama-3.2-3b-instruct:free');
     }
 
+    /**
+     * Factory method creating an OpenRouter adapter tuned for high-reasoning tasks.
+     *
+     * @param apiKey - Optional API key override.
+     * @returns Configured OpenRouterAdapter instance.
+     */
     public static createSmart(apiKey?: string): OpenRouterAdapter {
         return new OpenRouterAdapter(apiKey, process.env.OPENROUTER_MODEL_SMART || 'deepseek/deepseek-r1:free');
     }

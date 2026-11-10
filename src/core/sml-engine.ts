@@ -6,6 +6,13 @@ export interface EmbeddingExtractor {
     (text: string | string[], options: { pooling: 'mean'; normalize: boolean }): Promise<{ data: Float32Array; dims: number[] }>;
 }
 
+/**
+ * Error thrown when an SML model operation is attempted while the internal Circuit Breaker is in the `OPEN` state.
+ *
+ * @remarks
+ * Occurs after consecutive load failures reach `circuitBreakerThreshold`. The circuit breaker
+ * prevents cascading failures and remote hanging by rejecting requests immediately during the cooldown period.
+ */
 export class CircuitBreakerOpenError extends Error {
     constructor(message: string) {
         super(message);
@@ -62,6 +69,24 @@ export interface SMLEngineConfig {
     circuitBreakerCooldownMs?: number | undefined;
 }
 
+/**
+ * In-process Small Machine Learning (SML) engine for local embedding computation and semantic routing.
+ *
+ * @remarks
+ * Uses `@huggingface/transformers` to execute quantized ONNX models locally without Python or external APIs.
+ * Includes an integrated Circuit Breaker state machine (CLOSED -> OPEN -> HALF_OPEN) to prevent DOS and hanging.
+ *
+ * @example
+ * ```typescript
+ * const sml = new SMLEngine({
+ *   modelName: SMLModelPresets.MULTILINGUAL,
+ *   dtype: 'q8'
+ * });
+ * await sml.init();
+ * const vector = await sml.getEmbedding('What is our return policy?');
+ * console.log(`Embedding dimensions: ${vector.length}`);
+ * ```
+ */
 export class SMLEngine {
     private static initLockChain: Promise<void> = Promise.resolve();
 
@@ -113,6 +138,11 @@ export class SMLEngine {
         this.extractorPromise = null;
     }
 
+    /**
+     * Retrieves the current state of the internal Circuit Breaker.
+     *
+     * @returns `'CLOSED'` (healthy), `'OPEN'` (failing fast during cooldown), or `'HALF_OPEN'` (probing).
+     */
     public getCircuitState(): 'CLOSED' | 'OPEN' | 'HALF_OPEN' {
         if (this.circuitState === 'OPEN') {
             if (Date.now() - this.lastFailureTime >= this.cooldownMs) {
@@ -122,12 +152,21 @@ export class SMLEngine {
         return this.circuitState;
     }
 
+    /**
+     * Retrieves the current number of consecutive model load failures.
+     *
+     * @returns Non-negative failure count.
+     */
     public getFailureCount(): number {
         return this.failureCount;
     }
 
     /**
-     * Thread-safe pipeline initializer guarded by a Circuit Breaker.
+     * Thread-safe pipeline initializer guarded by the internal Circuit Breaker.
+     *
+     * @returns A promise resolving to the underlying `EmbeddingExtractor` function.
+     * @throws `CircuitBreakerOpenError` if the circuit is currently OPEN.
+     * @throws `Error` if the model cannot be loaded from disk or network.
      */
     public async init(): Promise<EmbeddingExtractor> {
         // Evaluate circuit breaker state
@@ -162,7 +201,7 @@ export class SMLEngine {
                             env.allowRemoteModels = !this.localFilesOnly;
                         }
 
-                        const pipelineOptions: Record<string, any> = {
+                        const pipelineOptions: Record<string, unknown> = {
                             dtype: this.dtype,
                         };
                         if (this.cacheDir) {
@@ -213,7 +252,16 @@ export class SMLEngine {
     }
 
     /**
-     * Generates a normalized embedding vector for a single text input (with LRU caching).
+     * Generates a unit-normalized embedding vector for a single text input (with RAM LRU caching).
+     *
+     * @param text - The input text to vectorize. Must not be empty.
+     * @returns A `Float32Array` containing the computed normalized embedding vector.
+     * @throws `Error` if the input text is blank or model extraction fails.
+     *
+     * @example
+     * ```typescript
+     * const vec = await sml.getEmbedding('Corporate travel expense policy');
+     * ```
      */
     public async getEmbedding(text: string): Promise<Float32Array> {
         const cleanedText = text.trim();
@@ -236,7 +284,10 @@ export class SMLEngine {
     }
 
     /**
-     * Generates embedding vectors for multiple texts in batch mode.
+     * Generates normalized embedding vectors for an array of texts in high-throughput batch mode.
+     *
+     * @param texts - Array of string inputs to vectorize.
+     * @returns Array of `Float32Array` embedding vectors corresponding to the input order.
      */
     public async getBatchEmbeddings(texts: string[]): Promise<Float32Array[]> {
         if (texts.length === 0) return [];
@@ -261,7 +312,14 @@ export class SMLEngine {
     }
 
     /**
-     * Compares the query against target embeddings and returns the highest scoring match above the threshold.
+     * Compares an input query against a list of target items with precomputed embeddings
+     * and returns the highest scoring match above the cosine similarity threshold.
+     *
+     * @typeParam T - Target item type extending `{ id: string; embedding: number[] | Float32Array }`.
+     * @param query - The query text to evaluate.
+     * @param targets - Array of target items containing precomputed embeddings.
+     * @param threshold - Minimum cosine similarity threshold (0.0 to 1.0). Defaults to 0.65.
+     * @returns The best matching target and its score, or `null` if no target exceeds the threshold.
      */
     public async findBestMatch<T extends { id: string; embedding: number[] | Float32Array }>(
         query: string,

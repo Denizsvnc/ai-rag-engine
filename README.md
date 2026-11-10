@@ -78,6 +78,40 @@ AI-RAG-ENGINE can be consumed either as an in-process TypeScript SDK or deployed
   <img src="https://raw.githubusercontent.com/Denizsvnc/ai-rag-engine/main/assets/endpoints.svg" alt="AI-RAG-ENGINE Integration Topology & Endpoints" width="100%" />
 </div>
 
+### Adaptive Intelligence & Multi-Strategy Orchestration
+
+AI-RAG-ENGINE dynamically selects, routes, and fuses evidence across 9 distinct retrieval and reasoning strategies (Semantic Search, Hybrid Search, GraphRAG, KAG, Traditional RAG, CAG, Agentic RAG, Knowledge Graph, Semantic Graph) based on query complexity and policy:
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Denizsvnc/ai-rag-engine/main/assets/adaptive-intelligence-pipeline.svg" alt="AI-RAG-ENGINE Adaptive Intelligence & Multi-Strategy Pipeline" width="100%" />
+</div>
+
+- **Adaptive Query Planner:** Dynamically classifies incoming query intent, formulates execution plans, and enforces latency and cost budgets.
+- **Evidence Fusion Engine:** Reciprocal Rank Fusion (RRF), token budget pruning, and cross-source contradiction detection.
+
+---
+
+## Database-Agnostic Storage Architecture
+
+AI-RAG-ENGINE features a modular, capability-driven storage abstraction layer following Interface Segregation (ISP) and Dependency Inversion (DIP) principles. The core engine is decoupled from concrete database drivers:
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Denizsvnc/ai-rag-engine/main/assets/storage-architecture.svg" alt="AI-RAG-ENGINE Database-Agnostic Storage Architecture" width="100%" />
+</div>
+
+### Supported Storage Providers & Capabilities
+
+| Concern | Contract | Reference Adapters |
+| :--- | :--- | :--- |
+| **Vector Store** | `IVectorStore` | `SqliteVectorAdapter` (`node:sqlite`), `PostgresVectorAdapter` (`pgvector`), `MemoryVectorAdapter`, `QdrantVectorAdapter` (REST via `fetch`) |
+| **Document Store** | `IDocumentStore` | `SqliteDocumentAdapter`, `MongoDocumentAdapter`, `MySQLDocumentAdapter` |
+| **Graph Store** | `IGraphStore` | `MemoryGraphAdapter`, `PostgresGraphAdapter`, `Neo4jGraphAdapter` |
+| **Ingestion Ledger** | `IIngestionStore` | `MemoryIngestionStore`, `PostgresIngestionStore` |
+| **Blob / Object Store** | `IBlobStore` | `MemoryBlobStore`, `LocalFsBlobStore` (Strict directory traversal protection) |
+| **Cache & Queue** | `ICacheStore` / `IJobQueue` | `RedisCacheAdapter`, `MemoryCacheAdapter`, `BullMQQueue`, `InMemoryQueue` |
+
+*For complete configuration examples and driver isolation details, see [`docs/STORAGE_PROVIDERS.md`](docs/STORAGE_PROVIDERS.md) and [`docs/architecture/storage-abstraction.md`](docs/architecture/storage-abstraction.md).*
+
 ---
 
 ## Installation

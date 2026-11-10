@@ -44,7 +44,7 @@ for (const file of files) {
             const base = specifier.startsWith('@') ? specifier.split('/').slice(0, 2).join('/') : specifier.split('/')[0];
             // Node builtins can appear without node: in existing adapters.
             const { isBuiltin } = await import('node:module');
-            assert.ok(isBuiltin(specifier) || deps.has(base), `Undeclared runtime/type dependency in ${file}: ${base}`);
+            assert.ok(isBuiltin(specifier) || base === pkg.name || deps.has(base), `Undeclared runtime/type dependency in ${file}: ${base}`);
         }
     }
 }

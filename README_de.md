@@ -127,6 +127,42 @@ console.log('Latenz (ms):', response.latencyMs);
 console.log('Quellen:', response.sources);
 ```
 
+---
+
+## Adaptive Intelligenz & Multi-Strategie-Orchestrierung
+
+AI-RAG-ENGINE wählt, routet und fusioniert Ergebnisse dynamisch über 9 verschiedene Abruf- und Reasoning-Strategien (Semantic Search, Hybrid Search, GraphRAG, KAG, Traditional RAG, CAG, Agentic RAG, Knowledge Graph, Semantic Graph) basierend auf Abfragekomplexität und Richtlinien:
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Denizsvnc/ai-rag-engine/main/assets/adaptive-intelligence-pipeline.svg" alt="AI-RAG-ENGINE Adaptive Intelligenz und Multi-Strategie-Pipeline" width="100%" />
+</div>
+
+- **Adaptiver Abfrageplaner (Adaptive Query Planner):** Klassifiziert Abfrageabsichten, steuert parallele Ausführungspläne und überwacht Latenz- und Kostenbudgets.
+- **Evidenz-Fusions-Engine (Evidence Fusion Engine):** Reciprocal Rank Fusion (RRF), Token-Budget-Kürzung und Widerspruchserkennung.
+
+---
+
+## Datenbankagnostische Speicherarchitektur
+
+Dank der modularen, fähigkeitsgesteuerten Speicherabstraktionsschicht nach dem Schnittstellentrennungs- (ISP) und Abhängigkeitsumkehr-Prinzip (DIP) ist der Kern von konkreten Datenbanktreibern entkoppelt:
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Denizsvnc/ai-rag-engine/main/assets/storage-architecture.svg" alt="AI-RAG-ENGINE Datenbankagnostische Speicherarchitektur" width="100%" />
+</div>
+
+| Bereich | Vertrag | Referenzadapter |
+| :--- | :--- | :--- |
+| **Vektorspeicher** | `IVectorStore` | `SqliteVectorAdapter` (`node:sqlite`), `PostgresVectorAdapter` (`pgvector`), `MemoryVectorAdapter`, `QdrantVectorAdapter` (REST) |
+| **Dokumentenspeicher** | `IDocumentStore` | `SqliteDocumentAdapter`, `MongoDocumentAdapter`, `MySQLDocumentAdapter` |
+| **Graphspeicher** | `IGraphStore` | `MemoryGraphAdapter`, `PostgresGraphAdapter`, `Neo4jGraphAdapter` |
+| **Ingestion-Ledger** | `IIngestionStore` | `MemoryIngestionStore`, `PostgresIngestionStore` |
+| **Blob- / Objektspeicher** | `IBlobStore` | `MemoryBlobStore`, `LocalFsBlobStore` (Pfad-Traversal geschützt) |
+| **Cache & Warteschlange** | `ICacheStore` / `IJobQueue` | `RedisCacheAdapter`, `MemoryCacheAdapter`, `BullMQQueue`, `InMemoryQueue` |
+
+Ausführliche Anleitungen unter: [`docs/STORAGE_PROVIDERS.md`](docs/STORAGE_PROVIDERS.md) und [`docs/architecture/storage-abstraction.md`](docs/architecture/storage-abstraction.md).
+
+---
+
 ## Dokumentation
 
 - [Konfiguration, Provider, Vektorspeicher und Fehlerbehebung](docs/USAGE_de.md)

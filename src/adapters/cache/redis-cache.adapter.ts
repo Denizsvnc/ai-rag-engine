@@ -2,37 +2,58 @@ import { Redis } from 'ioredis';
 import { LRUCache } from 'lru-cache';
 import type { ICacheAdapter } from '../../interfaces/cache.interface.js';
 
-/** ioredis-compatible command interface; injected clients own their connection lifecycle. */
+/**
+ * Contract for Redis client instances compatible with `ioredis`.
+ */
 export interface IRedisClientLike {
     get(key: string): Promise<string | null>;
-    set(key: string, value: string, ...args: any[]): Promise<any>;
+    set(key: string, value: string, ...args: unknown[]): Promise<unknown>;
     del(key: string): Promise<number>;
     del(keys: string[]): Promise<number>;
     keys?(pattern: string): Promise<string[]>;
-    scan?(cursor: string, ...args: any[]): Promise<[string, string[]]>;
-    quit?(): Promise<any>;
+    scan?(cursor: string, ...args: unknown[]): Promise<[string, string[]]>;
+    quit?(): Promise<unknown>;
     disconnect?(): void;
     ping?(): Promise<string>;
 }
 
+/**
+ * Configuration options for distributed Redis caching.
+ */
 export interface RedisCacheOptions {
+    /** Redis connection URL (e.g. `'redis://127.0.0.1:6379'`). */
     url?: string | undefined;
+    /** Existing `ioredis` client instance to reuse connections. */
     client?: IRedisClientLike | undefined;
+    /** Key prefix prepended to all cached entries in Redis. Defaults to `'rag:cache:'`. */
     keyPrefix?: string | undefined;
+    /** Default TTL in milliseconds. Defaults to 86,400,000 (24 hours). */
     defaultTtlMs?: number | undefined;
-    /** Without Redis, enables local LRU. With Redis, read/write failures degrade to misses/skipped writes, never local copies. */
+    /** When true, falls back to in-memory LRU cache if Redis is unavailable. Defaults to `true`. */
     enableFallbackMemory?: boolean | undefined;
+    /** Maximum entries retained in the fallback in-memory cache. Defaults to 1000. */
     fallbackMaxItems?: number | undefined;
 }
 
-/** Shared Redis is authoritative. Local LRU is used only when no Redis was configured. */
+/**
+ * Distributed cache adapter powered by Redis with automatic JSON serialization and fail-safe local fallback.
+ *
+ * @example
+ * ```typescript
+ * const cache = new RedisCacheAdapter({
+ *   url: process.env.REDIS_URL,
+ *   keyPrefix: 'rag:prod:',
+ *   defaultTtlMs: 3600000 // 1 hour
+ * });
+ * ```
+ */
 export class RedisCacheAdapter implements ICacheAdapter {
     private client: IRedisClientLike | null;
     private readonly keyPrefix: string;
     private readonly defaultTtlMs: number;
     private readonly enableFallback: boolean;
     private readonly remoteConfigured: boolean;
-    private readonly fallbackCache: LRUCache<string, any>;
+    private readonly fallbackCache: LRUCache<string, unknown & {}>;
     private isConnected = false;
 
     constructor(private options: RedisCacheOptions = {}) {
@@ -43,7 +64,7 @@ export class RedisCacheAdapter implements ICacheAdapter {
         this.remoteConfigured = Boolean(options.client || options.url);
         this.client = options.client ?? null;
         this.isConnected = Boolean(this.client);
-        this.fallbackCache = new LRUCache({ max: options.fallbackMaxItems ?? 1000, ttl: this.defaultTtlMs });
+        this.fallbackCache = new LRUCache<string, unknown & {}>({ max: options.fallbackMaxItems ?? 1000, ttl: this.defaultTtlMs });
     }
 
     public async init(): Promise<void> {
@@ -67,7 +88,7 @@ export class RedisCacheAdapter implements ICacheAdapter {
         }
     }
 
-    public async get(key: string): Promise<any | null> {
+    public async get(key: string): Promise<unknown | null> {
         const fullKey = this.prefixKey(key);
         if (!this.remoteConfigured) return this.enableFallback ? this.fallbackCache.get(fullKey) ?? null : null;
         try {
@@ -82,12 +103,14 @@ export class RedisCacheAdapter implements ICacheAdapter {
         }
     }
 
-    public async set(key: string, value: any, ttlMs?: number): Promise<void> {
+    public async set(key: string, value: unknown, ttlMs?: number): Promise<void> {
         const fullKey = this.prefixKey(key);
         const ttl = ttlMs ?? this.defaultTtlMs;
         if (!Number.isFinite(ttl) || ttl <= 0) throw new Error('Cache TTL must be positive and finite.');
         if (!this.remoteConfigured) {
-            if (this.enableFallback) this.fallbackCache.set(fullKey, value, { ttl });
+            if (this.enableFallback && value !== undefined && value !== null) {
+                this.fallbackCache.set(fullKey, value as {}, { ttl });
+            }
             return;
         }
         const serialized = JSON.stringify(value);

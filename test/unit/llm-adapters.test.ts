@@ -112,20 +112,27 @@ describe('LLM Adapters & Routing', () => {
         it('should support GeminiAdapter with configuration object', () => {
             const gemini = new GeminiAdapter({
                 apiKey: 'test-gemini-key',
-                model: 'gemini-2.0-flash',
+                model: 'gemini-3.6-flash',
                 temperature: 0.2
             });
 
             assert.equal((gemini as any).apiKey, 'test-gemini-key');
-            assert.equal((gemini as any).model, 'gemini-2.0-flash');
+            assert.equal((gemini as any).model, 'gemini-3.6-flash');
             assert.equal((gemini as any).temperature, 0.2);
         });
 
+        it('should default to active gemini-3.6-flash and gemini-3.6-pro', () => {
+            const fast = GeminiAdapter.createFast('key-1');
+            const smart = GeminiAdapter.createSmart('key-2');
+            assert.equal((fast as any).model, 'gemini-3.6-flash');
+            assert.equal((smart as any).model, 'gemini-3.6-pro');
+        });
+
         it('should support GeminiAdapter with positional arguments', () => {
-            const gemini = new GeminiAdapter('test-gemini-key-2', 'gemini-1.5-pro');
+            const gemini = new GeminiAdapter('test-gemini-key-2', 'gemini-3.6-pro');
 
             assert.equal((gemini as any).apiKey, 'test-gemini-key-2');
-            assert.equal((gemini as any).model, 'gemini-1.5-pro');
+            assert.equal((gemini as any).model, 'gemini-3.6-pro');
             assert.equal((gemini as any).temperature, 0.1);
         });
 

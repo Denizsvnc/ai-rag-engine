@@ -1,23 +1,46 @@
+/**
+ * Metrics recorded for an individual query response.
+ */
 export interface ResponseMetrics {
+    /** Tokens consumed by this query execution. */
     tokensConsumed: number;
+    /** Tokens saved via cache, FAQ offloading, or rule rejection. */
     tokensSaved: number;
+    /** Estimated financial savings in USD. */
     estimatedCostSavedUsd: number;
+    /** Latency in milliseconds. */
     latencyMs: number;
+    /** Origin resolution source of the answer. */
     source: 'CACHE' | 'FAQ' | 'TOOL_EXECUTION' | 'LLM_RAG' | 'SECURITY_BLOCKED';
 }
 
+/**
+ * Aggregated runtime performance, latency percentiles, and cost savings metrics summary.
+ */
 export interface EngineMetricsSummary {
+    /** Total number of queries processed. */
     totalQueries: number;
+    /** Total queries resolved via exact semantic cache. */
     cacheHits: number;
+    /** Total queries resolved via fast FAQ match. */
     faqHits: number;
+    /** Total queries routed to local tool execution. */
     smlToolHits: number;
+    /** Total queries routed to external LLM generation. */
     llmCalls: number;
+    /** Total queries rejected by security guardrails. */
     securityBlocked: number;
-    zeroTokenRate: string; // e.g. "65.5%"
+    /** Percentage of queries answered without consuming external LLM tokens (e.g., '65.5%'). */
+    zeroTokenRate: string;
+    /** Total tokens consumed across all LLM operations. */
     tokensConsumed: number;
+    /** Total tokens avoided through caching and local routing. */
     tokensSaved: number;
+    /** Total estimated monetary expense incurred in USD. */
     estimatedCostUsd: number;
+    /** Total estimated financial savings in USD. */
     estimatedCostSavedUsd: number;
+    /** Latency distribution and percentile statistics. */
     latency: {
         avgMs: number;
         minMs: number;
@@ -31,11 +54,38 @@ export interface EngineMetricsSummary {
     };
 }
 
+/**
+ * Configuration options for token counting and financial cost estimation.
+ */
 export interface TokenTrackerOptions {
-    costPerThousandTokensUsd?: number; // Default: $0.003 (blended GPT-4o-mini / Gemini Flash rate)
-    baselineTokensPerQuery?: number;   // Average tokens spent on full prompt+generation if not offloaded (default: 450)
+    /** Blended monetary cost per 1,000 tokens in USD. @defaultValue 0.003 */
+    costPerThousandTokensUsd?: number;
+    /** Estimated tokens required for baseline prompt+completion. @defaultValue 450 */
+    baselineTokensPerQuery?: number;
 }
 
+/**
+ * Real-time metric tracker monitoring token expenditure, offloading rate, and latency distributions.
+ *
+ * @remarks
+ * Calculates token economies, tracks percentiles (p50, p95, p99), histogram latency buckets,
+ * and cost savings achieved by zero-token resolution tiers (Cache, FAQ, SML).
+ *
+ * @example
+ * ```typescript
+ * import { TokenTracker } from '@denizsvnc/ai-rag-engine';
+ *
+ * const tracker = new TokenTracker();
+ * tracker.trackQuery({
+ *   source: 'CACHE',
+ *   userPrompt: 'What are store hours?',
+ *   latencyMs: 12
+ * });
+ *
+ * const summary = tracker.getSummary();
+ * console.log(`Zero token rate: ${summary.zeroTokenRate}`);
+ * ```
+ */
 export class TokenTracker {
     private readonly costPerThousand: number;
     private readonly baselineTokensPerQuery: number;
@@ -54,12 +104,22 @@ export class TokenTracker {
     private readonly latencyBoundsMs = [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000];
     private latencyBucketCounts = this.latencyBoundsMs.map(() => 0);
 
+    /**
+     * Initializes a new TokenTracker instance.
+     *
+     * @param options - Tracker configuration options.
+     */
     constructor(options?: TokenTrackerOptions) {
         this.costPerThousand = options?.costPerThousandTokensUsd ?? 0.003;
         this.baselineTokensPerQuery = options?.baselineTokensPerQuery ?? 450;
     }
 
-
+    /**
+     * Estimates token count of a given string using multilingual heuristics.
+     *
+     * @param text - Input text.
+     * @returns Estimated token count.
+     */
     public estimateTokens(text: string): number {
         if (!text || text.trim().length === 0) return 0;
         const normalized = text.trim();
@@ -72,7 +132,13 @@ export class TokenTracker {
         return Math.max(charBased, wordBased, 1);
     }
 
-
+    /**
+     * Records query execution event, updating counters, percentiles, and savings.
+     *
+     * @param event - Execution event details.
+     * @returns Per-query response metrics.
+     * @throws If latency is non-finite or negative.
+     */
     public trackQuery(event: {
         source: ResponseMetrics['source'];
         userPrompt: string;

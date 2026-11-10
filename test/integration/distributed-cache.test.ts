@@ -7,8 +7,13 @@ import Redis from 'ioredis';
 import { RedisCacheAdapter } from '../../src/adapters/cache/redis-cache.adapter';
 
 const exec = promisify(execFile);
-test('real Redis invalidation spans processes and outages cannot return stale local copies', { skip: !process.env.REDIS_TEST_URL, timeout: 20_000 }, async () => {
-    const url = process.env.REDIS_TEST_URL!;
+const isStrict = process.env.STRICT_ZERO_SKIP === 'true' || process.env.STRICT_ZERO_SKIP === '1';
+
+test('real Redis invalidation spans processes and outages cannot return stale local copies', { skip: isStrict ? false : !process.env.REDIS_TEST_URL, timeout: 20_000 }, async () => {
+    if (!process.env.REDIS_TEST_URL) {
+        throw new Error('[FAIL-CLOSED] REDIS_TEST_URL is strictly required when STRICT_ZERO_SKIP is active');
+    }
+    const url = process.env.REDIS_TEST_URL;
     const prefix = `test:cache:[${randomUUID()}]:`;
     const first = new Redis(url, { maxRetriesPerRequest: 1, enableOfflineQueue: false });
     const second = new Redis(url, { maxRetriesPerRequest: 1, enableOfflineQueue: false });

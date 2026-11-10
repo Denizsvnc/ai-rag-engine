@@ -26,9 +26,30 @@ export interface OllamaConfig {
 
 /**
  * Dedicated adapter for self-hosted Ollama instances.
- * Automatically targets Ollama's OpenAI-compatible /v1/chat/completions endpoint.
+ *
+ * @remarks
+ * Automatically routes requests to Ollama's OpenAI-compatible `/v1/chat/completions` endpoint.
+ *
+ * @example
+ * ```typescript
+ * import { OllamaAdapter } from '@denizsvnc/ai-rag-engine';
+ *
+ * const ollama = new OllamaAdapter({
+ *   host: 'http://localhost:11434',
+ *   model: 'llama3.2'
+ * });
+ *
+ * const response = await ollama.generate({
+ *   userPrompt: 'Explain quantum entanglement simply.'
+ * });
+ * ```
  */
 export class OllamaAdapter extends CustomLLMAdapter {
+    /**
+     * Initializes a new instance of OllamaAdapter.
+     *
+     * @param config - Ollama configuration options (host, model, temperature, customHeaders).
+     */
     constructor(config?: OllamaConfig) {
         const rawHost = config?.host || process.env.OLLAMA_HOST || 'http://localhost:11434';
         const normalizedHost = rawHost.replace(/\/+$/, '');
@@ -44,6 +65,12 @@ export class OllamaAdapter extends CustomLLMAdapter {
         });
     }
 
+    /**
+     * Factory creating an OllamaAdapter instance configured with a lightweight/fast model.
+     *
+     * @param config - Partial configuration overrides.
+     * @returns Configured OllamaAdapter instance.
+     */
     public static createFast(config?: Partial<OllamaConfig>): OllamaAdapter {
         return new OllamaAdapter({
             ...config,
@@ -51,6 +78,12 @@ export class OllamaAdapter extends CustomLLMAdapter {
         });
     }
 
+    /**
+     * Factory creating an OllamaAdapter instance configured with a reasoning/smart model.
+     *
+     * @param config - Partial configuration overrides.
+     * @returns Configured OllamaAdapter instance.
+     */
     public static createSmart(config?: Partial<OllamaConfig>): OllamaAdapter {
         return new OllamaAdapter({
             ...config,

@@ -2,6 +2,7 @@ import type { IIngestionBackend } from './ingestion.interface.js';
 import type { IJobQueue } from '../core/queue/job-queue.interface.js';
 import type { ConfirmationNonceStore } from '../core/security/nonce-store.js';
 import type { IVectorStoreAdapter } from './vector.interface.js';
+import type { IVectorStore, IDocumentStore, IGraphStore, StorageContainer, StorageContainerConfig } from './storage.interface.js';
 import type { IRulesAdapter } from './rules.interface.js';
 import type { IFAQAdapter } from './faq.interface.js';
 import type { ICacheAdapter } from './cache.interface.js';
@@ -17,7 +18,7 @@ import type { SMLModelPreset } from '../core/sml-engine.js';
  * @example
  * ```typescript
  * const engine = new RAGEngine({
- *   llmProvider: new GeminiAdapter({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-2.0-flash' }),
+ *   llmProvider: new GeminiAdapter({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-3.6-flash' }),
  *   inputs: {
  *     vectorStore: new PostgresVectorAdapter({ connectionString: process.env.DATABASE_URL })
  *   },
@@ -82,16 +83,25 @@ export interface EngineConfig {
     } | undefined;
 
     /**
+     * Unified capability-driven storage container configuring independent document, vector, graph, cache, and ingestion backends.
+     */
+    storage?: StorageContainer | StorageContainerConfig | undefined;
+
+    /**
      * Knowledge layers: vector store for unstructured documents, static business rules, and high-frequency FAQ entries.
      */
-    inputs: {
-        /** Vector store adapter (`MemoryVectorAdapter` or `PostgresVectorAdapter`). */
-        vectorStore?: IVectorStoreAdapter | undefined;
+    inputs?: {
+        /** Vector store adapter (`MemoryVectorAdapter`, `PostgresVectorAdapter`, `SqliteVectorAdapter`, or `QdrantVectorAdapter`). */
+        vectorStore?: IVectorStore | IVectorStoreAdapter | undefined;
+        /** Structured document store adapter (`MongoDocumentAdapter`, `SqliteDocumentAdapter`, or `MySQLDocumentAdapter`). */
+        documentStore?: IDocumentStore | undefined;
         /** Business rules adapter (`StaticRulesAdapter`). */
         rules?: IRulesAdapter | undefined;
         /** Fast semantic FAQ adapter (`LocalFaqAdapter` or `UrlFaqAdapter`). */
         faq?: IFAQAdapter | undefined;
-    };
+        /** Graph knowledge adapter (`MemoryGraphAdapter`, `PostgresGraphAdapter`, or `Neo4jGraphAdapter`). */
+        graph?: IGraphStore | import('./graph.interface.js').IGraphAdapter | undefined;
+    } | undefined;
 
     /**
      * Governed agent tools for live tool execution and dynamic function calling.
@@ -153,6 +163,12 @@ export interface EngineConfig {
         /** Background queue engine (`BullMQQueue` or `InMemoryJobQueue`). */
         jobQueue?: IJobQueue | undefined;
     } | undefined;
+
+    /**
+     * Adaptive Multi-Strategy Intelligence Architecture configuration.
+     * When configured, dynamically orchestrates Traditional RAG, CAG, KAG, Graphs, and Agentic retrieval.
+     */
+    adaptive?: import('./adaptive-config.interface.js').AdaptiveIntelligenceConfig | undefined;
 }
 
 /**
@@ -161,16 +177,16 @@ export interface EngineConfig {
 export interface RAGResponse {
     /** The final synthesized answer from LLM, FAQ match, or cached response. */
     answer: string;
-    /** Resolved query intent: 'CACHE' | 'FAQ' | 'TOOL_CALL' | 'RAG_QUERY' | 'SECURITY_BLOCKED'. */
+    /** Resolved query intent: 'CACHE' | 'FAQ' | 'TOOL_CALL' | 'RAG_QUERY' | 'SECURITY_BLOCKED' | 'ADAPTIVE_INTELLIGENCE'. */
     intent: string;
-    /** The component that resolved the request (e.g. 'InMemoryCache', 'LocalFaqAdapter', 'GeminiAdapter'). */
+    /** The component that resolved the request (e.g. 'InMemoryCache', 'LocalFaqAdapter', 'GeminiAdapter', 'AdaptiveOrchestrator'). */
     resolvedBy: string;
     /** Document IDs and titles retrieved from the vector store and cited in the answer. */
     sources?: string[] | undefined;
     /** Active business rules enforced during answer synthesis. */
     appliedRules?: string[] | undefined;
     /** Tools that were executed during the query lifecycle. */
-    executedTools?: Array<{ name: string; args: any }> | undefined;
+    executedTools?: Array<{ name: string; args: unknown }> | undefined;
     /** Pending cryptographic confirmation tickets for mutating tool operations. */
     confirmationRequests?: Array<{ toolName: string; proposedArgs: unknown; confirmationTicket: string }> | undefined;
     /** Security alerts (e.g. prompt injection warnings, masked PII types). */
@@ -179,4 +195,8 @@ export interface RAGResponse {
     latencyMs: number;
     /** Token consumption and FinOps cost metrics. */
     metrics?: ResponseMetrics | undefined;
+    /** Explainable decision metadata when adaptive intelligence orchestrates execution. */
+    strategyDecision?: import('./adaptive-config.interface.js').StrategyDecisionExplanation | undefined;
+    /** Full structured multi-strategy evidence context with provenance. */
+    evidence?: import('./evidence.interface.js').EvidenceItem[] | undefined;
 }

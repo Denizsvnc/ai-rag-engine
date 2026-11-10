@@ -1,17 +1,46 @@
 import { createHash } from 'node:crypto';
-import type { PostgresVectorAdapter } from '../../adapters/vector/postgres-vector.adapter.js';
+import type { IVectorStore } from '../../interfaces/storage.interface.js';
 import { DocumentIngestionService } from '../../services/document-ingestion.service.js';
 import { PIIGuard } from '../security/pii-guard.js';
 import { QueuedIngestionService, type IngestionReference } from './queued-ingestion.service.js';
 import type { Job } from '../queue/job-queue.interface.js';
 
-/** Runs in a separate Node process. No HTTP server or LLM provider is needed here. */
+/**
+ * Background consumer processing document ingestion jobs from the queue.
+ *
+ * @remarks
+ * Designed to execute in dedicated worker processes. Validates file integrity via SHA-256 digests,
+ * performs pre-chunking PII masking, extracts text chunks, and executes atomic vector store replacement.
+ *
+ * @example
+ * ```typescript
+ * import { IngestionWorker, QueuedIngestionService, PostgresVectorAdapter } from '@denizsvnc/ai-rag-engine';
+ *
+ * const worker = new IngestionWorker(service, vectorAdapter);
+ * await worker.start();
+ * ```
+ */
 export class IngestionWorker {
     private timer: ReturnType<typeof setInterval> | undefined;
     private pump: Promise<void> | undefined;
     private stopped = false;
-    constructor(private readonly service: QueuedIngestionService, private readonly vectors: Pick<PostgresVectorAdapter, 'replaceDocument'>, private readonly options: { pollMs?: number; onError?: (error: unknown) => void } = {}) {}
 
+    /**
+     * Initializes a new IngestionWorker instance.
+     *
+     * @param service - Queued ingestion service producer and outbox coordinator.
+     * @param vectors - Vector adapter supporting atomic document replacement.
+     * @param options - Polling interval and error callbacks.
+     */
+    constructor(
+        private readonly service: QueuedIngestionService,
+        private readonly vectors: Pick<Required<IVectorStore>, 'replaceDocument'>,
+        private readonly options: { pollMs?: number; onError?: (error: unknown) => void } = {}
+    ) {}
+
+    /**
+     * Connects to stores, starts queue consumer loops, and initiates outbox reconciliation.
+     */
     public async start(): Promise<void> {
         if (this.timer) return;
         this.stopped = false;
@@ -69,6 +98,9 @@ export class IngestionWorker {
         }
     }
 
+    /**
+     * Gracefully stops the worker, clears polling intervals, and closes backing queue connections.
+     */
     public async close(): Promise<void> {
         this.stopped = true;
         if (this.timer) { clearInterval(this.timer); this.timer = undefined; }

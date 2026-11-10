@@ -48,7 +48,7 @@ describe('Integration - Express API Routes', () => {
         const res = await fetch(`${baseUrl}/api/health`);
         assert.equal(res.status, 200);
 
-        const data: any = await res.json();
+        const data = (await res.json()) as { status: string; uptime: number };
         assert.equal(data.status, 'ok');
         assert.ok(typeof data.uptime === 'number');
     });
@@ -61,7 +61,7 @@ describe('Integration - Express API Routes', () => {
         });
 
         assert.equal(res.status, 200);
-        const data: any = await res.json();
+        const data = (await res.json()) as { answer: string; latencyMs: number };
         assert.ok(typeof data.answer === 'string');
         assert.ok(typeof data.latencyMs === 'number');
     });
@@ -74,7 +74,8 @@ describe('Integration - Express API Routes', () => {
         });
 
         assert.equal(res.status, 400);
-        const data: any = await res.json();
+        const data = (await res.json()) as { error: string };
         assert.ok(data.error.includes('zorunludur'));
     });
 });
+

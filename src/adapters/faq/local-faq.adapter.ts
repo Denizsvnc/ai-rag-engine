@@ -4,15 +4,37 @@ import type { IFAQAdapter, FAQItem, FAQMatchResult } from '../../interfaces/faq.
 import { SMLEngine } from '../../core/sml-engine.js';
 import { dotProduct } from '../../utils/math.js';
 
+/**
+ * Configuration options for the local semantic FAQ adapter.
+ */
 export interface LocalFaqAdapterOptions {
+    /** Absolute or relative path to the FAQ JSON file. */
     filePath?: string | undefined;
+    /** Optional pre-configured small model engine for embedding generation. */
     smlEngine?: SMLEngine | undefined;
+    /** Minimum cosine similarity threshold to trigger a direct FAQ hit. @defaultValue 0.60 */
     defaultMatchThreshold?: number | undefined;
 }
 
 /**
- * Loads pre-computed or dynamically embedded FAQs from a local JSON file.
- * Matches questions using local cosine similarity without an LLM generation call.
+ * Loads pre-computed or dynamically embedded FAQs from local storage.
+ *
+ * @remarks
+ * Matches questions using fast local cosine similarity without invoking external LLMs,
+ * achieving zero-token and sub-10ms query resolution.
+ *
+ * @example
+ * ```typescript
+ * import { LocalFaqAdapter } from '@denizsvnc/ai-rag-engine';
+ *
+ * const faq = new LocalFaqAdapter({ filePath: './faqs.json' });
+ * await faq.init();
+ *
+ * const match = await faq.findBestMatch('How do I reset my password?');
+ * if (match) {
+ *   console.log(`Matched FAQ: ${match.answer}`);
+ * }
+ * ```
  */
 export class LocalFaqAdapter implements IFAQAdapter {
     private filePath: string | undefined;
@@ -21,16 +43,31 @@ export class LocalFaqAdapter implements IFAQAdapter {
     private items: FAQItem[] = [];
     private isLoaded = false;
 
+    /**
+     * Initializes a new LocalFaqAdapter instance.
+     *
+     * @param options - Configuration options (filePath, smlEngine, defaultMatchThreshold).
+     */
     constructor(options?: LocalFaqAdapterOptions) {
         this.filePath = options?.filePath;
         this.smlEngine = options?.smlEngine || new SMLEngine();
         this.defaultThreshold = options?.defaultMatchThreshold ?? 0.60;
     }
 
+    /**
+     * Replaces or configures the small model engine used for embedding generation.
+     *
+     * @param engine - SMLEngine instance.
+     */
     public setSMLEngine(engine: SMLEngine): void {
         this.smlEngine = engine;
     }
 
+    /**
+     * Returns the configured small model engine instance.
+     *
+     * @returns Current SMLEngine.
+     */
     public getSMLEngine(): SMLEngine {
         return this.smlEngine;
     }
@@ -59,8 +96,9 @@ export class LocalFaqAdapter implements IFAQAdapter {
 
             this.isLoaded = true;
             console.log(`[LocalFaqAdapter] Loaded ${this.items.length} FAQs from ${this.filePath}`);
-        } catch (error: any) {
-            console.warn(`[LocalFaqAdapter] Could not load FAQs from ${this.filePath}: ${error.message}`);
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            console.warn(`[LocalFaqAdapter] Could not load FAQs from ${this.filePath}: ${msg}`);
             this.items = [];
             this.isLoaded = true;
         }

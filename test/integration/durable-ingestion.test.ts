@@ -19,7 +19,12 @@ async function until<T>(read: () => Promise<T>, accept: (result: T) => boolean, 
     throw new Error('Timed out waiting for ingestion result.');
 }
 
-test('Durable ingestion: shared blobs, outbox, idempotency, versions, quotas, retries and shutdown', { skip: !process.env.PG_TEST_URL || !process.env.REDIS_TEST_URL, timeout: 60000 }, async t => {
+const isStrict = process.env.STRICT_ZERO_SKIP === 'true' || process.env.STRICT_ZERO_SKIP === '1';
+
+test('Durable ingestion: shared blobs, outbox, idempotency, versions, quotas, retries and shutdown', { skip: isStrict ? false : (!process.env.PG_TEST_URL || !process.env.REDIS_TEST_URL), timeout: 60000 }, async t => {
+    if (!process.env.PG_TEST_URL || !process.env.REDIS_TEST_URL) {
+        throw new Error('[FAIL-CLOSED] PG_TEST_URL and REDIS_TEST_URL are strictly required when STRICT_ZERO_SKIP is active');
+    }
     const prefix = `w_${randomUUID().replaceAll('-', '')}`;
     const pool = new Pool({ connectionString: process.env.PG_TEST_URL, max: 5 });
     const store = new PostgresIngestionStore(pool, prefix);
@@ -149,8 +154,11 @@ test('Durable ingestion: shared blobs, outbox, idempotency, versions, quotas, re
     }
 });
 
-test('Redis rate limiting is shared across API instances and tenant-isolated', { skip: !process.env.REDIS_TEST_URL, timeout: 15000 }, async () => {
-    const client = new Redis(process.env.REDIS_TEST_URL!); client.on('error', () => {}); await client.ping();
+test('Redis rate limiting is shared across API instances and tenant-isolated', { skip: isStrict ? false : !process.env.REDIS_TEST_URL, timeout: 15000 }, async () => {
+    if (!process.env.REDIS_TEST_URL) {
+        throw new Error('[FAIL-CLOSED] REDIS_TEST_URL is strictly required when STRICT_ZERO_SKIP is active');
+    }
+    const client = new Redis(process.env.REDIS_TEST_URL); client.on('error', () => {}); await client.ping();
     const prefix = `test:rate:${randomUUID()}:`;
     const apps = [express(), express()];
     const servers = apps.map(app => {

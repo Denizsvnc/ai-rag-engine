@@ -1,13 +1,40 @@
 import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../interfaces/llm.interface.js';
 
+/**
+ * Configuration options for `FallbackLLMProvider`.
+ */
 export interface FallbackProviderOptions {
+    /** Whether to log warning messages to stderr when failover occurs. Defaults to `true`. */
     logFailover?: boolean;
 }
 
+/**
+ * Resilient LLM provider wrapper that sequences multiple LLM providers with automatic failover.
+ *
+ * @remarks
+ * If the primary provider encounters a quota error, timeout, or 5xx outage, `FallbackLLMProvider`
+ * automatically catches the error and cascades to the secondary provider without dropping the query.
+ *
+ * @example
+ * ```typescript
+ * const provider = new FallbackLLMProvider([
+ *   new GeminiAdapter({ model: 'gemini-3.6-flash' }),
+ *   new OpenAIAdapter({ model: 'gpt-4o-mini' }),
+ *   new OllamaAdapter({ model: 'llama3.2' })
+ * ]);
+ * ```
+ */
 export class FallbackLLMProvider implements ILLMProvider {
     private providers: ILLMProvider[];
     private logFailover: boolean;
 
+    /**
+     * Creates a new `FallbackLLMProvider`.
+     *
+     * @param providers - Ordered array of `ILLMProvider` backends to cascade through.
+     * @param options - Optional failover logging configuration.
+     * @throws `Error` if `providers` array is empty or undefined.
+     */
     constructor(providers: ILLMProvider[], options?: FallbackProviderOptions) {
         if (!providers || providers.length === 0) {
             throw new Error('[FallbackLLMProvider] At least one LLM provider must be provided.');
@@ -17,12 +44,13 @@ export class FallbackLLMProvider implements ILLMProvider {
     }
 
     private getProviderName(provider: ILLMProvider, index: number): string {
-        if ((provider as any).name && typeof (provider as any).name === 'string') {
-            return (provider as any).name;
+        const record = provider as unknown as Record<string, unknown>;
+        if (typeof record['name'] === 'string') {
+            return record['name'];
         }
-        if ((provider as any).model && typeof (provider as any).model === 'string') {
+        if (typeof record['model'] === 'string') {
             const ctor = provider.constructor?.name && provider.constructor.name !== 'Object' ? provider.constructor.name : 'LLMProvider';
-            return `${ctor}(${(provider as any).model})`;
+            return `${ctor}(${record['model']})`;
         }
         if (provider.constructor?.name && provider.constructor.name !== 'Object') {
             return provider.constructor.name;
@@ -39,8 +67,8 @@ export class FallbackLLMProvider implements ILLMProvider {
 
             try {
                 return await provider.generate(request);
-            } catch (error: any) {
-                const errorMessage = error?.message || String(error);
+            } catch (error: unknown) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
                 failureErrors.push({ providerName, error: errorMessage });
 
                 if (this.logFailover) {

@@ -20,7 +20,7 @@ export interface QueryContext {
     /**
      * Arbitrary contextual metadata passed through the pipeline.
      */
-    metadata?: Record<string, any> | undefined;
+    metadata?: Record<string, unknown> | undefined;
 
     /**
      * Set to true to bypass cache lookup.
@@ -36,4 +36,15 @@ export interface QueryContext {
      * Cryptographically signed HMAC-SHA256 confirmation ticket for destructive/mutating operations (P0 security).
      */
     confirmationTicket?: string | undefined;
+
+    /**
+     * Optional strategy request-level overrides.
+     * Note: Cannot re-enable strategies disabled by tenant or system security policy.
+     */
+    adaptiveOverrides?: {
+        strategy?: import('./strategy.interface.js').StrategyId | undefined;
+        mode?: import('./adaptive-config.interface.js').AdaptiveExecutionMode | undefined;
+        maxHops?: number | undefined;
+        topK?: number | undefined;
+    } | undefined;
 }

@@ -2,32 +2,87 @@ import { createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import type { JobStatus } from '../queue/job-queue.interface.js';
 import type { IngestionSettings } from '../../interfaces/ingestion.interface.js';
+import type { IIngestionStore, StorageCapabilities } from '../../interfaces/storage.interface.js';
 
+/**
+ * Record representing a stored document upload and its processing lifecycle state.
+ */
 export interface StoredUpload {
+    /** Unique database record identifier. */
     id: string;
+    /** Tenant isolation scope. */
     tenantId: string;
+    /** User who uploaded the document. */
     userId: string;
+    /** Logical document identifier. */
     documentId: string;
+    /** Original filename. */
     filename: string;
+    /** Monotonically increasing document version number. */
     version: number;
+    /** SHA-256 hash digest of upload content. */
     digest: string;
+    /** Ingestion settings used for chunking. */
     settings: IngestionSettings;
+    /** Upload byte buffer (cleared upon completion or retention expiry). */
     content: Buffer | null;
+    /** Current processing status. */
     status: JobStatus;
+    /** Structured ingestion outcome metrics. */
     result: Record<string, unknown> | null;
+    /** Error message if ingestion failed. */
     error: string | null;
+    /** Creation timestamp in milliseconds. */
     createdAt: number;
+    /** Last update timestamp in milliseconds. */
     updatedAt: number;
 }
 
+/** Error thrown when a tenant exceeds concurrent job or storage quotas. */
 export class IngestionQuotaError extends Error {}
+/** Error thrown when an idempotency key is reused with differing document content. */
 export class IngestionConflictError extends Error {}
 
-/** Shared blobs, document revisions and a durable outbox. No process-local file references. */
-export class PostgresIngestionStore {
+/**
+ * PostgreSQL persistence store for document uploads, document versioning, and transactional outbox.
+ *
+ * @remarks
+ * Manages atomic version bumping via advisory locks, tracks processing state,
+ * enforces tenant storage quotas, and provides durable outbox entries for background dispatch.
+ *
+ * @example
+ * ```typescript
+ * import { PostgresIngestionStore } from '@denizsvnc/ai-rag-engine';
+ * import pg from 'pg';
+ *
+ * const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+ * const store = new PostgresIngestionStore(pool);
+ * await store.migrate();
+ * ```
+ */
+export class PostgresIngestionStore implements IIngestionStore {
+    public readonly capabilities: StorageCapabilities = {
+        transactions: true,
+        namespaceIsolation: true,
+        versioning: true,
+        blobStorage: true,
+        atomicDocumentReplacement: true
+    };
+
+    public hasCapability(capability: keyof StorageCapabilities): boolean {
+        return Boolean(this.capabilities[capability]);
+    }
+
     private readonly table: string;
     private readonly heads: string;
     private readonly tableName: string;
+
+    /**
+     * Initializes a new PostgresIngestionStore instance.
+     *
+     * @param pool - PostgreSQL connection pool.
+     * @param tableName - Base table name. @defaultValue 'rag_ingestion'
+     */
     constructor(public readonly pool: Pool, tableName = 'rag_ingestion') {
         if (!/^[a-z][a-z0-9_]{0,39}$/.test(tableName)) throw new Error('Invalid ingestion table name.');
         this.tableName = tableName;
@@ -35,6 +90,9 @@ export class PostgresIngestionStore {
         this.heads = `"${tableName}_heads"`;
     }
 
+    /**
+     * Applies database schema migrations and idempotency indexes.
+     */
     public async migrate(): Promise<void> {
         await this.transaction(async client => {
             await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['rag-ingestion-schema']);
@@ -54,6 +112,9 @@ export class PostgresIngestionStore {
         });
     }
 
+    /**
+     * Verifies that the store tables exist and are accessible.
+     */
     public async ready(): Promise<void> {
         await this.pool.query(`SELECT id FROM ${this.table} LIMIT 0`);
     }
@@ -121,12 +182,22 @@ export class PostgresIngestionStore {
             AND updated_at < now() - ($1 * interval '1 day')`, [retentionDays]);
     }
 
-    private row(row: Record<string, any>): StoredUpload {
+    private row(row: Record<string, unknown>): StoredUpload {
         return {
-            id: row.id, tenantId: row.tenant_id, userId: row.user_id, documentId: row.document_id,
-            filename: row.filename, version: row.version, digest: row.digest, settings: row.settings,
-            content: row.content, status: row.status, result: row.result, error: row.error,
-            createdAt: new Date(row.created_at).getTime(), updatedAt: new Date(row.updated_at).getTime()
+            id: String(row['id']),
+            tenantId: String(row['tenant_id']),
+            userId: String(row['user_id'] ?? ''),
+            documentId: String(row['document_id'] ?? ''),
+            filename: String(row['filename']),
+            version: Number(row['version']),
+            digest: String(row['digest']),
+            settings: row['settings'] as IngestionSettings,
+            content: (row['content'] as Buffer | null) ?? null,
+            status: row['status'] as JobStatus,
+            result: (row['result'] as Record<string, unknown> | null) ?? null,
+            error: (row['error'] as string | null) ?? null,
+            createdAt: new Date(String(row['created_at'])).getTime(),
+            updatedAt: new Date(String(row['updated_at'])).getTime()
         };
     }
 

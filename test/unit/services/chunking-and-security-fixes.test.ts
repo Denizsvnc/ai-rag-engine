@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { DocumentIngestionService } from '../../../src/services/document-ingestion.service.js';
 import { InjectionDetector } from '../../../src/core/security/injection-detector.js';
 import { FallbackLLMProvider } from '../../../src/adapters/llm/fallback.adapter.js';
+import type { ILLMProvider } from '../../../src/interfaces/llm.interface.js';
 import { StaticRulesAdapter } from '../../../src/adapters/rules/static-rules.adapter.js';
 import { JobStatusValues } from '../../../src/core/queue/job-queue.interface.js';
 
@@ -117,24 +118,26 @@ describe('Bug Fixes & Hardening Verifications', () => {
         it('should resolve meaningful provider names instead of literal "Object"', async () => {
             const logs: string[] = [];
             const originalWarn = console.warn;
-            console.warn = (...args: any[]) => {
-                logs.push(args.join(' '));
+            console.warn = (...args: unknown[]) => {
+                logs.push(args.map(String).join(' '));
             };
 
             try {
-                const failing1 = {
+                type TestNamedProvider = ILLMProvider & { name?: string; model?: string };
+
+                const failing1: TestNamedProvider = {
                     name: 'PrimaryGemini',
                     async generate() { throw new Error('Quota exceeded'); }
                 };
-                const failing2 = {
+                const failing2: TestNamedProvider = {
                     model: 'llama-3.1-8b',
                     async generate() { throw new Error('Timeout'); }
                 };
-                const success = {
+                const success: ILLMProvider = {
                     async generate() { return { content: 'Success response' }; }
                 };
 
-                const fallback = new FallbackLLMProvider([failing1 as any, failing2 as any, success as any]);
+                const fallback = new FallbackLLMProvider([failing1, failing2, success]);
                 const res = await fallback.generate({ userPrompt: 'test' });
 
                 assert.equal(res.content, 'Success response');

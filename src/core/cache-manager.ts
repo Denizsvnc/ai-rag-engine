@@ -3,12 +3,38 @@ import path from 'path';
 import { LRUCache } from 'lru-cache';
 import type { ICacheAdapter } from '../interfaces/cache.interface.js';
 
+/**
+ * Tiered two-level cache manager combining in-memory LRU with atomic JSON disk persistence.
+ *
+ * @remarks
+ * Promotes frequently queried responses (hit threshold >= minHitsToPersist) to atomic disk storage,
+ * and tracks entry ages according to configurable TTL.
+ *
+ * @example
+ * ```typescript
+ * import { CacheManager } from '@denizsvnc/ai-rag-engine';
+ *
+ * const cache = new CacheManager('./cache.json', 2, 500);
+ * await cache.init();
+ *
+ * await cache.set('faq:shipping', { answer: 'Free shipping on orders over $50' });
+ * const item = await cache.get('faq:shipping');
+ * ```
+ */
 export class CacheManager implements ICacheAdapter {
-    private memoryCache: LRUCache<string, any>;
+    private memoryCache: LRUCache<string, unknown & {}>;
     private hitCounters: LRUCache<string, number>;
     private isPersisting = false;
     private defaultTtlMs: number;
 
+    /**
+     * Initializes a new CacheManager instance.
+     *
+     * @param filePath - Local JSON file path for persistent disk cache. @defaultValue './data/query-cache.json'
+     * @param minHitsToPersist - Minimum query hit count before persisting an item to disk. @defaultValue 3
+     * @param maxItemsInRAM - Maximum number of items held in memory LRU cache. @defaultValue 1000
+     * @param defaultTtlMs - Default time-to-live in milliseconds. @defaultValue 24 hours
+     */
     constructor(
         private filePath: string = './data/query-cache.json',
         private minHitsToPersist: number = 3,
@@ -16,7 +42,7 @@ export class CacheManager implements ICacheAdapter {
         defaultTtlMs: number = 1000 * 60 * 60 * 24 // 24-hour default TTL
     ) {
         this.defaultTtlMs = defaultTtlMs;
-        this.memoryCache = new LRUCache({
+        this.memoryCache = new LRUCache<string, unknown & {}>({
             max: maxItemsInRAM,
             ttl: this.defaultTtlMs,
             updateAgeOnGet: false
@@ -28,6 +54,9 @@ export class CacheManager implements ICacheAdapter {
         });
     }
 
+    /**
+     * Initializes cache storage, creating directories and hydrating RAM from disk.
+     */
     public async init(): Promise<void> {
         try {
             await fs.mkdir(path.dirname(this.filePath), { recursive: true });
@@ -37,17 +66,26 @@ export class CacheManager implements ICacheAdapter {
             // Hydrate in-memory cache from persistent storage
             for (const [key, value] of Object.entries(parsedData)) {
                 if (key.startsWith('_')) continue; // Skip metadata notices and comments
-                this.memoryCache.set(key, value, { ttl: this.defaultTtlMs });
+                if (value !== undefined && value !== null) {
+                    this.memoryCache.set(key, value as {}, { ttl: this.defaultTtlMs });
+                }
                 this.hitCounters.set(key, this.minHitsToPersist);
             }
-        } catch (error: any) {
-            if (error.code !== 'ENOENT') {
+        } catch (error: unknown) {
+            const errCode = (error as { code?: string })?.code;
+            if (errCode !== 'ENOENT') {
                 console.error('[Cache] Cache file could not be read:', error);
             }
         }
     }
 
-    public async get(query: string): Promise<any | null> {
+    /**
+     * Retrieves a cached value by query key, incrementing its hit count.
+     *
+     * @param query - Cache lookup key.
+     * @returns Cached value if present and unexpired, otherwise null.
+     */
+    public async get(query: string): Promise<unknown | null> {
         const cached = this.memoryCache.get(query);
         if (cached !== undefined) {
             const currentHits = (this.hitCounters.get(query) || 0) + 1;
@@ -62,9 +100,18 @@ export class CacheManager implements ICacheAdapter {
         return null;
     }
 
-    public async set(query: string, value: any, ttlMs?: number): Promise<void> {
+    /**
+     * Stores a key-value pair in cache with optional TTL override.
+     *
+     * @param query - Cache key.
+     * @param value - Value to cache.
+     * @param ttlMs - Optional item-specific TTL in milliseconds.
+     */
+    public async set(query: string, value: unknown, ttlMs?: number): Promise<void> {
         const itemTtl = ttlMs !== undefined ? ttlMs : this.defaultTtlMs;
-        this.memoryCache.set(query, value, { ttl: itemTtl });
+        if (value !== undefined && value !== null) {
+            this.memoryCache.set(query, value as {}, { ttl: itemTtl });
+        }
         this.hitCounters.set(query, 1);
     }
 
@@ -139,7 +186,7 @@ export class CacheManager implements ICacheAdapter {
         const tmpPath = `${this.filePath}.tmp.${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
         try {
-            const dataToSave: Record<string, any> = {};
+            const dataToSave: Record<string, unknown> = {};
             for (const [key, hits] of this.hitCounters.entries()) {
                 if (hits >= this.minHitsToPersist) {
                     const value = this.memoryCache.get(key);

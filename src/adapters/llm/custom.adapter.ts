@@ -43,6 +43,11 @@ export class CustomLLMAdapter implements ILLMProvider {
     protected customHeaders: Record<string, string>;
     protected temperature: number;
 
+    /**
+     * Initializes a new CustomLLMAdapter instance.
+     *
+     * @param config - Optional configuration overrides (endpoint, model, apiKey, headers).
+     */
     constructor(config?: CustomLLMConfig) {
         this.endpoint =
             config?.endpoint ||
@@ -76,6 +81,12 @@ export class CustomLLMAdapter implements ILLMProvider {
         this.temperature = config?.temperature ?? 0.1;
     }
 
+    /**
+     * Creates a fast low-latency instance of CustomLLMAdapter.
+     *
+     * @param config - Optional configuration overrides.
+     * @returns Configured CustomLLMAdapter instance.
+     */
     public static createFast(config?: Partial<CustomLLMConfig>): CustomLLMAdapter {
         return new CustomLLMAdapter({
             ...config,
@@ -83,6 +94,12 @@ export class CustomLLMAdapter implements ILLMProvider {
         });
     }
 
+    /**
+     * Creates a high-reasoning smart instance of CustomLLMAdapter.
+     *
+     * @param config - Optional configuration overrides.
+     * @returns Configured CustomLLMAdapter instance.
+     */
     public static createSmart(config?: Partial<CustomLLMConfig>): CustomLLMAdapter {
         return new CustomLLMAdapter({
             ...config,
@@ -90,6 +107,13 @@ export class CustomLLMAdapter implements ILLMProvider {
         });
     }
 
+    /**
+     * Generates a completion from the custom inference endpoint.
+     *
+     * @param request - LLM request payload with prompts and optional tool definitions.
+     * @returns Standardized LLM response with generated text, token usage, and tool calls.
+     * @throws If HTTP connection fails or non-200 status is returned.
+     */
     public async generate(request: ILLMRequest): Promise<ILLMResponse> {
         const messages: Array<{ role: string; content: string }> = [];
 
@@ -98,7 +122,7 @@ export class CustomLLMAdapter implements ILLMProvider {
         }
         messages.push({ role: 'user', content: request.userPrompt });
 
-        const body: Record<string, any> = {
+        const body: Record<string, unknown> = {
             model: this.model,
             messages,
             temperature: this.temperature
@@ -134,9 +158,10 @@ export class CustomLLMAdapter implements ILLMProvider {
                 headers,
                 body: JSON.stringify(body)
             });
-        } catch (networkError: any) {
+        } catch (networkError: unknown) {
+            const netMsg = networkError instanceof Error ? networkError.message : String(networkError);
             throw new Error(
-                `[CustomLLMAdapter] Failed to connect to private LLM at ${this.endpoint}: ${networkError?.message || networkError}`
+                `[CustomLLMAdapter] Failed to connect to private LLM at ${this.endpoint}: ${netMsg}`
             );
         }
 
@@ -145,7 +170,10 @@ export class CustomLLMAdapter implements ILLMProvider {
             throw new Error(`[CustomLLMAdapter] Error from ${this.endpoint} (${response.status}): ${errorDetails}`);
         }
 
-        const data: any = await response.json();
+        const data = (await response.json()) as {
+            choices?: Array<{ message?: { content?: string; tool_calls?: Array<{ function: { name: string; arguments: string | Record<string, unknown> } }> } }>;
+            usage?: { prompt_tokens?: number; completion_tokens?: number };
+        };
         const choice = data.choices?.[0];
         if (!choice) {
             throw new Error(`[CustomLLMAdapter] Unexpected response structure from ${this.endpoint}: missing choices.`);
@@ -164,10 +192,10 @@ export class CustomLLMAdapter implements ILLMProvider {
         }
 
         if (message?.tool_calls && message.tool_calls.length > 0) {
-            result.toolCalls = message.tool_calls.map((tc: any) => ({
+            result.toolCalls = message.tool_calls.map((tc: { function: { name: string; arguments: string | Record<string, unknown> } }) => ({
                 name: tc.function.name,
                 arguments: typeof tc.function.arguments === 'string'
-                    ? JSON.parse(tc.function.arguments)
+                    ? (JSON.parse(tc.function.arguments) as Record<string, unknown>)
                     : tc.function.arguments
             }));
         }

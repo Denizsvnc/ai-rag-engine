@@ -127,6 +127,42 @@ console.log('Latency (ms):', response.latencyMs);
 console.log('Kaynaklar:', response.sources);
 ```
 
+---
+
+## Uyarlamalı Zekâ & Çoklu Strateji Orkestrasyonu
+
+AI-RAG-ENGINE, sorgu karmaşıklığına ve sistem politikalarına bağlı olarak 9 farklı getirme ve akıl yürütme stratejisi (Semantic Search, Hybrid Search, GraphRAG, KAG, Traditional RAG, CAG, Agentic RAG, Knowledge Graph, Semantic Graph) arasından dinamik seçim yapar:
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Denizsvnc/ai-rag-engine/main/assets/adaptive-intelligence-pipeline.svg" alt="AI-RAG-ENGINE Uyarlamalı Zekâ ve Çoklu Strateji Boru Hattı" width="100%" />
+</div>
+
+- **Uyarlamalı Sorgu Planlayıcı (Adaptive Query Planner):** Gelen kullanıcı sorgusunun niyetini sınıflandırır, maliyet ve gecikme bütçelerini denetler.
+- **Kanıt Füzyon Motoru (Evidence Fusion Engine):** RRF (Reciprocal Rank Fusion), token bütçesi budaması ve çelişki tespitini yönetir.
+
+---
+
+## Veritabanı Bağımsız Depolama Mimarisi
+
+Arayüz Ayrımı (ISP) ve Bağımlılık Tersine Çevrimi (DIP) prensipleriyle tasarlanan modüler depolama katmanı sayesinde motor çekirdeği hiçbir somut veritabanı sürücüsüne sıkı sıkıya bağlı değildir:
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Denizsvnc/ai-rag-engine/main/assets/storage-architecture.svg" alt="AI-RAG-ENGINE Veritabanı Bağımsız Depolama Mimarisi" width="100%" />
+</div>
+
+| Katman | Sözleşme | Referans Sağlayıcılar |
+| :--- | :--- | :--- |
+| **Vektör Deposu** | `IVectorStore` | `SqliteVectorAdapter` (`node:sqlite`), `PostgresVectorAdapter` (`pgvector`), `MemoryVectorAdapter`, `QdrantVectorAdapter` (REST) |
+| **Döküman Deposu** | `IDocumentStore` | `SqliteDocumentAdapter`, `MongoDocumentAdapter`, `MySQLDocumentAdapter` |
+| **Graf Deposu** | `IGraphStore` | `MemoryGraphAdapter`, `PostgresGraphAdapter`, `Neo4jGraphAdapter` |
+| **Ingestion Günlüğü** | `IIngestionStore` | `MemoryIngestionStore`, `PostgresIngestionStore` |
+| **Blob / Dosya Deposu** | `IBlobStore` | `MemoryBlobStore`, `LocalFsBlobStore` (Dizin aşma korumalı) |
+| **Önbellek & Kuyruk** | `ICacheStore` / `IJobQueue` | `RedisCacheAdapter`, `MemoryCacheAdapter`, `BullMQQueue`, `InMemoryQueue` |
+
+Detaylı kullanım ve mimari için: [`docs/STORAGE_PROVIDERS.md`](docs/STORAGE_PROVIDERS.md) ve [`docs/architecture/storage-abstraction.md`](docs/architecture/storage-abstraction.md).
+
+---
+
 ## Dokümantasyon
 
 - [Yapılandırma, Sağlayıcılar, Vektörler ve Sorun Giderme](docs/USAGE_tr.md)

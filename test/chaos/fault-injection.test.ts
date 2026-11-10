@@ -77,7 +77,7 @@ describe('Chaos & Fault Injection Hardening', () => {
         const startInstant = Date.now();
         await assert.rejects(
             async () => sml.init(),
-            (err: any) => err instanceof CircuitBreakerOpenError
+            (err: unknown) => err instanceof CircuitBreakerOpenError
         );
         assert.ok(Date.now() - startInstant < 20, 'Circuit breaker should reject in <20ms');
 

@@ -12,15 +12,40 @@ interface RegistrySchema {
     }>;
 }
 
+/**
+ * Registry and semantic router for governed agent tools.
+ *
+ * @remarks
+ * Precomputes and caches description embeddings using `SMLEngine` to route user intents
+ * to tools with sub-millisecond local vector matching, without LLM roundtrips.
+ *
+ * @example
+ * ```typescript
+ * const registry = new ToolRegistry(smlEngine, './data/tools.json');
+ * await registry.initialize([weatherTool, stockTool]);
+ * const matched = await registry.routeQueryToTool('Will it rain tomorrow in Istanbul?');
+ * ```
+ */
 export class ToolRegistry {
     private activeTools: Map<string, IAgentTool> = new Map();
     private toolEmbeddings: Array<{ id: string; embedding: number[] }> = [];
 
+    /**
+     * Creates a new `ToolRegistry`.
+     *
+     * @param smlEngine - Active Small Machine Learning engine for embedding generation.
+     * @param registryPath - File path to cache tool embeddings on disk. Defaults to `'./data/tools-registry.json'`.
+     */
     constructor(
         private smlEngine: SMLEngine,
         private registryPath: string = './data/tools-registry.json'
     ) { }
 
+    /**
+     * Initializes the registry with an array of tools, reusing cached embeddings where descriptions match.
+     *
+     * @param tools - Array of agent tools conforming to `IAgentTool`.
+     */
     public async initialize(tools: IAgentTool[]): Promise<void> {
         await fs.mkdir(path.dirname(this.registryPath), { recursive: true });
 
@@ -28,8 +53,9 @@ export class ToolRegistry {
         try {
             const fileData = await fs.readFile(this.registryPath, 'utf-8');
             existingRegistry = JSON.parse(fileData);
-        } catch (error: any) {
-            if (error.code !== 'ENOENT') console.error('[ToolRegistry] Registry dosyası okunamadı:', error);
+        } catch (error: unknown) {
+            const errCode = (error as { code?: string })?.code;
+            if (errCode !== 'ENOENT') console.error('[ToolRegistry] Registry dosyası okunamadı:', error);
         }
 
         const updatedRegistryTools: RegistrySchema['tools'] = [];
@@ -66,6 +92,11 @@ export class ToolRegistry {
         );
     }
 
+    /**
+     * Registers a single agent tool dynamically and computes its description embedding.
+     *
+     * @param tool - The agent tool definition to register.
+     */
     public async registerTool(tool: IAgentTool): Promise<void> {
         this.activeTools.set(tool.name, tool);
         try {
@@ -77,16 +108,31 @@ export class ToolRegistry {
         }
     }
 
+    /**
+     * Retrieves an active tool by its unique name.
+     *
+     * @param name - The tool name.
+     * @returns The `IAgentTool` if found, or `undefined`.
+     */
     public getTool(name: string): IAgentTool | undefined {
         return this.activeTools.get(name);
     }
 
+    /**
+     * Retrieves all registered agent tools.
+     *
+     * @returns Array of registered `IAgentTool` instances.
+     */
     public getAllTools(): IAgentTool[] {
         return Array.from(this.activeTools.values());
     }
 
     /**
-     * Routes a user query to the most semantically relevant tool.
+     * Routes a user query to the most semantically relevant tool based on description cosine similarity.
+     *
+     * @param query - The user question or instruction.
+     * @param threshold - Minimum cosine similarity required to trigger a tool match. Defaults to 0.65.
+     * @returns The matching `IAgentTool` or `null` if no tool exceeds the threshold.
      */
     public async routeQueryToTool(query: string, threshold: number = 0.65): Promise<IAgentTool | null> {
         const match = await this.smlEngine.findBestMatch(query, this.toolEmbeddings, threshold);

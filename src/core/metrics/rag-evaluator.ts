@@ -1,30 +1,68 @@
+/**
+ * Metrics measuring search retrieval accuracy against labeled ground-truth document IDs.
+ */
 export interface RetrievalEvalResult {
+    /** Cutoff depth K. */
     k: number;
+    /** Precision@K: fraction of retrieved top-K documents that are relevant. */
     precisionAtK: number;
+    /** Recall@K: fraction of all relevant documents successfully captured in top-K. */
     recallAtK: number;
+    /** Hit rate (1 if any relevant document was retrieved, 0 otherwise). */
     hitRate: number;
+    /** Reciprocal rank (1 / rank of first relevant document). */
     reciprocalRank: number;
 }
 
+/**
+ * Metrics assessing generation groundedness and detecting hallucinated statements.
+ */
 export interface FaithfulnessEvalResult {
-    score: number; // 0.0 to 1.0 (Composite groundedness score)
-    lexicalGroundingScore: number; // Lexical token overlap heuristic
+    /** Overall groundedness score bounded [0.0 - 1.0]. */
+    score: number;
+    /** Mean lexical token overlap ratio across generated sentences. */
+    lexicalGroundingScore: number;
+    /** Total number of candidate sentences evaluated. */
     totalSentences: number;
+    /** Number of sentences verified as fully grounded in context. */
     groundedSentences: number;
-    contradictionsDetected: string[]; // Sentences containing numbers/claims absent from context
+    /** Sentences containing numerical or polarity contradictions absent from context. */
+    contradictionsDetected: string[];
+    /** Sentences that lacked sufficient grounding support in context documents. */
     ungroundedClaims: string[];
 }
 
+/**
+ * Combined quality assessment report covering retrieval fidelity and generation faithfulness.
+ */
 export interface FullRAGEvaluationReport {
+    /** Retrieval accuracy evaluation outcome. */
     retrieval: RetrievalEvalResult;
+    /** Generation hallucination and groundedness evaluation outcome. */
     faithfulness: FaithfulnessEvalResult;
+    /** True if retrieval hit ground-truth and faithfulness score meets quality threshold (>= 0.70). */
     overallPass: boolean;
 }
 
 /**
  * Pure TypeScript RAG Evaluation Engine.
+ *
+ * @remarks
  * Evaluates retrieval quality (Precision@K, Recall@K, MRR) and generation faithfulness
- * (hallucination detection) without calling external paid LLMs.
+ * (hallucination and numerical contradiction detection) locally without requiring external paid LLM calls.
+ *
+ * @example
+ * ```typescript
+ * import { RAGEvaluator } from '@denizsvnc/ai-rag-engine';
+ *
+ * const report = RAGEvaluator.evaluate({
+ *   retrievedIds: ['doc_1', 'doc_2'],
+ *   relevantIds: ['doc_1'],
+ *   answer: 'Acme was founded in 1999.',
+ *   contextTexts: ['Acme Corporation was established in 1999.']
+ * });
+ * console.log(`Evaluation pass: ${report.overallPass}`);
+ * ```
  */
 export class RAGEvaluator {
     /**

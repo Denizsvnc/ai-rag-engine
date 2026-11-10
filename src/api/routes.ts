@@ -5,12 +5,42 @@ import { createRagMiddleware } from './middleware.js';
 import { PrometheusExporter } from '../core/metrics/prometheus-exporter.js';
 import { createAuthMiddleware, requireRoles, type AuthMiddlewareOptions } from './auth.js';
 
+/**
+ * Configuration options for Express API route generation.
+ */
 export interface ApiRouteOptions {
+    /** Optional rate limiter middleware to apply across routes. */
     rateLimiter?: RequestHandler | undefined;
+    /** Authentication middleware options. */
     auth?: AuthMiddlewareOptions | undefined;
+    /** Whether authentication is strictly required even in non-production environments. */
     enforceAuth?: boolean | undefined;
 }
 
+/**
+ * Creates an Express router exposing all AI-RAG-ENGINE endpoints.
+ *
+ * @remarks
+ * Sets up routes for `/health`, `/query`, `/metrics`, `/audit`, `/ingest`, and `/ingest/status/:jobId`.
+ * Enforces role-based access control (RBAC), tenant isolation, and Prometheus telemetry exports.
+ *
+ * @param engine - Configured {@link RAGEngine} instance.
+ * @param options - API route and security options.
+ * @returns Fully configured Express Router.
+ *
+ * @example
+ * ```typescript
+ * import express from 'express';
+ * import { RAGEngine, createApiRoutes } from '@denizsvnc/ai-rag-engine';
+ *
+ * const app = express();
+ * const engine = new RAGEngine(config);
+ *
+ * app.use('/api', createApiRoutes(engine, {
+ *   enforceAuth: true
+ * }));
+ * ```
+ */
 export function createApiRoutes(engine: RAGEngine, options?: ApiRouteOptions): Router {
     const router = Router();
 
@@ -77,8 +107,9 @@ export function createApiRoutes(engine: RAGEngine, options?: ApiRouteOptions): R
                 message: 'Document accepted for asynchronous ingestion and PII sanitization.',
                 ...result
             });
-        } catch (error: any) {
-            res.status(error instanceof IngestionQuotaError ? 429 : error instanceof IngestionConflictError ? 409 : 400).json({ error: error.message || 'Failed to submit document for ingestion.' });
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Failed to submit document for ingestion.';
+            res.status(error instanceof IngestionQuotaError ? 429 : error instanceof IngestionConflictError ? 409 : 400).json({ error: msg });
         }
     });
 
@@ -96,8 +127,9 @@ export function createApiRoutes(engine: RAGEngine, options?: ApiRouteOptions): R
                 createdAt: job.createdAt, updatedAt: job.updatedAt, completedAt: job.completedAt, attemptsMade: job.attemptsMade,
                 result: job.result, ...(job.error ? { error: 'Ingestion failed.' } : {})
             });
-        } catch (error: any) {
-            res.status(500).json({ error: error.message || 'Failed to retrieve job status.' });
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : 'Failed to retrieve job status.';
+            res.status(500).json({ error: msg });
         }
     });
 

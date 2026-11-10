@@ -7,8 +7,13 @@ import { ConfirmationService } from '../../src/core/security/confirmation';
 import { RedisConfirmationNonceStore } from '../../src/core/security/nonce-store';
 
 const exec = promisify(execFile);
-test('Redis consumes a ticket once across independent Node processes and service restarts', { skip: !process.env.REDIS_TEST_URL }, async () => {
-    const url = process.env.REDIS_TEST_URL!;
+const isStrict = process.env.STRICT_ZERO_SKIP === 'true' || process.env.STRICT_ZERO_SKIP === '1';
+
+test('Redis consumes a ticket once across independent Node processes and service restarts', { skip: isStrict ? false : !process.env.REDIS_TEST_URL }, async () => {
+    if (!process.env.REDIS_TEST_URL) {
+        throw new Error('[FAIL-CLOSED] REDIS_TEST_URL is strictly required when STRICT_ZERO_SKIP is active');
+    }
+    const url = process.env.REDIS_TEST_URL;
     const secret = 'distributed-test-secret-at-least-32-bytes';
     const client = new Redis(url, { maxRetriesPerRequest: 1 });
     client.on('error', () => {});

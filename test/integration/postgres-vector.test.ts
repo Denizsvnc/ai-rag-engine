@@ -8,10 +8,14 @@ import { Pool } from 'pg';
 import { PostgresVectorAdapter } from '../../src/adapters/vector/postgres-vector.adapter';
 
 const exec = promisify(execFile);
+const isStrict = process.env.STRICT_ZERO_SKIP === 'true' || process.env.STRICT_ZERO_SKIP === '1';
 const embeddings = { async getEmbedding(text: string) { return new Float32Array(/refund|iade|return/.test(text) ? [1, 0, 0] : [0, 1, 0]); } };
-test('PostgreSQL vector store persists, upserts atomically and isolates tenant CRUD', { skip: !process.env.PG_TEST_URL, timeout: 30_000 }, async t => {
+test('PostgreSQL vector store persists, upserts atomically and isolates tenant CRUD', { skip: isStrict ? false : !process.env.PG_TEST_URL, timeout: 30_000 }, async t => {
+    if (!process.env.PG_TEST_URL) {
+        throw new Error('[FAIL-CLOSED] PG_TEST_URL is strictly required when STRICT_ZERO_SKIP is active');
+    }
     const tableName = `test_${randomUUID().replaceAll('-', '')}`;
-    const connectionString = process.env.PG_TEST_URL!;
+    const connectionString = process.env.PG_TEST_URL;
     const pool = new Pool({ connectionString, max: 5 });
     const options = { pool, tableName, dimensions: 3, modelName: 'test-v1', embeddingProvider: embeddings, createHnswIndex: true };
     const a = new PostgresVectorAdapter(options);

@@ -36,7 +36,7 @@ describe('Logical Verification: Finite State Machine Invariants', () => {
                 async () => {
                     await engine.init();
                 },
-                (err: any) => {
+                (err: unknown) => {
                     assert.ok(err instanceof CircuitBreakerOpenError);
                     assert.ok(err.message.includes('temporarily tripped OPEN'));
                     return true;

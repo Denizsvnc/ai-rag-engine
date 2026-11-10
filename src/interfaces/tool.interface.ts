@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import type { QueryContext } from './query-context.interface.js';
 
+/**
+ * JSON Schema definition for tool parameters used in function-calling LLMs.
+ */
 export interface ToolParameterSchema {
     type: 'object';
     properties: Record<string, {
@@ -11,7 +14,31 @@ export interface ToolParameterSchema {
     required?: string[];
 }
 
-export interface IAgentTool<TArgs = any, TResult = any> {
+/**
+ * Enterprise contract for governed agent tools.
+ *
+ * @remarks
+ * Tools can be semantically routed using `SMLEngine` embeddings or invoked by function-calling LLMs.
+ * Features built-in RBAC (`requiredRoles`), Zod validation (`zodSchema`), and cryptographic mutation tickets (`requiresConfirmation`).
+ *
+ * @typeParam TArgs - Type of arguments accepted by the tool execute function.
+ * @typeParam TResult - Return type of the tool execution.
+ *
+ * @example
+ * ```typescript
+ * import { z } from 'zod';
+ * import type { IAgentTool } from '@denizsvnc/ai-rag-engine';
+ *
+ * const checkStockTool: IAgentTool<{ sku: string }, { inStock: number }> = {
+ *   name: 'check_stock',
+ *   description: 'Checks current stock count in inventory for a product SKU.',
+ *   zodSchema: z.object({ sku: z.string().min(3) }),
+ *   isMutating: false,
+ *   execute: async ({ sku }) => ({ inStock: 42 })
+ * };
+ * ```
+ */
+export interface IAgentTool<TArgs = Record<string, unknown>, TResult = unknown> {
     name: string;
     description: string; // Used by SML for intent routing and vector similarity
     parameters?: ToolParameterSchema | undefined;
@@ -42,7 +69,7 @@ export interface IAgentTool<TArgs = any, TResult = any> {
     /**
      * The business logic function to execute.
      */
-    execute: (args: TArgs, context?: QueryContext) => Promise<TResult>;
+    execute(args: TArgs, context?: QueryContext): Promise<TResult>;
 }
 
 export interface ToolAuditLog {
@@ -50,7 +77,7 @@ export interface ToolAuditLog {
     toolName: string;
     tenantId?: string | undefined;
     userId?: string | undefined;
-    args: any;
+    args: unknown;
     isMutating: boolean;
     status: 'SUCCESS' | 'VALIDATION_FAILED' | 'UNAUTHORIZED' | 'CONFIRMATION_REQUIRED' | 'EXECUTION_FAILED';
     error?: string | undefined;

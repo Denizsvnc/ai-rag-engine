@@ -7,6 +7,10 @@ export * from './interfaces/faq.interface.js';
 export * from './interfaces/rules.interface.js';
 export * from './interfaces/cache.interface.js';
 export * from './interfaces/llm.interface.js';
+export * from './interfaces/strategy.interface.js';
+export * from './interfaces/adaptive-config.interface.js';
+export * from './interfaces/evidence.interface.js';
+export * from './interfaces/graph.interface.js';
 export * from './core/security/security.types.js';
 
 // Core Engine & Orchestration
@@ -81,3 +85,53 @@ export { QueuedIngestionService, type QueuedIngestionOptions, type IngestionRefe
 export { IngestionWorker } from './core/ingestion/ingestion-worker.js';
 export { createTenantRateLimiter } from './api/rate-limit.js';
 export type { IIngestionBackend, IngestionSettings } from './interfaces/ingestion.interface.js';
+
+// Adaptive Multi-Strategy Intelligence Architecture
+export { AdaptiveIntelligenceOrchestrator } from './core/adaptive/adaptive-orchestrator.js';
+export { StrategyRegistry } from './core/adaptive/strategy-registry.js';
+export { AdaptiveQueryPlanner } from './core/adaptive/query-planner.js';
+export { ExecutionScheduler } from './core/adaptive/execution-scheduler.js';
+export { EvidenceFusionEngine } from './core/adaptive/evidence-fusion.js';
+export { GraphExtractor } from './core/graph/graph-extractor.js';
+export { MemoryGraphAdapter } from './adapters/graph/memory-graph.adapter.js';
+export { PostgresGraphAdapter, type PostgresGraphOptions } from './adapters/graph/postgres-graph.adapter.js';
+
+// Modular Database-Agnostic Storage Architecture
+export {
+    type StorageCapabilities,
+    type IStorageCapabilities,
+    UnsupportedStorageCapabilityError,
+    type IDocumentStore,
+    type StoredDocumentEntity,
+    type IVectorStore,
+    type IGraphStore,
+    type IIngestionStore,
+    type IBlobStore,
+    type IEmbeddingProvider,
+    type StorageContainerConfig,
+    type StorageContainer
+} from './interfaces/storage.interface.js';
+export { StorageCapabilityRegistry, type ProviderRegistration } from './core/storage/storage-capability-registry.js';
+export { createStorage } from './core/storage/create-storage.js';
+
+// Storage & Persistence Providers
+export { MemoryIngestionStore } from './core/ingestion/memory-ingestion-store.js';
+export { SqliteVectorAdapter, type SqliteVectorOptions } from './adapters/vector/sqlite-vector.adapter.js';
+export { SqliteDocumentAdapter, type SqliteDocumentOptions } from './adapters/document/sqlite-document.adapter.js';
+export { MemoryBlobStore } from './adapters/blob/memory-blob.adapter.js';
+export { LocalFsBlobStore, type LocalFsBlobOptions } from './adapters/blob/local-fs-blob.adapter.js';
+export { MongoDocumentAdapter, type MongoDocumentOptions } from './adapters/document/mongo-document.adapter.js';
+export { QdrantVectorAdapter, type QdrantVectorOptions } from './adapters/vector/qdrant-vector.adapter.js';
+export { MySQLDocumentAdapter, type MySQLDocumentOptions } from './adapters/document/mysql-document.adapter.js';
+export { Neo4jGraphAdapter, type Neo4jGraphOptions } from './adapters/graph/neo4j-graph.adapter.js';
+
+// Strategies
+export { TraditionalRAGStrategy } from './core/adaptive/strategies/traditional-rag.strategy.js';
+export { SemanticSearchStrategy } from './core/adaptive/strategies/semantic-search.strategy.js';
+export { HybridSearchStrategy } from './core/adaptive/strategies/hybrid-search.strategy.js';
+export { SemanticGraphStrategy } from './core/adaptive/strategies/semantic-graph.strategy.js';
+export { KnowledgeGraphStrategy } from './core/adaptive/strategies/knowledge-graph.strategy.js';
+export { GraphRAGStrategy } from './core/adaptive/strategies/graph-rag.strategy.js';
+export { KAGStrategy, type LogicalDeductionStep } from './core/adaptive/strategies/kag.strategy.js';
+export { CAGStrategy, type CAGCacheType } from './core/adaptive/strategies/cag.strategy.js';
+export { AgenticRAGStrategy } from './core/adaptive/strategies/agentic-rag.strategy.js';

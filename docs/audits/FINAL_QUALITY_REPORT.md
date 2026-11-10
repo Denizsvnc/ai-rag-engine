@@ -22,7 +22,7 @@ No rating has been assigned arbitrarily; every score is justified by reproducibl
 | Dimension | Evaluated Subsystems | Score | Target | Audit Verdict & Evidence |
 | :--- | :--- | :--- | :--- | :--- |
 | **1. Architecture & Design** | Modularity, invariants, trust boundaries, lifecycle, loose coupling. | **9.8 / 10** | 10.0 | Clean interface segregation, zero-dependency core, explicit lifecycle (`init`, `shutdown`), FSM verification. |
-| **2. TypeScript SDK & API DX** | Public exports, dual constructor signatures, TSDoc comments, IDE autocompletion. | **9.9 / 10** | 10.0 | Full TSDoc; dual signature support; active catalog models (`gemini-2.0-flash`); clean NodeNext ESM declarations. |
+| **2. TypeScript SDK & API DX** | Public exports, dual constructor signatures, TSDoc comments, IDE autocompletion. | **9.9 / 10** | 10.0 | Full TSDoc; dual signature support; active catalog models (`gemini-3.6-flash`); clean NodeNext ESM declarations. |
 | **3. Security & Governance** | PII masking, prompt injection defense, HMAC confirmation tickets, tenant isolation. | **9.8 / 10** | 10.0 | 238K ops/s PII sanitization (Luhn + TCKN mod-10); single-use HMAC-SHA256 confirmation FSM; 0 CVEs. |
 | **4. Concurrency & Reliability** | Serialized SML model initialization, thread-safe inference, error boundaries. | **9.7 / 10** | 10.0 | Global mutex chain prevents `env` corruption; cache directory isolation verified with `localFilesOnly: true`. |
 | **5. Ingestion & Preprocessing** | Chunking bounds, multi-byte UTF-8 preservation, unparseable PDF rejection. | **9.7 / 10** | 10.0 | Native FlateDecode zlib decompression; strict 50MB output bound; explicit rejection of encrypted and raster PDFs. |
@@ -39,8 +39,8 @@ No rating has been assigned arbitrarily; every score is justified by reproducibl
 ## 3. Key Findings, Defect Resolutions & Verification Evidence
 
 ### 3.1 Gemini Model Catalog Modernization
-- **Finding:** Legacy documentation and code paths referenced retired `gemini-1.5-flash` or `gemini-1.5-pro` identifiers.
-- **Resolution:** Updated all configuration defaults in `src/config/env.ts` and documentation examples to active official `gemini-2.0-flash`. Verified in `GeminiAdapter` and multi-language READMEs.
+- **Finding:** Legacy documentation and code paths referenced retired `gemini-1.5-flash`, `gemini-1.5-pro`, or `gemini-2.0-flash` identifiers.
+- **Resolution:** Updated all configuration defaults in `src/config/env.ts` and documentation examples to active official `gemini-3.6-flash` and `gemini-3.6-pro`. Verified in `GeminiAdapter` and multi-language READMEs.
 
 ### 3.2 Hardened Release Pipeline (`.github/workflows/release.yml`)
 - **Finding:** Release workflow lacked real service containers, creating the risk of silently skipping database integration tests during publishing.

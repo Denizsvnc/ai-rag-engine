@@ -1,31 +1,64 @@
+/**
+ * Configuration policy governing personally identifiable information (PII) detection and redaction.
+ */
 export interface PIIPolicy {
+    /** Whether PII redaction is active. @defaultValue true */
     enabled?: boolean;
+    /** Whether Turkish national identity numbers (TCKN) should be validated and masked. @defaultValue true */
     maskTCKN?: boolean;
+    /** Whether credit card numbers should be validated via Luhn algorithm and masked. @defaultValue true */
     maskCreditCards?: boolean;
+    /** Whether International Bank Account Numbers (IBAN) should be masked. @defaultValue true */
     maskIBAN?: boolean;
+    /** Whether email addresses should be masked. @defaultValue true */
     maskEmails?: boolean;
+    /** Whether telephone numbers should be masked. @defaultValue true */
     maskPhones?: boolean;
+    /** If true, unmasked text is preserved when routing to private/local LLMs. @defaultValue false */
     allowUnmaskedForLocalLLM?: boolean;
+    /** Hosting provider category ('cloud', 'local', or 'custom'). */
     providerType?: 'cloud' | 'local' | 'custom';
 }
 
+/**
+ * Report containing masked output text and inventory of identified PII entities.
+ */
 export interface PIISanitizationResult {
+    /** Output text after redacting sensitive PII entities. */
     sanitizedText: string;
+    /** Whether any sensitive entity was detected. */
     hasPII: boolean;
+    /** Collection of identified entities with category, original value, and applied mask. */
     detectedEntities: Array<{
         type: 'TCKN' | 'CREDIT_CARD' | 'IBAN' | 'EMAIL' | 'PHONE';
         originalValue: string;
         maskedValue: string;
     }>;
+    /** True if masking was bypassed due to private local LLM configuration. */
     bypassedForLocalLLM: boolean;
 }
 
+/**
+ * Privacy guardrail detecting and masking personally identifiable information (PII).
+ *
+ * @remarks
+ * Uses checksum verification (TCKN 11-digit algorithm, Credit Card Luhn mod-10) and regex patterns
+ * to redact sensitive information before prompts leave enterprise infrastructure.
+ *
+ * @example
+ * ```typescript
+ * import { PIIGuard } from '@denizsvnc/ai-rag-engine';
+ *
+ * const result = PIIGuard.sanitize('Customer TCKN is 12345678901');
+ * console.log(result.sanitizedText); // 'Customer TCKN is [TCKN_123*****01]'
+ * ```
+ */
 export class PIIGuard {
     /**
-     * Validates Turkish Republic Identity Number (TCKN) using official 11-digit checksum rules:
-     * 1. 11 digits, cannot start with 0.
-     * 2. 10th digit = ((d1+d3+d5+d7+d9)*7 - (d2+d4+d6+d8)) mod 10
-     * 3. 11th digit = (d1+d2+...+d10) mod 10
+     * Validates Turkish Republic Identity Number (TCKN) using official 11-digit checksum rules.
+     *
+     * @param candidate - 11-digit string to test.
+     * @returns True if candidate passes all checksum equations.
      */
     public static isValidTCKN(candidate: string): boolean {
         if (!/^[1-9]\d{10}$/.test(candidate)) {
@@ -54,6 +87,9 @@ export class PIIGuard {
 
     /**
      * Validates Credit Card number using the Luhn mod-10 algorithm.
+     *
+     * @param candidate - Credit card number candidate string.
+     * @returns True if candidate passes Luhn verification.
      */
     public static isValidCreditCard(candidate: string): boolean {
         const clean = candidate.replace(/[\s-]/g, '');
@@ -82,6 +118,10 @@ export class PIIGuard {
     /**
      * Sanitizes input text, detecting and masking all sensitive PII entities.
      * Respects data sovereignty policies: strictly masks for Cloud LLMs.
+     *
+     * @param text - Raw prompt or document text.
+     * @param policy - PII policy configuration options.
+     * @returns Sanitization report containing masked text and detected entities list.
      */
     public static sanitize(text: string, policy?: PIIPolicy): PIISanitizationResult {
         if (!text || policy?.enabled === false) {

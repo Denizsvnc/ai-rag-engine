@@ -1,4 +1,5 @@
-import type { IVectorStoreAdapter, VectorDocument } from '../../interfaces/vector.interface.js';
+import type { VectorDocument } from '../../interfaces/vector.interface.js';
+import type { IVectorStore, StorageCapabilities } from '../../interfaces/storage.interface.js';
 import { SMLEngine } from '../../core/sml-engine.js';
 import { dotProduct } from '../../utils/math.js';
 import { BM25Index } from '../../core/vector/bm25.js';
@@ -8,11 +9,51 @@ interface StoredDocument extends VectorDocument {
     embedding: number[] | Float32Array;
 }
 
-export class MemoryVectorAdapter implements IVectorStoreAdapter {
+/**
+ * In-memory vector store adapter with integrated BM25 keyword index and Reciprocal Rank Fusion.
+ *
+ * @remarks
+ * Ideal for development, testing, and edge microservices that vectorize documents in RAM.
+ * Automatically synchronizes dense vector embeddings via `SMLEngine` and sparse BM25 tokens.
+ *
+ * @example
+ * ```typescript
+ * const store = new MemoryVectorAdapter();
+ * await store.addDocuments([{
+ *   id: 'doc_1',
+ *   content: 'Corporate travel policy allows economy flights under 6 hours.',
+ *   metadata: { tenantId: 'tenant_1' }
+ * }]);
+ * const results = await store.searchHybrid('flight duration rule', 3, { tenantId: 'tenant_1' });
+ * ```
+ */
+export class MemoryVectorAdapter implements IVectorStore {
+    public readonly capabilities: StorageCapabilities = {
+        denseVectorSearch: true,
+        sparseRetrieval: true,
+        nativeHybridSearch: true,
+        metadataFiltering: true,
+        namespaceIsolation: true,
+        transactions: false,
+        atomicDocumentReplacement: true,
+        versioning: true,
+        batchOperations: true,
+        fullTextSearch: true
+    };
+
     private documents: StoredDocument[] = [];
     private bm25Index: BM25Index = new BM25Index();
+    private tenantRevisions = new Map<string, number>();
+
+    public hasCapability(capability: keyof StorageCapabilities): boolean {
+        return Boolean(this.capabilities[capability]);
+    }
 
     constructor(private smlEngine: SMLEngine = new SMLEngine()) { }
+
+    public async getRevision(tenantId: string): Promise<string> {
+        return String(this.tenantRevisions.get(tenantId) ?? 0);
+    }
 
     public setSMLEngine(engine: SMLEngine): void {
         this.smlEngine = engine;
@@ -20,6 +61,41 @@ export class MemoryVectorAdapter implements IVectorStoreAdapter {
 
     public getSMLEngine(): SMLEngine {
         return this.smlEngine;
+    }
+
+    /**
+     * Replaces all chunks belonging to a document under a specific version atomically.
+     */
+    public async replaceDocument(
+        documentId: string,
+        tenantId: string,
+        version: number,
+        documents: Omit<VectorDocument, 'score'>[]
+    ): Promise<'applied' | 'unchanged' | 'superseded'> {
+        const existingDocs = this.documents.filter(d =>
+            d.metadata?.tenantId === tenantId &&
+            d.metadata?.sourceDocId === documentId
+        );
+        const maxExistingVersion = existingDocs.reduce((max, d) => Math.max(max, d.version ?? 0), 0);
+
+        if (maxExistingVersion > version) {
+            return 'superseded';
+        }
+
+        // Remove previous chunks for this document
+        this.documents = this.documents.filter(d =>
+            !(d.metadata?.tenantId === tenantId && d.metadata?.sourceDocId === documentId)
+        );
+
+        // Vectorize and insert new version chunks
+        await this.addDocuments(documents.map(d => ({
+            ...d,
+            version,
+            metadata: { ...d.metadata, tenantId, sourceDocId: documentId }
+        })));
+
+        this.tenantRevisions.set(tenantId, (this.tenantRevisions.get(tenantId) ?? 0) + 1);
+        return 'applied';
     }
 
     /**
@@ -52,7 +128,7 @@ export class MemoryVectorAdapter implements IVectorStoreAdapter {
     public async search(
         query: string,
         topK: number = 3,
-        filter?: Record<string, any>
+        filter?: Record<string, unknown>
     ): Promise<VectorDocument[]> {
         if (this.documents.length === 0) return [];
 
@@ -89,7 +165,7 @@ export class MemoryVectorAdapter implements IVectorStoreAdapter {
     public async searchHybrid(
         query: string,
         topK: number = 3,
-        filter?: Record<string, any>
+        filter?: Record<string, unknown>
     ): Promise<HybridScoredDocument[]> {
         if (this.documents.length === 0) return [];
 
@@ -114,7 +190,7 @@ export class MemoryVectorAdapter implements IVectorStoreAdapter {
     /**
      * Deletes a document by ID from both Dense memory and BM25 index.
      */
-    public async deleteDocument(id: string, filter?: Record<string, any>): Promise<boolean> {
+    public async deleteDocument(id: string, filter?: Record<string, unknown>): Promise<boolean> {
         const initialLen = this.documents.length;
         this.documents = this.documents.filter(d => d.id !== id || !this.matchesFilter(d, filter));
         this.bm25Index = new BM25Index();
@@ -125,12 +201,12 @@ export class MemoryVectorAdapter implements IVectorStoreAdapter {
     /**
      * Clears all stored documents.
      */
-    public async clear(filter?: Record<string, any>): Promise<void> {
+    public async clear(filter?: Record<string, unknown>): Promise<void> {
         this.documents = this.documents.filter(doc => !this.matchesFilter(doc, filter));
         this.bm25Index.index(this.documents);
     }
 
-    private matchesFilter(doc: VectorDocument, filter?: Record<string, any>): boolean {
+    private matchesFilter(doc: VectorDocument, filter?: Record<string, unknown>): boolean {
         return !filter || Object.entries(filter).every(([key, value]) => doc.metadata?.[key] === value);
     }
 }

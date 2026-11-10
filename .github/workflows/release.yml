@@ -36,6 +36,7 @@ jobs:
     env:
       PG_TEST_URL: postgresql://postgres:test-only-password@127.0.0.1:5432/rag_test
       REDIS_TEST_URL: redis://127.0.0.1:6379
+      STRICT_ZERO_SKIP: 'true'
 
     steps:
       - name: Check confirmation input
@@ -66,7 +67,9 @@ jobs:
           npm run typecheck
           npm run build
           npm test
+          node tools/verify-zero-skips.mjs
           npm run test:security
+          node tools/verify-zero-skips.mjs
           npm run test:package
           npm run test:consumer
           npm run test:consumer:integration

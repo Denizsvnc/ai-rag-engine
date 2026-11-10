@@ -3,12 +3,39 @@
  * Provides lexical term matching (exact SKU codes, error messages, proper nouns, part numbers)
  * to complement dense semantic vector search.
  */
+/**
+ * In-memory document representation for BM25 lexical indexing.
+ */
 export interface BM25Document {
+    /** Unique document identifier. */
     id: string;
+    /** Text content to index. */
     content: string;
-    metadata?: Record<string, any> | undefined;
+    /** Optional metadata attributes (tenantId, documentId, etc.). */
+    metadata?: Record<string, unknown> | undefined;
 }
 
+/**
+ * Pure TypeScript in-memory Okapi BM25 sparse keyword retrieval engine.
+ *
+ * @remarks
+ * Complements dense vector embeddings by providing exact lexical term matching for SKU numbers,
+ * error codes, part identifiers, and domain-specific terminology without external dependencies.
+ *
+ * @example
+ * ```typescript
+ * import { BM25Index } from '@denizsvnc/ai-rag-engine';
+ *
+ * const index = new BM25Index({ k1: 1.5, b: 0.75 });
+ * index.index([
+ *   { id: '1', content: 'Invoice INV-2024-9988 payment received' },
+ *   { id: '2', content: 'Error CODE_504 Gateway timeout' }
+ * ]);
+ *
+ * const results = index.search('INV-2024-9988', 1);
+ * console.log(results[0].document.id); // '1'
+ * ```
+ */
 export class BM25Index {
     private docCount = 0;
     private avgDocLength = 0;
@@ -20,6 +47,11 @@ export class BM25Index {
     private readonly k1: number;
     private readonly b: number;
 
+    /**
+     * Initializes a new BM25Index instance.
+     *
+     * @param options - BM25 calibration parameters (k1 term saturation, b document length damping).
+     */
     constructor(options?: { k1?: number; b?: number }) {
         this.k1 = options?.k1 ?? 1.5;
         this.b = options?.b ?? 0.75;
@@ -40,6 +72,8 @@ export class BM25Index {
 
     /**
      * Indexes a collection of documents.
+     *
+     * @param docs - Array of documents to index.
      */
     public index(docs: BM25Document[]): void {
         this.clear();
@@ -82,8 +116,13 @@ export class BM25Index {
 
     /**
      * Scores documents against a search query using the Okapi BM25 formula.
+     *
+     * @param query - Search query string.
+     * @param topK - Maximum number of scored matches to return. @defaultValue 3
+     * @param filter - Optional metadata equality filter (e.g. `{ tenantId: 'org_1' }`).
+     * @returns Array of matched documents sorted by BM25 score descending.
      */
-    public search(query: string, topK: number = 3, filter?: Record<string, any>): Array<{ document: BM25Document; score: number }> {
+    public search(query: string, topK: number = 3, filter?: Record<string, unknown>): Array<{ document: BM25Document; score: number }> {
         if (this.docCount === 0) return [];
 
         const queryTerms = this.tokenize(query);
@@ -124,6 +163,9 @@ export class BM25Index {
         return scores.slice(0, topK);
     }
 
+    /**
+     * Clears all indexed documents, term frequencies, and lengths.
+     */
     public clear(): void {
         this.docCount = 0;
         this.avgDocLength = 0;

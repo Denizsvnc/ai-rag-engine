@@ -1,10 +1,18 @@
 import type { VectorDocument } from '../interfaces/vector.interface.js';
 
+/**
+ * Context payload provided to {@link PromptBuilder} to synthesize LLM prompts.
+ */
 export interface PromptContext {
+    /** Baseline persona or instruction text. */
     basePrompt?: string | undefined;
+    /** Array of active business rules and constraints. */
     rules?: string[] | undefined;
+    /** Array of ground-truth reference documents retrieved from vector/graph stores. */
     documents?: VectorDocument[] | undefined;
-    toolResults?: Array<{ toolName: string; result: any }> | undefined;
+    /** Results retrieved from live tool executions. */
+    toolResults?: Array<{ toolName: string; result: unknown }> | undefined;
+    /** Identity and authorization attributes of the calling principal. */
     caller?: {
         tenantId?: string | undefined;
         userId?: string | undefined;
@@ -12,7 +20,33 @@ export interface PromptContext {
     } | undefined;
 }
 
+/**
+ * Enterprise prompt synthesizer enforcing strict security guardrails and XML isolation boundaries.
+ *
+ * @remarks
+ * Injects mandatory untrusted visitor boundary directives, escapes untrusted text chunks and tool results,
+ * binds caller identity and RBAC roles, and generates standardized XML sandboxes.
+ *
+ * @example
+ * ```typescript
+ * import { PromptBuilder } from '@denizsvnc/ai-rag-engine';
+ *
+ * const systemPrompt = PromptBuilder.buildSystemPrompt({
+ *   basePrompt: 'You are an institutional banking assistant.',
+ *   rules: ['Never disclose internal interest rate formulas.'],
+ *   documents: retrievedDocs
+ * });
+ *
+ * const userMessage = PromptBuilder.formatVisitorPrompt(sanitizedInput);
+ * ```
+ */
 export class PromptBuilder {
+    /**
+     * Synthesizes a hardened system prompt incorporating security boundaries, rules, and retrieved data.
+     *
+     * @param context - Prompt context payload.
+     * @returns Complete system prompt string ready for LLM consumption.
+     */
     public static buildSystemPrompt(context: PromptContext): string {
         let prompt = context.basePrompt || 'You are an institutional AI assistant and customer support specialist. Answer accurately, politely, and strictly adhere to the provided context and enterprise rules.\n\n';
 
@@ -73,6 +107,12 @@ export class PromptBuilder {
         return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    /**
+     * Encloses sanitized user prompt within `<untrusted_visitor_message>` boundary tags.
+     *
+     * @param sanitizedInput - Cleansed input string from visitor.
+     * @returns Wrapped XML message string.
+     */
     public static formatVisitorPrompt(sanitizedInput: string): string {
         return `<untrusted_visitor_message>\n${sanitizedInput}\n</untrusted_visitor_message>`;
     }

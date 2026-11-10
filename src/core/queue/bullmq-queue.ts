@@ -2,21 +2,51 @@ import { Queue, Worker, UnrecoverableError, type Job as BullJob } from 'bullmq';
 import { Redis } from 'ioredis';
 import type { IJobQueue, Job, JobHandler } from './job-queue.interface.js';
 
+/**
+ * Configuration options for the BullMQ Redis-backed job queue.
+ */
 export interface BullMQQueueOptions {
+    /** Name of the Redis queue. @defaultValue 'rag-ingestion-queue' */
     queueName?: string | undefined;
+    /** Redis connection URL string (e.g. 'redis://:auth@127.0.0.1:6379/0'). */
     redisUrl?: string | undefined;
+    /** Host, port, and password connection parameters. */
     connection?: { host?: string | undefined; port?: number | undefined; password?: string | undefined } | undefined;
+    /** Worker concurrency per process. @defaultValue 2 */
     concurrency?: number | undefined;
+    /** Global cluster concurrency limit. @defaultValue 4 */
     globalConcurrency?: number | undefined;
+    /** Maximum retry attempts for failed jobs. @defaultValue 3 */
     attempts?: number | undefined;
+    /** Exponential backoff delay in milliseconds. @defaultValue 1000 */
     backoffMs?: number | undefined;
+    /** Lock duration for long-running ingestion chunks. @defaultValue 30000 */
     lockDurationMs?: number | undefined;
+    /** Stalled job check interval in milliseconds. @defaultValue 30000 */
     stalledIntervalMs?: number | undefined;
+    /** Callback invoked on Redis connection or worker errors. */
     onError?: ((error: Error) => void) | undefined;
 }
 
-/** Redis-backed producer; a consumer starts only when process() is explicitly called. */
-export class BullMQJobQueue<TData = any, TResult = any> implements IJobQueue<TData, TResult> {
+/**
+ * Enterprise distributed job queue backed by Redis and BullMQ.
+ *
+ * @remarks
+ * Decouples producer from consumer: workers start only when `process()` is explicitly invoked.
+ * Provides exponential backoff, cluster-wide concurrency control, and durable job state.
+ *
+ * @example
+ * ```typescript
+ * import { BullMQJobQueue } from '@denizsvnc/ai-rag-engine';
+ *
+ * const queue = new BullMQJobQueue({
+ *   redisUrl: process.env.REDIS_URL,
+ *   concurrency: 4
+ * });
+ * await queue.ready();
+ * ```
+ */
+export class BullMQJobQueue<TData = unknown, TResult = unknown> implements IJobQueue<TData, TResult> {
     private readonly queue: Queue;
     private readonly producer: Redis;
     private consumer: Redis | undefined;
@@ -26,6 +56,11 @@ export class BullMQJobQueue<TData = any, TResult = any> implements IJobQueue<TDa
     private readonly name: string;
     private readonly attempts: number;
 
+    /**
+     * Initializes a new BullMQJobQueue instance.
+     *
+     * @param options - BullMQ and Redis connection options.
+     */
     constructor(private readonly options: BullMQQueueOptions = {}) {
         this.name = options.queueName ?? 'rag-ingestion-queue';
         if (!/^[a-zA-Z0-9_-]+$/.test(this.name)) throw new Error('Invalid queueName.');
@@ -51,6 +86,9 @@ export class BullMQJobQueue<TData = any, TResult = any> implements IJobQueue<TDa
         this.options.onError?.(error);
     }
 
+    /**
+     * Waits until the Redis queue connection is fully established and applies concurrency settings.
+     */
     public async ready(): Promise<void> {
         let timeout: ReturnType<typeof setTimeout> | undefined;
         try {
@@ -61,6 +99,14 @@ export class BullMQJobQueue<TData = any, TResult = any> implements IJobQueue<TDa
         } finally { if (timeout) clearTimeout(timeout); }
     }
 
+    /**
+     * Enqueues a job into Redis with exponential backoff and retention settings.
+     *
+     * @param type - Job type string.
+     * @param data - Job payload data.
+     * @param jobId - Optional custom job ID.
+     * @returns Job descriptor record.
+     */
     public async add(type: string, data: TData, jobId?: string): Promise<Job<TData, TResult>> {
         if (this.closed) throw new Error('Queue is closed.');
         const job = await this.queue.add(type, data, {
@@ -71,6 +117,12 @@ export class BullMQJobQueue<TData = any, TResult = any> implements IJobQueue<TDa
         return this.map(job, 'queued');
     }
 
+    /**
+     * Retrieves job status and progress from Redis.
+     *
+     * @param id - Job identifier.
+     * @returns Job record or null if not found.
+     */
     public async getJob(id: string): Promise<Job<TData, TResult> | null> {
         const job = await this.queue.getJob(id);
         if (!job) return null;
@@ -79,6 +131,12 @@ export class BullMQJobQueue<TData = any, TResult = any> implements IJobQueue<TDa
         return this.map(job, status);
     }
 
+    /**
+     * Starts worker consumer loop listening for queued jobs.
+     *
+     * @param type - Job type to subscribe to.
+     * @param handler - Worker handler function processing each job.
+     */
     public async process(type: string, handler: JobHandler<TData, TResult>): Promise<void> {
         if (this.closed) throw new Error('Queue is closed.');
         if (this.processingType && this.processingType !== type) throw new Error('Use one job type per queue.');
@@ -99,12 +157,21 @@ export class BullMQJobQueue<TData = any, TResult = any> implements IJobQueue<TDa
         await this.worker.waitUntilReady();
     }
 
+    /**
+     * Retries a failed job in Redis, resetting attempts.
+     *
+     * @param id - Job identifier.
+     * @throws If job is not in failed state.
+     */
     public async retry(id: string): Promise<void> {
         const job = await this.queue.getJob(id);
         if (!job || await job.getState() !== 'failed') throw new Error('Only a failed job can be retried.');
         await job.retry('failed', { resetAttemptsMade: true });
     }
 
+    /**
+     * Drains active jobs, disconnects workers, and closes Redis connections.
+     */
     public async close(): Promise<void> {
         if (this.closed) return;
         this.closed = true;

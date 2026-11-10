@@ -6,7 +6,27 @@ const script = `local count = redis.call('INCR', KEYS[1])
 if count == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
 return {count, redis.call('PTTL', KEYS[1])}`;
 
-/** Atomic fixed-window tenant limit shared by all API instances. */
+/**
+ * Creates an atomic distributed tenant rate limiter middleware using Redis.
+ *
+ * @remarks
+ * Uses an atomic Lua script to track and enforce request quotas per tenant across horizontal cluster instances.
+ * Sets standard rate limit HTTP headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After`).
+ *
+ * @param redis - Redis client with Lua `eval` method support.
+ * @param options - Limit, window duration in milliseconds, and key prefix.
+ * @returns Express request handler middleware.
+ *
+ * @example
+ * ```typescript
+ * import { createTenantRateLimiter } from '@denizsvnc/ai-rag-engine';
+ *
+ * app.use('/api', createTenantRateLimiter(redisClient, {
+ *   limit: 100,
+ *   windowMs: 60000
+ * }));
+ * ```
+ */
 export function createTenantRateLimiter(redis: Pick<Redis, 'eval'>, options: { limit: number; windowMs: number; prefix?: string }): RequestHandler {
     if (!Number.isSafeInteger(options.limit) || options.limit < 1 || !Number.isSafeInteger(options.windowMs) || options.windowMs < 1) throw new Error('Invalid rate limit.');
     return async (req, res, next) => {

@@ -1,27 +1,75 @@
 import { Pool, type PoolClient } from 'pg';
-import type { IVectorStoreAdapter, VectorDocument } from '../../interfaces/vector.interface.js';
+import type { VectorDocument } from '../../interfaces/vector.interface.js';
+import type { IVectorStore, StorageCapabilities } from '../../interfaces/storage.interface.js';
 import { SMLEngine } from '../../core/sml-engine.js';
 import { reciprocalRankFusion } from '../../core/vector/hybrid-search.js';
 
+/**
+ * Lightweight contract for embedding providers passed to vector adapters.
+ */
 export interface EmbeddingProvider {
+    /** Computes an embedding vector for a given text. */
     getEmbedding(text: string): Promise<ArrayLike<number>>;
 }
 
+/**
+ * Configuration options for PostgreSQL `pgvector` store adapter.
+ */
 export interface PostgresVectorOptions {
+    /** PostgreSQL connection URI (e.g. `postgresql://user:pass@host:5432/dbname`). */
     connectionString?: string | undefined;
+    /** Existing `pg.Pool` instance to reuse connections. */
     pool?: Pool | undefined;
+    /** Base table name for vector documents. Defaults to `'rag_documents'`. */
     tableName?: string | undefined;
+    /** Model identifier metadata stored in configuration table. */
     modelName?: string | undefined;
+    /** Vector embedding dimensions. Defaults to 384. Must match embedding model. */
     dimensions?: number | undefined;
+    /** Custom embedding provider. If omitted, uses local `SMLEngine`. */
     embeddingProvider?: EmbeddingProvider | undefined;
-    /** Disable after migrations have been applied by a database owner. */
+    /** Disable after migrations have been applied by a database owner. Defaults to `true`. */
     autoMigrate?: boolean | undefined;
-    /** Optional approximate index. Exact search is the default. */
+    /** Optional approximate HNSW index for high scale. Exact cosine search is the default. */
     createHnswIndex?: boolean | undefined;
 }
 
-/** Persistent, tenant-scoped pgvector store. Every read/delete requires a tenant filter. */
-export class PostgresVectorAdapter implements IVectorStoreAdapter {
+/**
+ * Production-ready PostgreSQL `pgvector` storage adapter.
+ *
+ * @remarks
+ * Enforces strict multi-tenant data boundaries at the SQL query level.
+ * Supports exact cosine distance (`<=>`), hybrid search with PostgreSQL full-text search (`tsvector`),
+ * and approximate nearest neighbor search via HNSW indexing.
+ *
+ * @example
+ * ```typescript
+ * const pgVector = new PostgresVectorAdapter({
+ *   connectionString: process.env.DATABASE_URL,
+ *   dimensions: 384
+ * });
+ * await pgVector.init();
+ * ```
+ */
+export class PostgresVectorAdapter implements IVectorStore {
+    public readonly capabilities: StorageCapabilities = {
+        denseVectorSearch: true,
+        sparseRetrieval: false,
+        nativeHybridSearch: false,
+        metadataFiltering: true,
+        namespaceIsolation: true,
+        transactions: true,
+        atomicDocumentReplacement: true,
+        versioning: true,
+        batchOperations: true,
+        nativeIndexes: true,
+        fullTextSearch: false
+    };
+
+    public hasCapability(capability: keyof StorageCapabilities): boolean {
+        return Boolean(this.capabilities[capability]);
+    }
+
     private readonly pool: Pool;
     private readonly table: string;
     private readonly configTable: string;
@@ -168,7 +216,7 @@ export class PostgresVectorAdapter implements IVectorStoreAdapter {
         await client.query(`INSERT INTO ${this.epochs} VALUES ($1,1) ON CONFLICT (tenant_id) DO UPDATE SET revision=${this.epochs}.revision+1`, [tenant]);
     }
 
-    public async search(query: string, topK = 3, filter?: Record<string, any>): Promise<VectorDocument[]> {
+    public async search(query: string, topK = 3, filter?: Record<string, unknown>): Promise<VectorDocument[]> {
         const tenant = this.tenant(filter);
         this.validateTopK(topK);
         const vector = this.vector(await this.embeddings.getEmbedding(query));
@@ -182,7 +230,7 @@ export class PostgresVectorAdapter implements IVectorStoreAdapter {
     }
 
     /** PostgreSQL lexical search + dense search, fused with RRF. This is not BM25. */
-    public async searchHybrid(query: string, topK = 3, filter?: Record<string, any>): Promise<VectorDocument[]> {
+    public async searchHybrid(query: string, topK = 3, filter?: Record<string, unknown>): Promise<VectorDocument[]> {
         const tenant = this.tenant(filter);
         this.validateTopK(topK);
         const candidates = Math.min(1000, Math.max(20, topK * 3));
@@ -195,7 +243,7 @@ export class PostgresVectorAdapter implements IVectorStoreAdapter {
         return reciprocalRankFusion(dense, sparse.rows, topK);
     }
 
-    public async deleteDocument(id: string, filter?: Record<string, any>): Promise<boolean> {
+    public async deleteDocument(id: string, filter?: Record<string, unknown>): Promise<boolean> {
         const tenant = this.tenant(filter);
         await this.init();
         return this.transaction(async client => {
@@ -205,7 +253,7 @@ export class PostgresVectorAdapter implements IVectorStoreAdapter {
         });
     }
 
-    public async clear(filter?: Record<string, any>): Promise<void> {
+    public async clear(filter?: Record<string, unknown>): Promise<void> {
         const tenant = this.tenant(filter); await this.init();
         await this.transaction(async client => {
             const result = await client.query(`DELETE FROM ${this.table} WHERE tenant_id=$1 AND metadata @> $2::jsonb`, [tenant,JSON.stringify(filter)]);
@@ -217,7 +265,7 @@ export class PostgresVectorAdapter implements IVectorStoreAdapter {
         if (!this.options.pool) await this.pool.end();
     }
 
-    private tenant(filter?: Record<string, any>): string {
+    private tenant(filter?: Record<string, unknown>): string {
         const tenant = filter?.tenantId;
         if (typeof tenant !== 'string' || !tenant.trim()) throw new Error('An explicit tenantId is required for PostgreSQL vector operations.');
         return tenant;

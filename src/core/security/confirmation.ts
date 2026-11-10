@@ -10,22 +10,60 @@ const ticketPayloadSchema = z.object({
     nonce: z.uuid(), expiresAt: z.number().int().positive()
 });
 
+/**
+ * Decoded payload of a cryptographic confirmation ticket for sensitive tool mutations.
+ */
 export interface ConfirmationTicketPayload {
+    /** Target tool name authorized for execution. */
     toolName: string;
+    /** Deterministic SHA-256 hash of the canonicalized arguments. */
     argsHash: string;
+    /** Tenant ID claiming the mutation. */
     tenantId?: string | undefined;
+    /** User ID who approved the mutation. */
     userId?: string | undefined;
+    /** Single-use UUID nonce preventing replay attacks. */
     nonce: string;
+    /** Epoch timestamp in ms when the ticket expires. */
     expiresAt: number;
 }
 
+/**
+ * Target tool and context parameters required to issue or verify a confirmation ticket.
+ */
 export interface TicketTargetOptions {
+    /** The target tool name. */
     toolName: string;
-    args: any;
+    /** Arguments proposed for execution. */
+    args: unknown;
+    /** Tenant identifier. */
     tenantId?: string | undefined;
+    /** User identifier. */
     userId?: string | undefined;
 }
 
+/**
+ * Cryptographic service issuing and validating single-use HMAC-SHA256 confirmation tickets.
+ *
+ * @remarks
+ * Used by Agentic RAG and Governed Tools to ensure mutating or high-risk actions (e.g. money transfers,
+ * database deletes, stock updates) require explicit user authorization before execution.
+ *
+ * @example
+ * ```typescript
+ * const confirmation = new ConfirmationService(process.env.CONFIRMATION_SECRET);
+ * const ticket = confirmation.issueTicket({
+ *   toolName: 'cancel_subscription',
+ *   args: { subId: 'sub_123' },
+ *   tenantId: 'tenant_acme'
+ * });
+ * const verification = await confirmation.verifyTicket(ticket, {
+ *   toolName: 'cancel_subscription',
+ *   args: { subId: 'sub_123' },
+ *   tenantId: 'tenant_acme'
+ * });
+ * ```
+ */
 export class ConfirmationService {
     private static readonly memoryStore = new MemoryConfirmationNonceStore();
     private static readonly DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -45,8 +83,8 @@ export class ConfirmationService {
      * Instance method to issue a ticket using the configured secret and TTL.
      */
     public issueTicket(options: TicketTargetOptions): string;
-    public issueTicket(toolName: string, args: any, context?: QueryContext): string;
-    public issueTicket(optionsOrName: TicketTargetOptions | string, maybeArgs?: any, maybeContext?: QueryContext): string {
+    public issueTicket(toolName: string, args: unknown, context?: QueryContext): string;
+    public issueTicket(optionsOrName: TicketTargetOptions | string, maybeArgs?: unknown, maybeContext?: QueryContext): string {
         if (typeof optionsOrName === 'object') {
             return ConfirmationService.issueTicket(
                 optionsOrName.toolName,
@@ -63,15 +101,15 @@ export class ConfirmationService {
      * Instance method to verify a ticket. Throws an Error on verification failure.
      */
     public verifyTicket(ticket: string, options: TicketTargetOptions): Promise<{ valid: boolean; payload?: ConfirmationTicketPayload }>;
-    public verifyTicket(ticket: string, toolName: string, args: any, context?: QueryContext): Promise<{ valid: boolean; payload?: ConfirmationTicketPayload }>;
+    public verifyTicket(ticket: string, toolName: string, args: unknown, context?: QueryContext): Promise<{ valid: boolean; payload?: ConfirmationTicketPayload }>;
     public async verifyTicket(
         ticket: string,
         optionsOrName: TicketTargetOptions | string,
-        maybeArgs?: any,
+        maybeArgs?: unknown,
         maybeContext?: QueryContext
     ): Promise<{ valid: boolean; payload?: ConfirmationTicketPayload }> {
         let toolName: string;
-        let args: any;
+        let args: unknown;
         let context: QueryContext | undefined;
 
         if (typeof optionsOrName === 'object') {
@@ -94,22 +132,22 @@ export class ConfirmationService {
     /**
      * Produces a deterministic canonical JSON string for arguments regardless of key order.
      */
-    public static canonicalize(data: any): string {
+    public static canonicalize(data: unknown): string {
         if (data === null || typeof data !== 'object') {
             return JSON.stringify(data);
         }
         if (Array.isArray(data)) {
             return '[' + data.map(v => this.canonicalize(v)).join(',') + ']';
         }
-        const sortedKeys = Object.keys(data).sort();
-        const parts = sortedKeys.map(k => `${JSON.stringify(k)}:${this.canonicalize(data[k])}`);
+        const sortedKeys = Object.keys(data as Record<string, unknown>).sort();
+        const parts = sortedKeys.map(k => `${JSON.stringify(k)}:${this.canonicalize((data as Record<string, unknown>)[k])}`);
         return '{' + parts.join(',') + '}';
     }
 
     /**
      * Computes SHA-256 hash of canonicalized tool arguments.
      */
-    public static hashArgs(args: any): string {
+    public static hashArgs(args: unknown): string {
         const canonical = this.canonicalize(args || {});
         return crypto.createHash('sha256').update(canonical).digest('hex');
     }
@@ -119,7 +157,7 @@ export class ConfirmationService {
      */
     public static issueTicket(
         toolName: string,
-        args: any,
+        args: unknown,
         context?: QueryContext,
         ttlMs: number = this.DEFAULT_TTL_MS,
         secret: string = resolveSecret('CONFIRMATION_SECRET')
@@ -155,7 +193,7 @@ export class ConfirmationService {
     public static async verifyTicket(
         ticket: string,
         toolName: string,
-        args: any,
+        args: unknown,
         context?: QueryContext,
         secret: string = resolveSecret('CONFIRMATION_SECRET'),
         nonceStore: ConfirmationNonceStore = this.memoryStore

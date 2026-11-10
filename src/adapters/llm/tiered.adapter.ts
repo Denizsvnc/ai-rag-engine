@@ -6,12 +6,34 @@ import { CustomLLMAdapter } from './custom.adapter.js';
 import { OllamaAdapter } from './ollama.adapter.js';
 import { FallbackLLMProvider } from './fallback.adapter.js';
 
+/**
+ * Configuration options for `TieredLLMProvider`.
+ */
 export interface TieredLLMConfig {
+    /** High-speed, cost-effective provider for everyday queries (e.g. `gemini-3.6-flash` or `gpt-4o-mini`). */
     fastProvider: ILLMProvider;
+    /** High-reasoning foundation model for complex analytical queries (e.g. `gemini-3.6-pro` or `gpt-4o`). */
     smartProvider: ILLMProvider;
+    /** Optional custom routing classifier function to determine tier based on prompt inspection. */
     classifier?: ((request: ILLMRequest) => 'fast' | 'smart') | undefined;
 }
 
+/**
+ * Intelligent cost-optimizing LLM router that routes queries dynamically between fast and smart tiers.
+ *
+ * @remarks
+ * Evaluates semantic indicators (e.g. "karşılaştır", "analiz et", "compare", "synthesize", character count)
+ * to send simple queries to fast models and deep analytical questions to smart foundation models.
+ * Automatically fails over to the alternative tier if the selected model encounters an error.
+ *
+ * @example
+ * ```typescript
+ * const tiered = new TieredLLMProvider({
+ *   fastProvider: new GeminiAdapter({ model: 'gemini-3.6-flash' }),
+ *   smartProvider: new GeminiAdapter({ model: 'gemini-3.6-pro' })
+ * });
+ * ```
+ */
 export class TieredLLMProvider implements ILLMProvider {
     private fastProvider: ILLMProvider;
     private smartProvider: ILLMProvider;
@@ -64,9 +86,10 @@ export class TieredLLMProvider implements ILLMProvider {
 
         try {
             return await primaryProvider.generate(request);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errMsg = error instanceof Error ? error.message : String(error);
             console.warn(
-                `[TieredLLMProvider] ${tier.toUpperCase()} tier failed: "${error?.message}". Failing over to alternate tier...`
+                `[TieredLLMProvider] ${tier.toUpperCase()} tier failed: "${errMsg}". Failing over to alternate tier...`
             );
             return await alternateProvider.generate(request);
         }

@@ -98,8 +98,15 @@ async function runAsyncBench(
 }
 
 async function main() {
+    const requireOnnx = process.argv.includes('--require-onnx') || process.env.REQUIRE_ONNX === 'true';
+    const requireRedis = process.argv.includes('--require-redis') || process.env.REQUIRE_REDIS === 'true';
+    const requirePostgres = process.argv.includes('--require-postgres') || process.env.REQUIRE_POSTGRES === 'true';
+
     console.log('='.repeat(80));
     console.log('🚀 AI-RAG-ENGINE In-Memory Micro-Benchmark');
+    if (requireOnnx || requireRedis || requirePostgres) {
+        console.log(`Mandatory benchmark requirements: ONNX=${requireOnnx}, Redis=${requireRedis}, Postgres=${requirePostgres}`);
+    }
     console.log('='.repeat(80));
 
     const heapStartBytes = process.memoryUsage().heapUsed;
@@ -186,11 +193,19 @@ async function main() {
             5
         );
         results.push(onnxBench);
-    } catch (e: any) {
-        console.warn(`[Benchmark] Skipping Local ONNX inference benchmark: ${e.message}`);
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (requireOnnx) {
+            throw new Error(`[FAIL-CLOSED] Local ONNX inference benchmark required (--require-onnx) but failed: ${msg}`);
+        }
+        console.warn(`[Benchmark] Skipping Local ONNX inference benchmark: ${msg}`);
     }
 
     // 9. Real Redis Network Roundtrip Benchmark (Conditional on REDIS_TEST_URL)
+    if (requireRedis && !process.env.REDIS_TEST_URL) {
+        throw new Error('[FAIL-CLOSED] Redis benchmark required (--require-redis) but REDIS_TEST_URL environment variable is not defined');
+    }
+
     if (process.env.REDIS_TEST_URL) {
         try {
             const { Redis } = await import('ioredis');
@@ -207,12 +222,20 @@ async function main() {
             );
             results.push(redisNetBench);
             await redisClient.quit();
-        } catch (e: any) {
-            console.warn(`[Benchmark] Skipping Redis Network benchmark: ${e.message}`);
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            if (requireRedis) {
+                throw new Error(`[FAIL-CLOSED] Redis benchmark required (--require-redis) but failed: ${msg}`);
+            }
+            console.warn(`[Benchmark] Skipping Redis Network benchmark: ${msg}`);
         }
     }
 
     // 10. Real PostgreSQL pgvector Cosine Search Benchmark (Conditional on PG_TEST_URL)
+    if (requirePostgres && !process.env.PG_TEST_URL) {
+        throw new Error('[FAIL-CLOSED] PostgreSQL benchmark required (--require-postgres) but PG_TEST_URL environment variable is not defined');
+    }
+
     if (process.env.PG_TEST_URL) {
         try {
             const { PostgresVectorAdapter } = await import('../../src/adapters/vector/postgres-vector.adapter.js');
@@ -238,8 +261,12 @@ async function main() {
             );
             results.push(pgBench);
             await pgAdapter.close();
-        } catch (e: any) {
-            console.warn(`[Benchmark] Skipping Postgres pgvector benchmark: ${e.message}`);
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            if (requirePostgres) {
+                throw new Error(`[FAIL-CLOSED] PostgreSQL benchmark required (--require-postgres) but failed: ${msg}`);
+            }
+            console.warn(`[Benchmark] Skipping Postgres pgvector benchmark: ${msg}`);
         }
     }
 

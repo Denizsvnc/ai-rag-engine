@@ -1,20 +1,46 @@
 import { providerTimeoutSignal } from '../../utils/http.js';
 import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../interfaces/llm.interface.js';
 
+/**
+ * Configuration options for Google Gemini LLM adapter.
+ */
 export interface GeminiConfig {
-    /** Google Gemini API Key. Defaults to process.env.GEMINI_API_KEY. */
+    /** Google Gemini API Key. Defaults to `process.env.GEMINI_API_KEY`. */
     apiKey?: string | undefined;
-    /** Model identifier (e.g. 'gemini-2.0-flash', 'gemini-1.5-pro'). Defaults to process.env.GEMINI_MODEL || process.env.GEMINI_MODEL_FAST || 'gemini-2.0-flash'. */
+    /** Model identifier (e.g. `'gemini-3.6-flash'`, `'gemini-3.6-pro'`). Defaults to `process.env.GEMINI_MODEL` or `'gemini-3.6-flash'`. */
     model?: string | undefined;
-    /** Sampling temperature. Defaults to 0.1 for deterministic RAG answers. */
+    /** Sampling temperature in range [0.0 - 2.0]. Defaults to 0.1 for grounded factual answers. */
     temperature?: number | undefined;
 }
 
+/**
+ * Enterprise adapter for Google Gemini Generative AI models.
+ *
+ * @example
+ * ```typescript
+ * const gemini = new GeminiAdapter({
+ *   apiKey: process.env.GEMINI_API_KEY,
+ *   model: 'gemini-3.6-flash',
+ *   temperature: 0.1
+ * });
+ * const response = await gemini.generate({
+ *   systemPrompt: 'You are a corporate assistant.',
+ *   userPrompt: 'What is our refund policy?'
+ * });
+ * ```
+ */
 export class GeminiAdapter implements ILLMProvider {
     private apiKey: string;
     private model: string;
     private temperature: number;
 
+    /**
+     * Creates a new `GeminiAdapter`.
+     *
+     * @param configOrApiKey - `GeminiConfig` configuration object, or raw API key string.
+     * @param model - Model identifier string when passing raw API key.
+     * @throws `Error` if no API key is provided or found in `process.env.GEMINI_API_KEY`.
+     */
     constructor(configOrApiKey?: string | GeminiConfig, model?: string) {
         let key = '';
         let resolvedModel = '';
@@ -22,11 +48,11 @@ export class GeminiAdapter implements ILLMProvider {
 
         if (typeof configOrApiKey === 'object' && configOrApiKey !== null) {
             key = configOrApiKey.apiKey || process.env.GEMINI_API_KEY || '';
-            resolvedModel = configOrApiKey.model || process.env.GEMINI_MODEL || process.env.GEMINI_MODEL_FAST || 'gemini-2.0-flash';
+            resolvedModel = configOrApiKey.model || process.env.GEMINI_MODEL || process.env.GEMINI_MODEL_FAST || 'gemini-3.6-flash';
             if (configOrApiKey.temperature !== undefined) temp = configOrApiKey.temperature;
         } else {
             key = configOrApiKey || process.env.GEMINI_API_KEY || '';
-            resolvedModel = model || process.env.GEMINI_MODEL || process.env.GEMINI_MODEL_FAST || 'gemini-2.0-flash';
+            resolvedModel = model || process.env.GEMINI_MODEL || process.env.GEMINI_MODEL_FAST || 'gemini-3.6-flash';
         }
 
         this.apiKey = key;
@@ -38,17 +64,17 @@ export class GeminiAdapter implements ILLMProvider {
     }
 
     public static createFast(apiKey?: string): GeminiAdapter {
-        return new GeminiAdapter(apiKey, process.env.GEMINI_MODEL_FAST || 'gemini-2.0-flash');
+        return new GeminiAdapter(apiKey, process.env.GEMINI_MODEL_FAST || 'gemini-3.6-flash');
     }
 
     public static createSmart(apiKey?: string): GeminiAdapter {
-        return new GeminiAdapter(apiKey, process.env.GEMINI_MODEL_SMART || 'gemini-1.5-pro');
+        return new GeminiAdapter(apiKey, process.env.GEMINI_MODEL_SMART || 'gemini-3.6-pro');
     }
 
     public async generate(request: ILLMRequest): Promise<ILLMResponse> {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
 
-        const body: any = {
+        const body: Record<string, unknown> = {
             contents: [
                 {
                     role: 'user',
@@ -98,7 +124,7 @@ export class GeminiAdapter implements ILLMProvider {
         const parts = candidate?.content?.parts || [];
 
         let content = '';
-        const toolCalls: Array<{ name: string; arguments: Record<string, any> }> = [];
+        const toolCalls: Array<{ name: string; arguments: Record<string, unknown> }> = [];
 
         for (const part of parts) {
             if (part.text) {

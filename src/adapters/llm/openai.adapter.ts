@@ -1,23 +1,50 @@
 import { providerTimeoutSignal } from '../../utils/http.js';
 import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../interfaces/llm.interface.js';
 
+/**
+ * Configuration options for OpenAI LLM adapter.
+ */
 export interface OpenAIConfig {
-    /** OpenAI API Key. Defaults to process.env.OPENAI_API_KEY. */
+    /** OpenAI API Key. Defaults to `process.env.OPENAI_API_KEY`. */
     apiKey?: string | undefined;
-    /** Model identifier (e.g. 'gpt-4o-mini', 'gpt-4o'). Defaults to process.env.OPENAI_MODEL || 'gpt-4o-mini'. */
+    /** Model identifier (e.g. `'gpt-4o-mini'`, `'gpt-4o'`). Defaults to `process.env.OPENAI_MODEL` or `'gpt-4o-mini'`. */
     model?: string | undefined;
-    /** Base API endpoint. Defaults to 'https://api.openai.com/v1/chat/completions'. */
+    /** Base API endpoint. Defaults to `'https://api.openai.com/v1/chat/completions'`. */
     endpoint?: string | undefined;
-    /** Sampling temperature. Defaults to 0.1 for deterministic RAG answers. */
+    /** Sampling temperature in range [0.0 - 2.0]. Defaults to 0.1 for deterministic RAG answers. */
     temperature?: number | undefined;
 }
 
+/**
+ * Enterprise adapter for OpenAI and OpenAI-compatible Chat Completions endpoints.
+ *
+ * @example
+ * ```typescript
+ * const openai = new OpenAIAdapter({
+ *   apiKey: process.env.OPENAI_API_KEY,
+ *   model: 'gpt-4o-mini',
+ *   temperature: 0.1
+ * });
+ * const response = await openai.generate({
+ *   systemPrompt: 'You are an internal corporate knowledge assistant.',
+ *   userPrompt: 'Summarize Q3 financial report.'
+ * });
+ * ```
+ */
 export class OpenAIAdapter implements ILLMProvider {
     protected apiKey: string;
     protected model: string;
     protected endpoint: string;
     protected temperature: number;
 
+    /**
+     * Creates a new `OpenAIAdapter`.
+     *
+     * @param configOrApiKey - `OpenAIConfig` object, or raw API key string.
+     * @param model - Model name string when passing raw API key.
+     * @param endpoint - Custom endpoint URL for OpenAI proxies or gateways.
+     * @throws `Error` if no API key is provided or found in environment variables.
+     */
     constructor(
         configOrApiKey?: string | OpenAIConfig,
         model?: string,
@@ -62,7 +89,7 @@ export class OpenAIAdapter implements ILLMProvider {
             { role: 'user', content: request.userPrompt }
         ];
 
-        const body: any = {
+        const body: Record<string, unknown> = {
             model: this.model,
             messages,
             temperature: this.temperature, // Low temperature to reduce hallucination in RAG pipelines
@@ -109,9 +136,9 @@ export class OpenAIAdapter implements ILLMProvider {
 
         // Parse tool call arguments if returned by the model
         if (message.tool_calls && message.tool_calls.length > 0) {
-            result.toolCalls = message.tool_calls.map((tc: any) => ({
+            result.toolCalls = message.tool_calls.map((tc: { function: { name: string; arguments: string } }) => ({
                 name: tc.function.name,
-                arguments: JSON.parse(tc.function.arguments)
+                arguments: JSON.parse(tc.function.arguments) as Record<string, unknown>
             }));
         }
 

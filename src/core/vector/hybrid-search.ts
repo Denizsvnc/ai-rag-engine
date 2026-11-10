@@ -1,18 +1,40 @@
 import type { VectorDocument } from '../../interfaces/vector.interface.js';
 
+/**
+ * Vector document enriched with hybrid retrieval rank provenance and RRF score.
+ */
 export interface HybridScoredDocument extends VectorDocument {
+    /** 1-based rank position within dense vector retrieval results (if present). */
     denseRank?: number | undefined;
+    /** 1-based rank position within sparse lexical retrieval results (if present). */
     sparseRank?: number | undefined;
+    /** Composite Reciprocal Rank Fusion score. */
     rrfScore: number;
 }
 
 /**
- * Reciprocal Rank Fusion (RRF) algorithm.
- * Combines dense vector semantic rankings and sparse BM25 lexical rankings into
- * a single high-precision ranking without needing score normalization.
+ * Reciprocal Rank Fusion (RRF) algorithm combining dense vector and sparse lexical results.
  *
- * Formula: RRF_score(d) = sum_{m in models} 1 / (k + rank_m(d))
- * Standard constant k = 60
+ * @remarks
+ * Merges heterogeneous ranking lists without requiring score scale normalization:
+ * `RRF_score(d) = sum_{m in models} weight_m / (k + rank_m(d))`
+ *
+ * @param denseResults - Candidate documents ranked by dense vector similarity.
+ * @param sparseResults - Candidate documents ranked by sparse BM25 lexical relevance.
+ * @param topK - Maximum number of top-ranked documents to return. @defaultValue 3
+ * @param rrfK - Smoothing constant damping the influence of high-ranking outliers. @defaultValue 60
+ * @param weights - Optional weighting multiplier for dense and sparse models.
+ * @returns Array of deduplicated and re-ranked {@link HybridScoredDocument} objects.
+ *
+ * @example
+ * ```typescript
+ * import { reciprocalRankFusion } from '@denizsvnc/ai-rag-engine';
+ *
+ * const fused = reciprocalRankFusion(vectorDocs, bm25Docs, 5, 60, {
+ *   dense: 1.0,
+ *   sparse: 0.8
+ * });
+ * ```
  */
 export function reciprocalRankFusion(
     denseResults: VectorDocument[],

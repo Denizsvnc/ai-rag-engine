@@ -25,7 +25,7 @@ describe('SML Engine - Circuit Breaker Pattern', () => {
         try {
             await sml.init();
             assert.fail('Should have failed to load non-existent model');
-        } catch (err: any) {
+        } catch (_err: unknown) {
             assert.strictEqual(sml.getFailureCount(), 1);
             assert.strictEqual(sml.getCircuitState(), 'CLOSED');
         }
@@ -34,7 +34,7 @@ describe('SML Engine - Circuit Breaker Pattern', () => {
         try {
             await sml.init();
             assert.fail('Should have failed second time');
-        } catch (err: any) {
+        } catch (_err: unknown) {
             assert.strictEqual(sml.getFailureCount(), 2);
             assert.strictEqual(sml.getCircuitState(), 'OPEN');
         }
@@ -43,7 +43,7 @@ describe('SML Engine - Circuit Breaker Pattern', () => {
         try {
             await sml.init();
             assert.fail('Should have thrown CircuitBreakerOpenError');
-        } catch (err: any) {
+        } catch (err: unknown) {
             assert.ok(err instanceof CircuitBreakerOpenError);
             assert.ok(err.message.includes('tripped OPEN'));
         }

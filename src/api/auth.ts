@@ -3,23 +3,43 @@ import { resolveSecret } from '../core/security/secrets.js';
 import { z } from 'zod';
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
 
+/**
+ * Decoded identity and role payload embedded within authenticated JWT tokens.
+ */
 export interface AuthTokenPayload {
+    /** Unique user identifier. */
     userId: string;
+    /** Tenant / organization identifier for strict multi-tenant scoping. */
     tenantId: string;
+    /** Array of granted RBAC roles (e.g. `['admin', 'compliance_officer']`). */
     roles: string[];
-    metadata?: Record<string, any> | undefined;
+    /** Optional caller metadata. */
+    metadata?: Record<string, unknown> | undefined;
+    /** Token issuer claim. */
     iss?: string | undefined;
+    /** Token audience claim. */
     aud?: string | undefined;
+    /** Not Before timestamp (epoch seconds). */
     nbf?: number | undefined;
+    /** Issued At timestamp (epoch seconds). */
     iat?: number | undefined;
+    /** Expiration timestamp (epoch seconds). */
     exp?: number | undefined;
 }
 
+/**
+ * Configuration options for the Express authentication middleware.
+ */
 export interface AuthMiddlewareOptions {
+    /** HMAC-SHA256 secret key. Defaults to `process.env.JWT_SECRET`. */
     jwtSecret?: string | undefined;
+    /** Expected token issuer claim. Defaults to `'ai-rag-engine'`. */
     issuer?: string | undefined;
+    /** Expected token audience claim. Defaults to `'ai-rag-engine-api'`. */
     audience?: string | undefined;
+    /** Mapping of pre-shared static API keys to identities. */
     apiKeys?: Record<string, AuthTokenPayload> | undefined;
+    /** In development mode only, allows unauthenticated anonymous requests. */
     allowDevAnonymous?: boolean | undefined;
 }
 
@@ -176,8 +196,9 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions): RequestHan
             try {
                 req.auth = verifyAuthToken(token, secret, options);
                 return next();
-            } catch (err: any) {
-                res.status(401).json({ error: `Authentication failed: ${err.message}` });
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                res.status(401).json({ error: `Authentication failed: ${msg}` });
                 return;
             }
         }

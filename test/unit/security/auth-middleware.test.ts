@@ -74,7 +74,7 @@ test('Security Layer - JWT Authentication & RBAC Guard', async (t) => {
         });
 
         let statusCode = 0;
-        let responseJson: any = null;
+        let responseJson: { error?: string } = {};
         let nextCalled = false;
 
         const req = { headers: {} } as unknown as Request;
@@ -82,7 +82,7 @@ test('Security Layer - JWT Authentication & RBAC Guard', async (t) => {
             status: (code: number) => {
                 statusCode = code;
                 return {
-                    json: (data: any) => { responseJson = data; }
+                    json: (data: { error?: string }) => { responseJson = data; }
                 };
             }
         } as unknown as Response;
@@ -166,12 +166,12 @@ test('Security Layer - JWT Authentication & RBAC Guard', async (t) => {
         // Case 2: Caller has insufficient role (Forbidden 403)
         let next2 = false;
         let status2 = 0;
-        let json2: any = null;
+        let json2: { error?: string } = {};
         const req2 = { auth: { userId: 'u2', tenantId: 't1', roles: ['viewer', 'guest'] } } as Request;
         const res2 = {
             status: (code: number) => {
                 status2 = code;
-                return { json: (d: any) => { json2 = d; } };
+                return { json: (d: { error?: string }) => { json2 = d; } };
             }
         } as unknown as Response;
         rbacGuard(req2, res2, () => { next2 = true; });

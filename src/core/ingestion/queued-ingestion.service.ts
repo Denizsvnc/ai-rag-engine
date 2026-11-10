@@ -1,25 +1,73 @@
 import type { DocumentUploadPayload } from '../../services/document-ingestion.service.js';
 import { DocumentIngestionService } from '../../services/document-ingestion.service.js';
 import type { IIngestionBackend, IngestionSettings } from '../../interfaces/ingestion.interface.js';
+import type { IIngestionStore } from '../../interfaces/storage.interface.js';
 import type { Job, JobStatus } from '../queue/job-queue.interface.js';
 import type { BullMQJobQueue } from '../queue/bullmq-queue.js';
-import { PostgresIngestionStore, IngestionQuotaError } from './postgres-ingestion-store.js';
+import { IngestionQuotaError } from './postgres-ingestion-store.js';
 
+/** Minimal contract required from the backing queue for ingestion jobs. */
 export type IngestionQueue = Pick<BullMQJobQueue<IngestionReference>, 'add' | 'getJob' | 'ready' | 'process' | 'retry' | 'close'>;
-export interface IngestionReference { id: string; tenantId: string }
+
+/** Reference pointer to a stored ingestion job in the database. */
+export interface IngestionReference {
+    /** Unique database record ID. */
+    id: string;
+    /** Tenant isolation scope. */
+    tenantId: string;
+}
+
+/**
+ * Configuration options for queued document ingestion.
+ */
 export interface QueuedIngestionOptions {
+    /** Maximum upload size in bytes. @defaultValue 5MB */
     maxUploadBytes?: number | undefined;
+    /** Maximum pending ingestion jobs allowed per tenant. @defaultValue 100 */
     maxPendingPerTenant?: number | undefined;
+    /** Maximum stored bytes quota per tenant. @defaultValue 50MB */
     maxStoredBytesPerTenant?: number | undefined;
+    /** Target text chunk character size. @defaultValue 500 */
     chunkSize?: number | undefined;
+    /** Overlapping characters between adjacent chunks. @defaultValue 50 */
     chunkOverlap?: number | undefined;
 }
 
-/** API-side producer. PostgreSQL commits the upload before Redis dispatch; a worker reconciles the outbox. */
+/**
+ * API-side producer for reliable transactional document ingestion.
+ *
+ * @remarks
+ * Uses transactional outbox pattern: PostgreSQL commits the upload payload before Redis dispatch,
+ * preventing data loss during queue downtime or worker restarts.
+ *
+ * @example
+ * ```typescript
+ * import { QueuedIngestionService, PostgresIngestionStore, BullMQJobQueue } from '@denizsvnc/ai-rag-engine';
+ *
+ * const service = new QueuedIngestionService(store, queue, {
+ *   maxUploadBytes: 10 * 1024 * 1024
+ * });
+ *
+ * const job = await service.submitDocument({
+ *   filename: 'report.pdf',
+ *   content: fileBuffer,
+ *   tenantId: 'tenant_1',
+ *   userId: 'user_admin'
+ * });
+ * ```
+ */
 export class QueuedIngestionService implements IIngestionBackend {
     private readonly settings: IngestionSettings;
     private readonly maxBytes: number;
-    constructor(public readonly store: PostgresIngestionStore, public readonly queue: IngestionQueue, private readonly options: QueuedIngestionOptions = {}) {
+
+    /**
+     * Creates an instance of QueuedIngestionService.
+     *
+     * @param store - Durable ingestion store (e.g. PostgresIngestionStore, MemoryIngestionStore).
+     * @param queue - Background worker job queue.
+     * @param options - Limits and chunking configuration.
+     */
+    constructor(public readonly store: IIngestionStore, public readonly queue: IngestionQueue, private readonly options: QueuedIngestionOptions = {}) {
         this.maxBytes = options.maxUploadBytes ?? 5 * 1024 * 1024;
         this.settings = { chunkSize: options.chunkSize ?? 500, chunkOverlap: options.chunkOverlap ?? 50 };
         if (!Number.isInteger(this.settings.chunkSize) || this.settings.chunkSize < 32 || this.settings.chunkSize > 10000
@@ -31,6 +79,13 @@ export class QueuedIngestionService implements IIngestionBackend {
         }
     }
 
+    /**
+     * Submits a document upload payload to the durable store and enqueues background processing.
+     *
+     * @param payload - Document upload parameters.
+     * @returns Job reference with assigned job ID and initial status.
+     * @throws If file validation fails or tenant quota is exceeded.
+     */
     public async submitDocument(payload: DocumentUploadPayload): Promise<{ jobId: string; status: JobStatus }> {
         const { tenantId, userId, filename } = payload;
         if (!tenantId?.trim() || !userId?.trim()) throw new Error('Trusted tenantId and userId are required.');
@@ -51,6 +106,9 @@ export class QueuedIngestionService implements IIngestionBackend {
         return { jobId: saved.id, status: saved.status === 'pending' ? (await this.store.get(saved.id, tenantId))!.status : saved.status };
     }
 
+    /**
+     * Reconciles pending outbox records from PostgreSQL into the queue.
+     */
     public async flushOutbox(): Promise<void> {
         for (const reference of await this.store.dispatchable()) await this.dispatch(reference);
     }
@@ -62,6 +120,13 @@ export class QueuedIngestionService implements IIngestionBackend {
         await this.store.mark(reference.id, 'queued');
     }
 
+    /**
+     * Retrieves status and progress of an ingestion job.
+     *
+     * @param id - Ingestion job identifier.
+     * @param tenantId - Optional tenant identifier to enforce tenant isolation.
+     * @returns Current job record or null if not found.
+     */
     public async getJobStatus(id: string, tenantId?: string): Promise<Job | null> {
         const saved = await this.store.get(id, tenantId);
         if (!saved) return null;
@@ -81,6 +146,13 @@ export class QueuedIngestionService implements IIngestionBackend {
         };
     }
 
+    /**
+     * Retries a failed ingestion job.
+     *
+     * @param id - Ingestion job identifier.
+     * @param tenantId - Tenant identifier.
+     * @throws If job is not found or payload has expired.
+     */
     public async retryJob(id: string, tenantId: string): Promise<void> {
         const saved = await this.store.get(id, tenantId);
         if (!saved || saved.status !== 'failed' || !saved.content) throw new Error('Failed job missing or retry payload expired.');

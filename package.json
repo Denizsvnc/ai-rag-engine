@@ -31,7 +31,7 @@
     "benchmark": "tsx test/performance/smoke-benchmark.ts",
     "example:ecommerce": "tsx src/examples/02-ecommerce-with-tools/index.ts",
     "example:minimal": "tsx src/examples/01-minimal-express/index.ts",
-    "test:security": "node --import tsx --test test/security/*.test.ts test/unit/security/*.test.ts test/integration/security-boundaries.test.ts test/integration/distributed-confirmation.test.ts test/unit/governed-tools.test.ts",
+    "test:security": "node --import tsx --test --test-reporter=spec --test-reporter=./tools/strict-reporter.mjs --test-reporter-destination=stdout --test-reporter-destination=test-summary.json test/security/*.test.ts test/unit/security/*.test.ts test/integration/security-boundaries.test.ts test/integration/distributed-confirmation.test.ts test/unit/governed-tools.test.ts",
     "db:migrate": "node dist/scripts/migrate-vector.js",
     "start:worker": "node dist/worker.js",
     "prepack": "npm run build",
@@ -69,6 +69,22 @@
     "@types/pg": "8.23.1",
     "@types/express": "5.0.6",
     "@types/node": "26.6.5"
+  },
+  "peerDependencies": {
+    "mongodb": ">=6.0.0",
+    "mysql2": ">=3.0.0",
+    "neo4j-driver": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "mongodb": {
+      "optional": true
+    },
+    "mysql2": {
+      "optional": true
+    },
+    "neo4j-driver": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "esbuild": "0.28.2",

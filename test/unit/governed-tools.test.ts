@@ -8,7 +8,7 @@ import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../src/interfac
 
 // Mock LLM configured to simulate extracting tool arguments
 class MockExtractionLLM implements ILLMProvider {
-    constructor(private simulatedArgs: any, private simulatedToolName?: string) {}
+    constructor(private simulatedArgs: Record<string, unknown>, private simulatedToolName?: string) {}
 
     async generate(req: ILLMRequest): Promise<ILLMResponse> {
         // If tools are present, simulate LLM choosing to call tool
@@ -151,8 +151,9 @@ describe('Governed Tool Execution - RBAC, Zod & Mutation Guard', () => {
         const lastAudit = auditLogs[auditLogs.length - 1];
         assert.strictEqual(lastAudit?.status, 'SUCCESS');
         assert.strictEqual(lastAudit?.isMutating, true);
-        assert.strictEqual(lastAudit?.args.sku, 'LAPTOP-X1');
-        assert.strictEqual(lastAudit?.args.quantity, 42);
+        const auditArgs = lastAudit?.args as { sku?: string; quantity?: number } | undefined;
+        assert.strictEqual(auditArgs?.sku, 'LAPTOP-X1');
+        assert.strictEqual(auditArgs?.quantity, 42);
     });
     test('Extraction must not redeem approval for a different tool name', async () => {
         let executions = 0;
