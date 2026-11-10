@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/Denizsvnc/ai-rag-engine/main/assets/logo.jpg" alt="AI-RAG-ENGINE Logo" width="160" style="border-radius: 28px; box-shadow: 0 12px 40px rgba(124, 108, 245, 0.45); margin-bottom: 16px;" />
-
-# ⚡ AI-RAG-ENGINE
+<img src="https://raw.githubusercontent.com/Denizsvnc/ai-rag-engine/main/assets/logo.jpg" alt="AI-RAG-ENGINE" width="380" style="max-width: 100%; height: auto; border-radius: 12px; margin-bottom: 16px;" />
 
 **TypeScript-/Node.js-Bibliothek für RAG mit austauschbaren LLM- und Vektoradaptern, lokalem semantischem FAQ-/Tool-Routing, Mandantenisolierung und persistenter Dokumentenaufnahme.**
 

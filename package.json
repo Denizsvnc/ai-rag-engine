@@ -38,7 +38,7 @@
     "test:consumer": "node test/package/run.mjs",
     "clean": "node tools/clean.mjs",
     "test:consumer:integration": "node test/consumer/run.mjs",
-    "test:bun": "bun test test/bun/bun-compat.test.ts",
+    "test:bun": "bun run build && bun test test/bun/bun-compat.test.ts",
     "test:package": "npm run build && node tools/verify-package.mjs"
   },
   "keywords": [

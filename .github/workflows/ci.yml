@@ -102,6 +102,8 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install --frozen-lockfile || bun install
+      - name: Build SDK
+        run: bun run build
       - name: Execute Bun Test Suite
         run: bun test test/bun/bun-compat.test.ts
 
