@@ -2,6 +2,23 @@
 
 This file follows Semantic Versioning.
 
+## 2.4.0 — 2026-11-11
+
+### Added
+
+- **Database-Agnostic Storage Abstraction Layer:** Implemented modular, capability-driven storage contracts (`IVectorStore`, `IDocumentStore`, `IGraphStore`, `IIngestionStore`, `IBlobStore`, `IEmbeddingProvider`, `StorageCapabilities`, `StorageCapabilityRegistry`, `createStorage`) following Interface Segregation (ISP) and Dependency Inversion (DIP) principles.
+- **Zero-Dependency Persistent SQLite Storage:** Added `SqliteVectorAdapter` and `SqliteDocumentAdapter` powered by Node.js built-in `node:sqlite` (`DatabaseSync`), supporting dense vector BLOB search, FTS5 BM25 full-text indexing, Reciprocal Rank Fusion (RRF) hybrid retrieval, composite primary key tenant scoping, and atomic document replacement.
+- **Multi-Provider Cloud Storage Ecosystem:** Added `QdrantVectorAdapter` (REST API over global `fetch` with zero external dependencies), `MongoDocumentAdapter` (lazy-loaded `mongodb`), `MySQLDocumentAdapter` (lazy-loaded `mysql2`), and `Neo4jGraphAdapter` (lazy-loaded `neo4j-driver`) with parameter-bound tenant isolation.
+- **Blob Storage Subsystem:** Implemented `MemoryBlobStore` and `LocalFsBlobStore` with strict directory traversal defenses (`..` rejection and tenant subdirectory sandboxing).
+- **Ingestion Decoupling & In-Memory Store:** Decoupled `QueuedIngestionService` and `IngestionWorker` from concrete PostgreSQL; introduced `MemoryIngestionStore` with version heads, monotonic revisioning, SHA-256 deduplication, and tenant storage byte quotas.
+- **Adaptive Intelligence & Multi-Strategy Orchestration:** Integrated dynamic query planning and execution across 9 retrieval and reasoning strategies (Semantic Search, Hybrid Search, GraphRAG, KAG, Traditional RAG, CAG, Agentic RAG, Knowledge Graph, Semantic Graph) with multi-evidence Reciprocal Rank Fusion and cross-source contradiction detection.
+- **Architecture Documentation & Security Audits:** Published comprehensive specifications and audits in `docs/architecture/` (`storage-abstraction.md`, `adapter-capabilities.md`, `distributed-ingestion.md`) and `docs/audits/` (`STORAGE_SECURITY_AUDIT.md`, `STORAGE_COMPATIBILITY.md`), along with architecture SVG diagrams.
+
+### Fixed
+
+- **Type Alignment:** Aligned `chunkText` mock signature in mutation verification test with static method declaration.
+- **Package Isolation:** Declared optional drivers (`mongodb`, `mysql2`, `neo4j-driver`) as optional peer dependencies to prevent bundle bloat for lightweight consumers.
+
 ## 2.3.0 — 2026-11-10
 
 ### Added
