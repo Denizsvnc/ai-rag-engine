@@ -70,6 +70,14 @@ User Query
 5. **Hybrid Retrieval:** Fuses dense vector embeddings with sparse BM25 keyword rankings using Reciprocal Rank Fusion ($k=60$).
 6. **Context-Bounded Synthesis:** Formulates prompt contexts and streams answers through configured LLM providers with automated error failover and token accounting.
 
+### Integration Topology & Endpoints
+
+AI-RAG-ENGINE can be consumed either as an in-process TypeScript SDK or deployed as a containerized REST service with built-in JWT authentication, role-based access control, and automated LLM failover chains:
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Denizsvnc/ai-rag-engine/main/assets/endpoints.svg" alt="AI-RAG-ENGINE Integration Topology & Endpoints" width="100%" />
+</div>
+
 ---
 
 ## Installation
@@ -212,6 +220,22 @@ console.log('Latency:', result.latencyMs, 'ms');
 | **Tool Governance** | `ToolRegistry` & `ConfirmationService` | Zod schema validation, RBAC checks, and cryptographic HMAC confirmation tickets for state-mutating actions. |
 | **Durable Ingestion** | `DocumentIngestionService` | Background queue (BullMQ/Memory) with magic-byte checks, streaming UTF-8 preservation, and native `zlib` PDF decompression. |
 | **FinOps Metrics** | `TokenTracker` & `PrometheusExporter` | Real-time token usage, latency histograms, cost savings accounting, and Prometheus scraping (`/metrics`). |
+
+### Local SML (Semantic Model Layer) Decision Mechanism
+
+Sub-15ms mathematical vector dot products replace expensive cloud LLM calls for intent routing, FAQ matching, and safe read-only tool selection:
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Denizsvnc/ai-rag-engine/main/assets/sml-mechanism.svg" alt="AI-RAG-ENGINE Local SML Decision & Execution Mechanism" width="100%" />
+</div>
+
+### Secure Document Ingestion & PII Protection Pipeline
+
+Asynchronous background worker queues validate magic bytes, redact sensitive personal data, preserve multi-byte UTF-8 character boundaries across streams, and index vectors with revision tracking:
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Denizsvnc/ai-rag-engine/main/assets/ingestion-pii-pipeline.svg" alt="AI-RAG-ENGINE Secure Document Ingestion and PII Pipeline" width="100%" />
+</div>
 
 ---
 
