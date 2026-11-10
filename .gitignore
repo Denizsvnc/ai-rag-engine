@@ -70,6 +70,7 @@ env/
 *.db
 *.sqlite
 *.sqlite3
+*.ses
 chroma_data/
 faiss_index/
 data/

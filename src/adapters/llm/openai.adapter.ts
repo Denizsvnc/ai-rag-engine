@@ -1,22 +1,51 @@
 import { providerTimeoutSignal } from '../../utils/http.js';
 import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../interfaces/llm.interface.js';
 
+export interface OpenAIConfig {
+    /** OpenAI API Key. Defaults to process.env.OPENAI_API_KEY. */
+    apiKey?: string | undefined;
+    /** Model identifier (e.g. 'gpt-4o-mini', 'gpt-4o'). Defaults to process.env.OPENAI_MODEL || 'gpt-4o-mini'. */
+    model?: string | undefined;
+    /** Base API endpoint. Defaults to 'https://api.openai.com/v1/chat/completions'. */
+    endpoint?: string | undefined;
+    /** Sampling temperature. Defaults to 0.1 for deterministic RAG answers. */
+    temperature?: number | undefined;
+}
+
 export class OpenAIAdapter implements ILLMProvider {
     protected apiKey: string;
     protected model: string;
     protected endpoint: string;
+    protected temperature: number;
 
     constructor(
-        apiKey?: string,
+        configOrApiKey?: string | OpenAIConfig,
         model?: string,
         endpoint?: string
     ) {
-        this.apiKey = apiKey || process.env.OPENAI_API_KEY || '';
+        let key = '';
+        let resolvedModel = '';
+        let resolvedEndpoint = '';
+        let temp = 0.1;
+
+        if (typeof configOrApiKey === 'object' && configOrApiKey !== null) {
+            key = configOrApiKey.apiKey || process.env.OPENAI_API_KEY || '';
+            resolvedModel = configOrApiKey.model || process.env.OPENAI_MODEL || process.env.OPENAI_MODEL_FAST || 'gpt-4o-mini';
+            resolvedEndpoint = configOrApiKey.endpoint || process.env.OPENAI_ENDPOINT || 'https://api.openai.com/v1/chat/completions';
+            if (configOrApiKey.temperature !== undefined) temp = configOrApiKey.temperature;
+        } else {
+            key = configOrApiKey || process.env.OPENAI_API_KEY || '';
+            resolvedModel = model || process.env.OPENAI_MODEL || process.env.OPENAI_MODEL_FAST || 'gpt-4o-mini';
+            resolvedEndpoint = endpoint || process.env.OPENAI_ENDPOINT || 'https://api.openai.com/v1/chat/completions';
+        }
+
+        this.apiKey = key;
         if (!this.apiKey) {
             throw new Error('[OpenAIAdapter] API Key not found. Provide it in constructor or set OPENAI_API_KEY in .env');
         }
-        this.model = model || process.env.OPENAI_MODEL || process.env.OPENAI_MODEL_FAST || 'gpt-4o-mini';
-        this.endpoint = endpoint || process.env.OPENAI_ENDPOINT || 'https://api.openai.com/v1/chat/completions';
+        this.model = resolvedModel;
+        this.endpoint = resolvedEndpoint;
+        this.temperature = temp;
     }
 
     public static createFast(apiKey?: string): OpenAIAdapter {
@@ -36,7 +65,7 @@ export class OpenAIAdapter implements ILLMProvider {
         const body: any = {
             model: this.model,
             messages,
-            temperature: 0.1, // Low temperature to reduce hallucination in RAG pipelines
+            temperature: this.temperature, // Low temperature to reduce hallucination in RAG pipelines
         };
 
         // Attach tool schemas if provided

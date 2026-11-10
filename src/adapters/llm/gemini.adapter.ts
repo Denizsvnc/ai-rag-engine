@@ -1,20 +1,44 @@
 import { providerTimeoutSignal } from '../../utils/http.js';
 import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../interfaces/llm.interface.js';
 
+export interface GeminiConfig {
+    /** Google Gemini API Key. Defaults to process.env.GEMINI_API_KEY. */
+    apiKey?: string | undefined;
+    /** Model identifier (e.g. 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'). Defaults to process.env.GEMINI_MODEL || 'gemini-2.0-flash'. */
+    model?: string | undefined;
+    /** Sampling temperature. Defaults to 0.1 for deterministic RAG answers. */
+    temperature?: number | undefined;
+}
+
 export class GeminiAdapter implements ILLMProvider {
     private apiKey: string;
     private model: string;
+    private temperature: number;
 
-    constructor(apiKey?: string, model?: string) {
-        this.apiKey = apiKey || process.env.GEMINI_API_KEY || '';
+    constructor(configOrApiKey?: string | GeminiConfig, model?: string) {
+        let key = '';
+        let resolvedModel = '';
+        let temp = 0.1;
+
+        if (typeof configOrApiKey === 'object' && configOrApiKey !== null) {
+            key = configOrApiKey.apiKey || process.env.GEMINI_API_KEY || '';
+            resolvedModel = configOrApiKey.model || process.env.GEMINI_MODEL || process.env.GEMINI_MODEL_FAST || 'gemini-2.0-flash';
+            if (configOrApiKey.temperature !== undefined) temp = configOrApiKey.temperature;
+        } else {
+            key = configOrApiKey || process.env.GEMINI_API_KEY || '';
+            resolvedModel = model || process.env.GEMINI_MODEL || process.env.GEMINI_MODEL_FAST || 'gemini-2.0-flash';
+        }
+
+        this.apiKey = key;
         if (!this.apiKey) {
             throw new Error('[GeminiAdapter] API Key not found. Provide it in constructor or set GEMINI_API_KEY in .env');
         }
-        this.model = model || process.env.GEMINI_MODEL || process.env.GEMINI_MODEL_FAST || 'gemini-1.5-flash';
+        this.model = resolvedModel;
+        this.temperature = temp;
     }
 
     public static createFast(apiKey?: string): GeminiAdapter {
-        return new GeminiAdapter(apiKey, process.env.GEMINI_MODEL_FAST || 'gemini-1.5-flash');
+        return new GeminiAdapter(apiKey, process.env.GEMINI_MODEL_FAST || 'gemini-2.0-flash');
     }
 
     public static createSmart(apiKey?: string): GeminiAdapter {
@@ -32,7 +56,7 @@ export class GeminiAdapter implements ILLMProvider {
                 }
             ],
             generationConfig: {
-                temperature: 0.1, // Low temperature to reduce hallucination in RAG pipelines
+                temperature: this.temperature, // Low temperature to reduce hallucination in RAG pipelines
             }
         };
 

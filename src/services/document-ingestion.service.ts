@@ -6,6 +6,8 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import zlib from 'node:zlib';
+import { StringDecoder } from 'node:string_decoder';
 import type { IVectorStoreAdapter, VectorDocument } from '../interfaces/vector.interface.js';
 import { SMLEngine } from '../core/sml-engine.js';
 import { PIIGuard, type PIIPolicy } from '../core/security/pii-guard.js';
@@ -199,21 +201,95 @@ export class DocumentIngestionService {
      * - Performs binary artifact suppression and multi-lingual UTF-8 normalization (Turkish, European, and CJK diacritics).
      */
     public static extractText(filename: string, buffer: Buffer): string {
-        const rawString = buffer.toString('utf-8');
-
         // Check PDF Magic Number (%PDF-)
-        if (buffer.length >= 4 && buffer.slice(0, 4).toString() === '%PDF') {
-            return DocumentIngestionService.extractPdfText(rawString);
+        if (buffer.length >= 4 && buffer.subarray(0, 4).toString() === '%PDF') {
+            return DocumentIngestionService.extractPdfText(buffer);
         }
 
-        return rawString.trim();
+        return buffer.toString('utf-8').trim();
     }
 
     /**
-     * Enterprise High-Efficiency PDF Lexical Extractor.
-     * Parses PDF content streams without heavy external C++/WASM dependencies.
+     * Enterprise High-Efficiency PDF Lexical Extractor with native zlib.inflate decompression.
+     * Decodes and parses PDF content streams without heavy external C++/WASM dependencies.
+     * 
+     * Supports:
+     * - Decompression of compressed stream objects (/Filter /FlateDecode) via Node.js native zlib.
+     * - BT (Begin Text) ... ET (End Text) matrices.
+     * - TJ array operators with kerning spacing preservation.
+     * - Literal (Tj) and hexadecimal (<hex> Tj) text operators with escape and octal decoding.
      */
-    public static extractPdfText(rawContent: string): string {
+    public static extractPdfText(rawContent: Buffer | string): string {
+        const buffer = Buffer.isBuffer(rawContent)
+            ? rawContent
+            : Buffer.from(rawContent, 'latin1');
+
+        const decompressedStreams: string[] = [];
+        const streamMarker = Buffer.from('stream');
+        const endStreamMarker = Buffer.from('endstream');
+        let pos = 0;
+
+        // 1. Decompress and extract all binary/deflated stream objects
+        while (pos < buffer.length) {
+            const streamIdx = buffer.indexOf(streamMarker, pos);
+            if (streamIdx === -1) break;
+
+            // Ensure boundary before 'stream' keyword (whitespace, newline, or '>')
+            const prevChar = streamIdx > 0 ? buffer[streamIdx - 1] : 0x20;
+            if (prevChar !== 0x0A && prevChar !== 0x0D && prevChar !== 0x20 && prevChar !== 0x3E) {
+                pos = streamIdx + 6;
+                continue;
+            }
+
+            // Skip CRLF or LF after 'stream' keyword
+            let dataStart = streamIdx + 6;
+            if (buffer[dataStart] === 0x0D && buffer[dataStart + 1] === 0x0A) {
+                dataStart += 2;
+            } else if (buffer[dataStart] === 0x0A || buffer[dataStart] === 0x0D) {
+                dataStart += 1;
+            }
+
+            const endIdx = buffer.indexOf(endStreamMarker, dataStart);
+            if (endIdx === -1) break;
+
+            // Trim trailing CRLF / whitespace before 'endstream'
+            let dataEnd = endIdx;
+            while (dataEnd > dataStart && (buffer[dataEnd - 1] === 0x0A || buffer[dataEnd - 1] === 0x0D || buffer[dataEnd - 1] === 0x20)) {
+                dataEnd--;
+            }
+
+            const streamBytes = buffer.subarray(dataStart, dataEnd);
+
+            // Check dictionary preceding 'stream' for /Filter /FlateDecode (or /Fl)
+            const dictStart = Math.max(0, streamIdx - 500);
+            const dictSnippet = buffer.subarray(dictStart, streamIdx).toString('latin1');
+            const isFlate = /\/Filter\s*(?:\[\s*)?\/(?:FlateDecode|Fl)\b/.test(dictSnippet) || !/\/Filter\b/.test(dictSnippet);
+
+            let decoded = '';
+            if (isFlate && streamBytes.length > 0) {
+                try {
+                    decoded = zlib.inflateSync(streamBytes).toString('utf-8');
+                } catch {
+                    try {
+                        decoded = zlib.inflateRawSync(streamBytes).toString('utf-8');
+                    } catch {
+                        // Fallback: decode directly in case stream is uncompressed or uses custom encoding
+                        decoded = streamBytes.toString('utf-8');
+                    }
+                }
+            } else {
+                decoded = streamBytes.toString('utf-8');
+            }
+
+            if (decoded && decoded.trim().length > 0) {
+                decompressedStreams.push(decoded);
+            }
+
+            pos = endIdx + 9;
+        }
+
+        // Combine all decompressed streams with raw document content
+        const contentToScan = [buffer.toString('latin1'), ...decompressedStreams].join('\n');
         const extractedSegments: string[] = [];
 
         // Helper: Decodes PDF literal string escape sequences and octals
@@ -240,14 +316,14 @@ export class DocumentIngestionService {
             }
         };
 
-        // 1. Extract BT (Begin Text) ... ET (End Text) Blocks
+        // 2. Extract BT (Begin Text) ... ET (End Text) Blocks
         const btEtRegex = /BT[\s\S]*?ET/g;
         let btMatch: RegExpExecArray | null;
 
-        while ((btMatch = btEtRegex.exec(rawContent)) !== null) {
+        while ((btMatch = btEtRegex.exec(contentToScan)) !== null) {
             const blockContent = btMatch[0];
 
-            // 1a. Match TJ Array Operators: [ (Text1) -150 (Text2) <48656C> ] TJ
+            // 2a. Match TJ Array Operators: [ (Text1) -150 (Text2) <48656C> ] TJ
             const tjArrayRegex = /\[([\s\S]*?)\]\s*TJ/g;
             let tjArrMatch: RegExpExecArray | null;
             while ((tjArrMatch = tjArrayRegex.exec(blockContent)) !== null) {
@@ -274,7 +350,7 @@ export class DocumentIngestionService {
                 }
             }
 
-            // 1b. Match Standard Tj Operators: (Literal Text) Tj
+            // 2b. Match Standard Tj Operators: (Literal Text) Tj
             const tjSingleRegex = /\((.*?)\)\s*Tj/g;
             let singleMatch: RegExpExecArray | null;
             while ((singleMatch = tjSingleRegex.exec(blockContent)) !== null) {
@@ -284,7 +360,7 @@ export class DocumentIngestionService {
                 }
             }
 
-            // 1c. Match Hex Tj Operators: <48656C6C6F> Tj
+            // 2c. Match Hex Tj Operators: <48656C6C6F> Tj
             const tjHexRegex = /<([0-9a-fA-F]+)>\s*Tj/g;
             let hexMatch: RegExpExecArray | null;
             while ((hexMatch = tjHexRegex.exec(blockContent)) !== null) {
@@ -302,8 +378,8 @@ export class DocumentIngestionService {
                 .trim();
         }
 
-        // 2. High-Fidelity Fallback: Stream Object Decomposition
-        const cleaned = rawContent
+        // 3. High-Fidelity Fallback: Stream Object Decomposition
+        const cleaned = contentToScan
             .replace(/%PDF-[^\n]+/g, '')
             .replace(/stream[\s\S]*?endstream/g, (streamObj) => {
                 const innerMatch = streamObj.match(/\((.*?)\)/g);
@@ -322,8 +398,19 @@ export class DocumentIngestionService {
 
 
     public static chunkText(text: string, chunkSize: number = 500, overlap: number = 50): string[] {
-        if (!text || text.length <= chunkSize) {
-            return text ? [text] : [];
+        if (!Number.isFinite(chunkSize) || chunkSize <= 0) {
+            throw new RangeError(`[DocumentIngestionService] chunkSize must be a positive integer greater than 0. Received: ${chunkSize}`);
+        }
+        if (!Number.isFinite(overlap) || overlap < 0 || overlap >= chunkSize) {
+            throw new RangeError(`[DocumentIngestionService] overlap must be non-negative and strictly less than chunkSize (${chunkSize}). Received: ${overlap}`);
+        }
+
+        if (!text || text.trim().length === 0) {
+            return [];
+        }
+
+        if (text.length <= chunkSize) {
+            return [text.trim()];
         }
 
         const chunks: string[] = [];
@@ -331,7 +418,6 @@ export class DocumentIngestionService {
 
         while (startIndex < text.length) {
             let endIndex = Math.min(startIndex + chunkSize, text.length);
-
 
             if (endIndex < text.length) {
                 const searchWindow = text.slice(Math.max(startIndex, endIndex - 60), endIndex);
@@ -367,16 +453,25 @@ export class DocumentIngestionService {
      * Streaming chunk generator.
      * Ingests chunks of text or buffers incrementally with natural backpressure,
      * maintaining a constant O(1) memory footprint regardless of file size.
+     * Preserves UTF-8 multibyte character boundaries across stream buffer splits.
      */
     public static async *chunkStream(
         textStream: AsyncIterable<string | Buffer>,
         chunkSize: number = 500,
         overlap: number = 50
     ): AsyncGenerator<string, void, unknown> {
+        if (!Number.isFinite(chunkSize) || chunkSize <= 0) {
+            throw new RangeError(`[DocumentIngestionService] chunkSize must be a positive integer greater than 0. Received: ${chunkSize}`);
+        }
+        if (!Number.isFinite(overlap) || overlap < 0 || overlap >= chunkSize) {
+            throw new RangeError(`[DocumentIngestionService] overlap must be non-negative and strictly less than chunkSize (${chunkSize}). Received: ${overlap}`);
+        }
+
+        const decoder = new StringDecoder('utf-8');
         let window = '';
 
         for await (const rawChunk of textStream) {
-            const chunkStr = Buffer.isBuffer(rawChunk) ? rawChunk.toString('utf-8') : String(rawChunk);
+            const chunkStr = Buffer.isBuffer(rawChunk) ? decoder.write(rawChunk) : String(rawChunk);
             window += chunkStr;
 
             while (window.length >= chunkSize) {
@@ -399,8 +494,13 @@ export class DocumentIngestionService {
                     yield emitted;
                 }
 
-                window = window.slice(Math.max(1, endIndex - overlap));
+                window = window.slice(Math.max(0, endIndex - overlap));
             }
+        }
+
+        const flushed = decoder.end();
+        if (flushed) {
+            window += flushed;
         }
 
         const remaining = window.trim();

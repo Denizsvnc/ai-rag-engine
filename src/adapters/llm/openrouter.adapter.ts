@@ -1,8 +1,10 @@
-import { OpenAIAdapter } from './openai.adapter.js';
+import { OpenAIAdapter, type OpenAIConfig } from './openai.adapter.js';
+
+export interface OpenRouterConfig extends OpenAIConfig {}
 
 export class OpenRouterAdapter extends OpenAIAdapter {
     constructor(
-        apiKey?: string,
+        configOrApiKey?: string | OpenRouterConfig,
         model?: string,
         endpoint: string = 'https://openrouter.ai/api/v1/chat/completions'
     ) {
@@ -13,12 +15,31 @@ export class OpenRouterAdapter extends OpenAIAdapter {
             );
         }
 
-        const key = apiKey || process.env.OPENROUTER_API_KEY || '';
+        let key = '';
+        let resolvedModel = '';
+        let resolvedEndpoint = endpoint;
+        let temp = 0.1;
+
+        if (typeof configOrApiKey === 'object' && configOrApiKey !== null) {
+            key = configOrApiKey.apiKey || process.env.OPENROUTER_API_KEY || '';
+            resolvedModel = configOrApiKey.model || process.env.OPENROUTER_MODEL || process.env.OPENROUTER_MODEL_FAST || 'meta-llama/llama-3.2-3b-instruct:free';
+            if (configOrApiKey.endpoint) resolvedEndpoint = configOrApiKey.endpoint;
+            if (configOrApiKey.temperature !== undefined) temp = configOrApiKey.temperature;
+        } else {
+            key = configOrApiKey || process.env.OPENROUTER_API_KEY || '';
+            resolvedModel = model || process.env.OPENROUTER_MODEL || process.env.OPENROUTER_MODEL_FAST || 'meta-llama/llama-3.2-3b-instruct:free';
+        }
+
         if (!key) {
             throw new Error('[OpenRouterAdapter] API Key not found. Provide it in constructor or set OPENROUTER_API_KEY in .env');
         }
-        const resolvedModel = model || process.env.OPENROUTER_MODEL || process.env.OPENROUTER_MODEL_FAST || 'meta-llama/llama-3.2-3b-instruct:free';
-        super(key, resolvedModel, endpoint);
+
+        super({
+            apiKey: key,
+            model: resolvedModel,
+            endpoint: resolvedEndpoint,
+            temperature: temp
+        });
     }
 
     public static createFast(apiKey?: string): OpenRouterAdapter {

@@ -11,6 +11,7 @@ function findTestFiles(dir: string): string[] {
     for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
         if (entry.isDirectory()) {
+            if (entry.name === 'bun') continue; // Dedicated Bun compatibility suite (run via npm run test:bun)
             results.push(...findTestFiles(fullPath));
         } else if (entry.name.endsWith('.test.ts')) {
             results.push(fullPath);

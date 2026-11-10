@@ -11,7 +11,7 @@ export * from './core/security/security.types.js';
 
 // Core Engine & Orchestration
 export { RAGEngine } from './core/engine.js';
-export { SMLEngine, type SMLEngineConfig, type EmbeddingExtractor, CircuitBreakerOpenError } from './core/sml-engine.js';
+export { SMLEngine, SMLModelPresets, type SMLModelPreset, type SMLEngineConfig, type EmbeddingExtractor, CircuitBreakerOpenError } from './core/sml-engine.js';
 export { ToolRegistry } from './core/tool-registry.js';
 export { CacheManager } from './core/cache-manager.js';
 export { PromptBuilder, type PromptContext } from './core/prompt-builder.js';
@@ -59,9 +59,9 @@ export {
 } from './api/auth.js';
 
 // LLM Adapters
-export { OpenAIAdapter } from './adapters/llm/openai.adapter.js';
-export { GeminiAdapter } from './adapters/llm/gemini.adapter.js';
-export { OpenRouterAdapter } from './adapters/llm/openrouter.adapter.js';
+export { OpenAIAdapter, type OpenAIConfig } from './adapters/llm/openai.adapter.js';
+export { GeminiAdapter, type GeminiConfig } from './adapters/llm/gemini.adapter.js';
+export { OpenRouterAdapter, type OpenRouterConfig } from './adapters/llm/openrouter.adapter.js';
 export { CustomLLMAdapter, type CustomLLMConfig } from './adapters/llm/custom.adapter.js';
 export { OllamaAdapter, type OllamaConfig } from './adapters/llm/ollama.adapter.js';
 export { FallbackLLMProvider, type FallbackProviderOptions } from './adapters/llm/fallback.adapter.js';

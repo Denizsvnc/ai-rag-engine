@@ -13,18 +13,69 @@ export class CircuitBreakerOpenError extends Error {
     }
 }
 
+/**
+ * Industry-standard ONNX embedding model presets for the Small Machine Learning (SML) engine.
+ * Powered by `@huggingface/transformers` without requiring Python or external API keys.
+ */
+export const SMLModelPresets = {
+    /**
+     * Ultra-fast English embedding model (~30MB q8 ONNX).
+     * Ideal for English-only workloads, low-latency semantic routing, and minimal RAM footprint.
+     */
+    ENGLISH_FAST: 'Xenova/all-MiniLM-L6-v2',
+
+    /**
+     * Highly recommended balanced multilingual model (~117MB q8 ONNX).
+     * Provides exceptional semantic similarity across 50+ languages including Turkish, German, English, French, and Spanish.
+     */
+    MULTILINGUAL: 'Xenova/paraphrase-multilingual-MiniLM-L12-v2',
+
+    /**
+     * Heavyweight high-accuracy multilingual foundation model (1024-dim, long context, 100+ languages).
+     * Highest precision across mixed-language corpora, but requires higher memory and CPU allocation.
+     */
+    MULTILINGUAL_ACCURATE: 'Xenova/bge-m3',
+} as const;
+
+export type SMLModelPreset = typeof SMLModelPresets[keyof typeof SMLModelPresets];
+
 export interface SMLEngineConfig {
+    /** Directory where downloaded ONNX models are cached. Defaults to process.env.RAG_MODEL_CACHE_DIR or './data/models'. */
     cacheDir?: string | undefined;
+    /** When true, only loads models already present on local disk and prevents external network fetching. */
     localFilesOnly?: boolean | undefined;
-    modelName?: string | undefined;
+    /**
+     * Hugging Face ONNX model identifier.
+     * Use a preset (e.g. `SMLModelPresets.MULTILINGUAL`) or pass any custom HuggingFace model string (e.g. `'my-org/my-custom-model'`).
+     * Defaults to `'Xenova/all-MiniLM-L6-v2'`.
+     */
+    modelName?: string | SMLModelPreset | undefined;
+    /** Maximum number of precomputed query/document embeddings retained in RAM LRU cache. Defaults to 1000. */
     cacheSize?: number | undefined;
+    /** Model quantization data type: 'q8' (default), 'fp32', 'fp16', or 'q4'. */
     dtype?: 'q8' | 'fp32' | 'fp16' | 'q4' | undefined;
+    /** Legacy flag for quantization: false forces 'fp32'. */
     quantized?: boolean | undefined;
+    /** Number of consecutive load failures before tripping the circuit breaker OPEN. Defaults to 3. */
     circuitBreakerThreshold?: number | undefined;
+    /** Cooldown period in milliseconds before re-testing model recovery. Defaults to 15000 (15s). */
     circuitBreakerCooldownMs?: number | undefined;
 }
 
 export class SMLEngine {
+    private static initLockChain: Promise<void> = Promise.resolve();
+
+    private static async acquireInitLock(): Promise<() => void> {
+        let releaseLock: () => void = () => {};
+        const nextLock = new Promise<void>((resolve) => {
+            releaseLock = resolve;
+        });
+        const currentLock = SMLEngine.initLockChain;
+        SMLEngine.initLockChain = currentLock.then(() => nextLock);
+        await currentLock;
+        return releaseLock;
+    }
+
     private readonly modelName: string;
     private readonly cacheDir: string;
     private readonly localFilesOnly: boolean;
@@ -94,40 +145,52 @@ export class SMLEngine {
         }
 
         if (!this.extractorPromise) {
-            console.log(`[SML] Loading ${this.modelName} (dtype: ${this.dtype})...`);
-            this.extractorPromise = import('@huggingface/transformers')
-                .then(async ({ pipeline, env }) => {
+            this.extractorPromise = (async () => {
+                const releaseLock = await SMLEngine.acquireInitLock();
+                try {
+                    console.log(`[SML] Loading ${this.modelName} (dtype: ${this.dtype})...`);
+                    const { pipeline, env } = await import('@huggingface/transformers');
                     const previousCacheDir = env.cacheDir;
                     const previousAllowRemote = env.allowRemoteModels;
+                    const previousLocalModelPath = env.localModelPath;
+
                     try {
                         if (this.cacheDir) {
                             env.cacheDir = this.cacheDir;
                         }
-                        if (this.localFilesOnly) {
-                            env.allowRemoteModels = false;
+                        if (this.localFilesOnly !== undefined) {
+                            env.allowRemoteModels = !this.localFilesOnly;
                         }
-                        return await pipeline('feature-extraction', this.modelName, {
+
+                        const pipelineOptions: Record<string, any> = {
                             dtype: this.dtype,
-                        });
+                        };
+                        if (this.cacheDir) {
+                            pipelineOptions.cache_dir = this.cacheDir;
+                        }
+                        if (this.localFilesOnly !== undefined) {
+                            pipelineOptions.local_files_only = this.localFilesOnly;
+                        }
+
+                        const pipelineInstance = await pipeline('feature-extraction', this.modelName, pipelineOptions);
+
+                        // Success: Reset circuit breaker to healthy CLOSED state
+                        this.circuitState = 'CLOSED';
+                        this.failureCount = 0;
+                        const extract: EmbeddingExtractor = async (text, options) => {
+                            const output = await pipelineInstance(text, options);
+                            const values: ArrayLike<number | bigint> = output.data;
+                            const data = output.data instanceof Float32Array ? output.data
+                                : Float32Array.from({ length: values.length }, (_, index) => Number(values[index]));
+                            return { data, dims: output.dims };
+                        };
+                        return extract;
                     } finally {
                         env.cacheDir = previousCacheDir;
                         env.allowRemoteModels = previousAllowRemote;
+                        env.localModelPath = previousLocalModelPath;
                     }
-                })
-                .then((pipelineInstance) => {
-                    // Success: Reset circuit breaker to healthy CLOSED state
-                    this.circuitState = 'CLOSED';
-                    this.failureCount = 0;
-                    const extract: EmbeddingExtractor = async (text, options) => {
-                        const output = await pipelineInstance(text, options);
-                        const values: ArrayLike<number | bigint> = output.data;
-                        const data = output.data instanceof Float32Array ? output.data
-                            : Float32Array.from({ length: values.length }, (_, index) => Number(values[index]));
-                        return { data, dims: output.dims };
-                    };
-                    return extract;
-                })
-                .catch((err) => {
+                } catch (err) {
                     this.failureCount++;
                     this.lastFailureTime = Date.now();
                     this.extractorPromise = null;
@@ -141,7 +204,10 @@ export class SMLEngine {
                         console.error(`[SML] Model loading error (attempt ${this.failureCount}/${this.failureThreshold}):`, err);
                     }
                     throw err;
-                });
+                } finally {
+                    releaseLock();
+                }
+            })();
         }
         return this.extractorPromise;
     }

@@ -39,6 +39,34 @@ describe('RAG Evaluation System & Prometheus Telemetry', () => {
         const ungroundedEval = RAGEvaluator.evaluateFaithfulness(hallucinatedAnswer, context);
         assert.ok(ungroundedEval.score < 0.4);
         assert.ok(ungroundedEval.ungroundedClaims.length > 0);
+
+        // 3. Empty answer should NOT score 100% grounded
+        const emptyEval = RAGEvaluator.evaluateFaithfulness('', context);
+        assert.strictEqual(emptyEval.score, 0.0);
+        assert.ok(emptyEval.ungroundedClaims.length > 0);
+
+        // 4. Negation polarity mismatch detection
+        const negatedAnswer = 'The enterprise warranty does not cover accidental hardware damage.';
+        const negatedEval = RAGEvaluator.evaluateFaithfulness(negatedAnswer, context);
+        assert.ok(negatedEval.contradictionsDetected.some(c => c.includes('Polarity Warning')));
+        assert.ok(negatedEval.score < 0.5);
+    });
+
+    test('RAGEvaluator should deduplicate duplicate retrieved IDs in precisionAtK', () => {
+        // If a buggy retriever returns doc1 three times when only doc1 is relevant:
+        // Raw duplicate hits would be 3/3 = 1.0. Deduplicated unique hit is 1/1 = 1.0, but for top-3 (3 slots):
+        // Unique top-k is ['doc1'], hits = 1, topK.length = 1.
+        const duplicateRetrieved = ['doc1', 'doc1', 'doc1'];
+        const groundTruth = ['doc1'];
+
+        const pAt3 = RAGEvaluator.precisionAtK(duplicateRetrieved, groundTruth, 3);
+        assert.strictEqual(pAt3, 1.0);
+
+        const mixedDuplicate = ['doc1', 'doc1', 'doc2', 'doc3'];
+        const groundTruth2 = ['doc3'];
+        // Unique order: ['doc1', 'doc2', 'doc3']. In top-3, only 'doc3' is relevant -> 1 / 3 = 0.3333
+        const pAt3Mixed = RAGEvaluator.precisionAtK(mixedDuplicate, groundTruth2, 3);
+        assert.strictEqual(pAt3Mixed, 0.3333);
     });
 
     test('PrometheusExporter should format engine telemetry into valid Prometheus exposition text', () => {

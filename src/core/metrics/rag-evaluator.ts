@@ -36,7 +36,10 @@ export class RAGEvaluator {
         relevantIds: string[],
         k: number = 3
     ): number {
-        const topK = retrievedIds.slice(0, k);
+        if (!Number.isFinite(k) || k <= 0) return 0;
+        // Deduplicate retrieved IDs to prevent false hit inflation while preserving ranking
+        const uniqueRetrieved = Array.from(new Set(retrievedIds));
+        const topK = uniqueRetrieved.slice(0, k);
         if (topK.length === 0) return 0;
 
         const relevantSet = new Set(relevantIds);
@@ -54,7 +57,9 @@ export class RAGEvaluator {
         k: number = 3
     ): number {
         if (relevantIds.length === 0) return 1.0;
-        const topK = retrievedIds.slice(0, k);
+        if (!Number.isFinite(k) || k <= 0) return 0;
+        const uniqueRetrieved = Array.from(new Set(retrievedIds));
+        const topK = uniqueRetrieved.slice(0, k);
         const relevantSet = new Set(relevantIds);
         const hits = topK.filter(id => relevantSet.has(id)).length;
         return Number((hits / relevantIds.length).toFixed(4));
@@ -97,10 +102,26 @@ export class RAGEvaluator {
         };
     }
 
+    /**
+     * Evaluates Answer Faithfulness / Groundedness using deterministic heuristics.
+     * Note: This measures lexical consistency, numerical overlap, and negation polarity.
+     * It serves as a fast in-process heuristic filter and is not an external semantic LLM judge.
+     */
     public static evaluateFaithfulness(
         answer: string,
         contextTexts: string[]
     ): FaithfulnessEvalResult {
+        if (!answer || answer.trim().length === 0) {
+            return {
+                score: 0.0,
+                lexicalGroundingScore: 0.0,
+                totalSentences: 0,
+                groundedSentences: 0,
+                contradictionsDetected: [],
+                ungroundedClaims: ['Empty answer provided']
+            };
+        }
+
         const combinedContext = contextTexts.join(' ').toLowerCase();
         const contextClean = combinedContext.replace(/[^\p{L}\p{N}\s]/gu, ' ');
         const contextWordTokens = new Set(contextClean.split(/\s+/).filter(w => w.length > 2));
@@ -113,16 +134,16 @@ export class RAGEvaluator {
         const sentences = answer
             .split(/(?<=[.!?])\s+/)
             .map(s => s.trim())
-            .filter(s => s.length > 10);
+            .filter(s => s.length > 0);
 
         if (sentences.length === 0) {
             return {
-                score: 1.0,
-                lexicalGroundingScore: 1.0,
+                score: 0.0,
+                lexicalGroundingScore: 0.0,
                 totalSentences: 0,
                 groundedSentences: 0,
                 contradictionsDetected: [],
-                ungroundedClaims: []
+                ungroundedClaims: ['No meaningful sentences detected']
             };
         }
 
@@ -130,6 +151,7 @@ export class RAGEvaluator {
         const contradictionsDetected: string[] = [];
         let groundedCount = 0;
         let totalLexicalOverlapSum = 0;
+        const negationTokens = new Set(['not', 'never', 'cannot', 'değil', 'yok', 'olumsuz', 'asla', 'hayır']);
 
         for (const sentence of sentences) {
             const lowerSentence = sentence.toLowerCase();
@@ -148,13 +170,28 @@ export class RAGEvaluator {
             }
 
             // 2. Lexical Substantive Term Overlap
-            const words = lowerSentence
+            const rawWords = lowerSentence
                 .replace(/[^\p{L}\p{N}\s]/gu, ' ')
                 .split(/\s+/)
-                .filter(w => w.length > 2);
+                .filter(w => w.length > 0);
+
+            // 3. Negation Polarity Check
+            const sentenceNegations = rawWords.filter(w => negationTokens.has(w));
+            let hasNegationMismatch = false;
+            if (sentenceNegations.length > 0) {
+                const contextHasNegation = sentenceNegations.some(neg => contextWordTokens.has(neg) || combinedContext.includes(neg));
+                if (!contextHasNegation) {
+                    hasNegationMismatch = true;
+                    contradictionsDetected.push(
+                        `Polarity Warning: Negation '${sentenceNegations.join(', ')}' in "${sentence}" absent from retrieved context.`
+                    );
+                }
+            }
+
+            const words = rawWords.filter(w => w.length > 2);
 
             if (words.length === 0) {
-                if (!hasNumberContradiction) groundedCount++;
+                if (!hasNumberContradiction && !hasNegationMismatch) groundedCount++;
                 totalLexicalOverlapSum += 1.0;
                 continue;
             }
@@ -163,8 +200,8 @@ export class RAGEvaluator {
             const overlapRatio = groundedWords.length / words.length;
             totalLexicalOverlapSum += overlapRatio;
 
-            // Sentence is grounded if at least 40% lexical overlap AND no number contradiction
-            if (overlapRatio >= 0.4 && !hasNumberContradiction) {
+            // Sentence is grounded if at least 40% lexical overlap AND no number/negation contradiction
+            if (overlapRatio >= 0.4 && !hasNumberContradiction && !hasNegationMismatch) {
                 groundedCount++;
             } else {
                 ungroundedClaims.push(sentence);

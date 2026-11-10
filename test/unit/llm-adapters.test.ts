@@ -1,10 +1,12 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { CustomLLMAdapter } from '../../src/adapters/llm/custom.adapter';
-import { OllamaAdapter } from '../../src/adapters/llm/ollama.adapter';
-import { OpenRouterAdapter } from '../../src/adapters/llm/openrouter.adapter';
-import { TieredLLMProvider } from '../../src/adapters/llm/tiered.adapter';
-import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../src/interfaces/llm.interface';
+import { CustomLLMAdapter } from '../../src/adapters/llm/custom.adapter.js';
+import { OllamaAdapter } from '../../src/adapters/llm/ollama.adapter.js';
+import { OpenRouterAdapter } from '../../src/adapters/llm/openrouter.adapter.js';
+import { TieredLLMProvider } from '../../src/adapters/llm/tiered.adapter.js';
+import { GeminiAdapter } from '../../src/adapters/llm/gemini.adapter.js';
+import { OpenAIAdapter } from '../../src/adapters/llm/openai.adapter.js';
+import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../src/interfaces/llm.interface.js';
 
 class MockProvider implements ILLMProvider {
     constructor(private responseText: string, public shouldFail: boolean = false) {}
@@ -103,6 +105,60 @@ describe('LLM Adapters & Routing', () => {
             });
 
             assert.equal(res.content, 'smart fallback');
+        });
+    });
+
+    describe('GeminiAdapter & OpenAIAdapter Dual Constructor Ergonomics', () => {
+        it('should support GeminiAdapter with configuration object', () => {
+            const gemini = new GeminiAdapter({
+                apiKey: 'test-gemini-key',
+                model: 'gemini-2.0-flash',
+                temperature: 0.2
+            });
+
+            assert.equal((gemini as any).apiKey, 'test-gemini-key');
+            assert.equal((gemini as any).model, 'gemini-2.0-flash');
+            assert.equal((gemini as any).temperature, 0.2);
+        });
+
+        it('should support GeminiAdapter with positional arguments', () => {
+            const gemini = new GeminiAdapter('test-gemini-key-2', 'gemini-1.5-pro');
+
+            assert.equal((gemini as any).apiKey, 'test-gemini-key-2');
+            assert.equal((gemini as any).model, 'gemini-1.5-pro');
+            assert.equal((gemini as any).temperature, 0.1);
+        });
+
+        it('should support OpenAIAdapter with configuration object', () => {
+            const openai = new OpenAIAdapter({
+                apiKey: 'test-openai-key',
+                model: 'gpt-4o-mini',
+                endpoint: 'https://custom-proxy.openai.com/v1',
+                temperature: 0.0
+            });
+
+            assert.equal((openai as any).apiKey, 'test-openai-key');
+            assert.equal((openai as any).model, 'gpt-4o-mini');
+            assert.equal((openai as any).endpoint, 'https://custom-proxy.openai.com/v1');
+            assert.equal((openai as any).temperature, 0.0);
+        });
+
+        it('should support OpenAIAdapter with positional arguments', () => {
+            const openai = new OpenAIAdapter('test-openai-key-2', 'gpt-4o', 'https://api.openai.com/v1/chat/completions');
+
+            assert.equal((openai as any).apiKey, 'test-openai-key-2');
+            assert.equal((openai as any).model, 'gpt-4o');
+            assert.equal((openai as any).endpoint, 'https://api.openai.com/v1/chat/completions');
+        });
+
+        it('should support OpenRouterAdapter with configuration object', () => {
+            const openrouter = new OpenRouterAdapter({
+                apiKey: 'test-openrouter-key',
+                model: 'meta-llama/llama-3.2-3b-instruct:free'
+            });
+
+            assert.equal((openrouter as any).apiKey, 'test-openrouter-key');
+            assert.equal((openrouter as any).model, 'meta-llama/llama-3.2-3b-instruct:free');
         });
     });
 });

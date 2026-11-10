@@ -29,6 +29,55 @@ describe('Bug Fixes & Hardening Verifications', () => {
 
         it('should handle empty text gracefully', () => {
             assert.deepEqual(DocumentIngestionService.chunkText(''), []);
+            assert.deepEqual(DocumentIngestionService.chunkText('   \n\t  '), []);
+        });
+
+        it('should throw RangeError on invalid chunkSize or overlap parameters', () => {
+            assert.throws(() => {
+                DocumentIngestionService.chunkText('Sample text', 0, 10);
+            }, RangeError);
+
+            assert.throws(() => {
+                DocumentIngestionService.chunkText('Sample text', -50, 10);
+            }, RangeError);
+
+            assert.throws(() => {
+                DocumentIngestionService.chunkText('Sample text', 100, 100); // overlap == chunkSize
+            }, RangeError);
+
+            assert.throws(() => {
+                DocumentIngestionService.chunkText('Sample text', 100, 150); // overlap > chunkSize
+            }, RangeError);
+
+            assert.throws(() => {
+                DocumentIngestionService.chunkText('Sample text', 100, -10); // overlap < 0
+            }, RangeError);
+        });
+
+        it('should safely preserve multibyte UTF-8 characters across stream buffer splits', async () => {
+            // "Türkçe şampiyonası ve çağdaş çözümler"
+            // Split byte representation of 'ş' (0xC5 0x9F) across two stream chunks
+            const fullText = 'Türkçe şampiyonası ve çağdaş çözümler için harika bir RAG motoru.';
+            const fullBytes = Buffer.from(fullText, 'utf-8');
+
+            // Find index of 'ş' (0xC5 0x9F)
+            const splitPoint = fullBytes.indexOf(Buffer.from('ş', 'utf-8')) + 1; // splits right between the 2 bytes of 'ş'
+            const chunk1 = fullBytes.subarray(0, splitPoint);
+            const chunk2 = fullBytes.subarray(splitPoint);
+
+            async function* splitStream() {
+                yield chunk1;
+                yield chunk2;
+            }
+
+            const emittedChunks: string[] = [];
+            for await (const chunk of DocumentIngestionService.chunkStream(splitStream(), 500, 50)) {
+                emittedChunks.push(chunk);
+            }
+
+            const reconstructed = emittedChunks.join(' ');
+            assert.ok(!reconstructed.includes('\uFFFD'), 'Reconstructed text should not contain unicode replacement characters');
+            assert.ok(reconstructed.includes('şampiyonası'), 'Should preserve intact Turkish character across stream boundaries');
         });
     });
 

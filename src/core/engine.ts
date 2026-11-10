@@ -16,6 +16,34 @@ import type { ToolAuditLog } from '../interfaces/tool.interface.js';
 import type { ICacheAdapter } from '../interfaces/cache.interface.js';
 import { MemoryVectorAdapter } from '../adapters/vector/memory-vector.adapter.js';
 
+/**
+ * Enterprise Production-Grade Retrieval-Augmented Generation (RAG) Engine.
+ * 
+ * Features:
+ * - Multi-tenant isolation & zero-trust security guardrails (prompt injection detection, PII redaction, boundary framing).
+ * - Pluggable LLM providers (Gemini, OpenAI, Ollama, Tiered, Fallback).
+ * - In-process Small Machine Learning (SML) engine for sub-millisecond semantic routing and multilingual embeddings.
+ * - Hybrid dense/sparse vector retrieval with Reciprocal Rank Fusion (RRF).
+ * - Governed tool execution with role-based access control (RBAC) and cryptographic mutation tickets.
+ * - High-throughput document ingestion supporting PDF (/FlateDecode decompressed), Markdown, and text streams.
+ * 
+ * @example
+ * ```typescript
+ * const engine = new RAGEngine({
+ *   llmProvider: new GeminiAdapter({ apiKey: process.env.GEMINI_API_KEY }),
+ *   inputs: {
+ *     vectorStore: new PostgresVectorAdapter({ connectionString: process.env.DATABASE_URL })
+ *   }
+ * });
+ * 
+ * const response = await engine.query('Summarize our Q3 compliance audit report.', {
+ *   tenantId: 'enterprise-client-42',
+ *   userId: 'usr_8472',
+ *   roles: ['compliance_officer']
+ * });
+ * console.log(response.answer, response.sources);
+ * ```
+ */
 export class RAGEngine {
     private confirmationService: ConfirmationService | undefined;
     private cacheManager: ICacheAdapter;
@@ -28,6 +56,11 @@ export class RAGEngine {
     private auditLogs: ToolAuditLog[] = [];
     private readonly maxAuditLogs = 1000;
 
+    /**
+     * Initializes a new instance of `RAGEngine` with the provided configuration.
+     * 
+     * @param config - The engine configuration options (`EngineConfig`).
+     */
     constructor(private config: EngineConfig) {
         if (config.tools?.items.some(tool => tool.isMutating || tool.requiresConfirmation)) {
             this.confirmationService = new ConfirmationService(config.confirmation?.secret, undefined, config.confirmation?.nonceStore);
@@ -42,7 +75,15 @@ export class RAGEngine {
                 config.cache?.ttlMs || 1000 * 60 * 60 * 24
             );
         }
-        this.smlEngine = new SMLEngine({ modelName: config.smlConfig?.modelName });
+        this.smlEngine = new SMLEngine({
+            modelName: config.smlConfig?.modelName,
+            dtype: config.smlConfig?.dtype,
+            cacheDir: config.smlConfig?.cacheDir,
+            localFilesOnly: config.smlConfig?.localFilesOnly,
+            cacheSize: config.smlConfig?.cacheSize,
+            circuitBreakerThreshold: config.smlConfig?.circuitBreakerThreshold,
+            circuitBreakerCooldownMs: config.smlConfig?.circuitBreakerCooldownMs,
+        });
         const vectorStore = config.inputs?.vectorStore || new MemoryVectorAdapter(this.smlEngine);
         if (typeof (vectorStore as any).setSMLEngine === 'function') {
             (vectorStore as any).setSMLEngine(this.smlEngine);
@@ -150,8 +191,27 @@ export class RAGEngine {
     }
 
     /**
-     * Executes the query lifecycle:
-     * Security Guardrail -> Cache -> SML Routing -> Retrieval -> Untrusted Boundary Framing -> LLM Generation.
+     * Executes the complete RAG query lifecycle:
+     * 1. Security Inspection (Prompt Injection Defense, PII Masking)
+     * 2. Cache Lookup (Role & Tenant isolated caching)
+     * 3. SML Semantic Routing (FAQ matching and Tool execution)
+     * 4. Hybrid Dense/Sparse Retrieval (Vector search + BM25 keyword search)
+     * 5. Untrusted Boundary Framing (Anti-indirect injection prompt wrapping)
+     * 6. LLM Answer Synthesis & Citation Tagging
+     * 
+     * @param userPrompt - The natural language query or question from the user.
+     * @param context - Optional multi-tenant security context including `tenantId`, `userId`, and `roles`.
+     * @returns Promise resolving to `RAGResponse` containing synthesized answer, citations, intent, and metrics.
+     * 
+     * @example
+     * ```typescript
+     * const response = await engine.query('What is our return policy?', {
+     *   tenantId: 'tenant_123',
+     *   userId: 'usr_456',
+     *   roles: ['customer']
+     * });
+     * console.log(response.answer);
+     * ```
      */
     public async query(userPrompt: string, context?: QueryContext): Promise<RAGResponse> {
         const startTime = Date.now();

@@ -2,6 +2,22 @@
 
 This file follows Semantic Versioning.
 
+## 2.2.3 — 2026-11-10
+
+### Fixed
+
+- **Transformers.js Concurrency Lock:** Implemented static Promise lock chain (`acquireInitLock`) in `SMLEngine` to serialize `init()` calls across independent instances and isolate mutable Transformers.js global `env`. Model inference remains fully concurrent.
+- **LLM Adapter Constructor Flexibility:** Dual constructor signatures added to `GeminiAdapter`, `OpenAIAdapter`, and `OpenRouterAdapter` accepting both `{ apiKey, model, temperature }` configuration objects and positional parameters.
+- **Document Chunking Bounds & Streaming UTF-8 Decoder:** Enforced `RangeError` on invalid chunk boundaries (`chunkSize > 0`, `overlap < chunkSize`). Added `StringDecoder('utf-8')` to prevent split multi-byte characters (e.g. Turkish `ş`, `ğ`) across stream chunks.
+- **Native zlib PDF FlateDecode Ingestion:** Integrated Node's native `zlib.inflateSync` & `inflateRawSync` for zero-dependency decompression of vector PDF streams.
+- **RAGEvaluator Heuristics & Polarity:** Ensured empty answers score 0.0; deduplicated retrieved IDs; added English & Turkish negation and polarity contradiction checks.
+
+### Added
+
+- **Bun Runtime Compatibility:** Dedicated Bun test suite (`test/bun/bun-compat.test.ts`) and npm script `npm run test:bun` verifying ONNX embeddings, PII masking, vector math, and RAG execution under Bun v1.4.4+.
+- **CI Workflow Hardening:** Added automated Bun compatibility verification job in GitHub Actions CI workflow.
+- **Engineering & Security Audits:** Comprehensive audit documentation covering Baseline, Architecture, Security (OWASP Top 10 LLM), Invariants, Performance Benchmarks, RAG Evaluation, and Node/Bun Compatibility in `docs/audits/`.
+
 ## 2.2.2 — 2026-11-10
 
 ### Fixed
