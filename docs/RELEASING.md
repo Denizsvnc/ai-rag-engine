@@ -2,7 +2,7 @@
 
 ## Policy
 
-The recommended first public version is **2.2.0**: the repository already identifies its preceding API as 2.1.0, and the new distribution includes durable ingestion and persistence. No public npm history or tag was found during preparation. This recommendation does not assert that any version was published. The maintainer must approve the version before publication. If API stabilization is still desired, use a deliberate `2.2.0-rc.1` prerelease and a non-latest dist-tag.
+The recommended first public version is **2.2.0**: the repository already identifies its preceding API as 2.1.0, and the new distribution includes durable ingestion and persistence. Version **2.2.0** is the official initial release published on npm under `@denizsvnc/ai-rag-engine`.
 
 After the first public release, use patch releases for compatible fixes, minor releases for compatible features, and major releases for incompatible public API, security-contract or supported-runtime changes. Document security-driven breaks and migration paths. Never reuse a published version; do not silently modify artifacts after review.
 

@@ -84,7 +84,7 @@ const engine = new RAGEngine({
 });
 ```
 
-## Açık kalan geliştirme önerileri ve iddia sınırları
+## Mimari Sınırlar ve Gelecek Yol Haritası
 
 Rapordaki pgvector/Qdrant, reranker, parent-child retrieval, NLI/LLM-as-judge, etiketli TR/EN veri seti, OpenTelemetry, tenant kotaları, durable agent state ve framework adapter'ları yeni ürün/yol haritası çalışmalarındandır; bu düzeltmede uygulanmadı. `topK`, `minRelevanceScore`, document deletion ve sources document ID'leri zaten mevcut; bunlar hiç yokmuş gibi yeniden eklenmedi. MinRelevanceScore'un her retrieval stratejisindeki etkinliği ve tam citation kalitesi ayrıca ölçülmelidir.
 

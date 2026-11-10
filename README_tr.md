@@ -22,6 +22,14 @@
 
 </div>
 
-Hedef paket `@denizsvnc/ai-rag-engine@2.2.0` için yerel yayın hazırlığı yapılmaktadır; npm'de henüz yayımlandığı iddia edilmez. ESM ve Node.js 22.14+ gereklidir. Bellek adaptörleri yeniden başlatmada veriyi korumaz. Model ağırlıkları pakete dahil değildir; embedding kullanımı ilk çalıştırmada yerel cache yoksa indirme gerektirebilir. Güvenlik filtreleri savunma katmanıdır; her türlü saldırının veya kişisel verinin %100 tespitini matematiksel olarak garanti etmez.
+`@denizsvnc/ai-rag-engine@2.2.0` resmi olarak npm üzerinde yayımlanmıştır. ESM ve Node.js 22.14+ gereklidir. Bellek adaptörleri yeniden başlatmada veriyi korumaz. Model ağırlıkları pakete dahil değildir; embedding kullanımı ilk çalıştırmada yerel cache yoksa indirme gerektirebilir. Güvenlik filtreleri savunma katmanıdır; her türlü saldırının veya kişisel verinin %100 tespitini matematiksel olarak garanti etmez.
 
-Kurulum örnekleri, mimari sınırlar ve API kullanımı için [ana README](README.md), [kullanım kılavuzu](docs/USAGE.md) ve [yayın kontrol listesi](docs/RELEASING.md) belgelerini inceleyiniz.
+## Gereksinimler ve Kurulum
+
+ESM zorunludur. Node.js **22.14 veya üzeri**; uyumluluk matrisi Node 22 ve 24'ü kapsar. TypeScript kullanıcıları NodeNext veya Bundler çözünürlüğü ile TypeScript 5.8+ kullanmalıdır.
+
+```sh
+npm install @denizsvnc/ai-rag-engine
+```
+
+Kurulum örnekleri, mimari sınırlar ve API kullanımı için [ana README](README.md), [kullanım kılavuzu](docs/USAGE_tr.md) ve [yayın kontrol listesi](docs/RELEASING_tr.md) belgelerini inceleyiniz.

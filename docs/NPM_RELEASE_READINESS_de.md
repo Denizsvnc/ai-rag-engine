@@ -10,9 +10,9 @@
 
 ## 1. Zusammenfassung & Release-Entscheidung
 
-### Release-Status: **READY TO PUBLISH**
+### Release-Status: **VERÖFFENTLICHT & VERIFIZIERT (v2.2.0)**
 
-Sämtliche obligatorischen Prüfungen für Build, Paketierung, Sicherheit, Typdefinitionen und unabhängige Konsumenteninstallation wurden **ERFOLGREICH BESTANDEN**.
+Sämtliche obligatorischen Prüfungen für Build, Paketierung, Sicherheit, Typdefinitionen und unabhängige Konsumenteninstallation wurden **ERFOLGREICH BESTANDEN**. Das Paket `@denizsvnc/ai-rag-engine@2.2.0` wurde erfolgreich auf npm veröffentlicht und in einer Live-Umgebung verifiziert.
 
 ---
 
@@ -31,7 +31,7 @@ Sämtliche obligatorischen Prüfungen für Build, Paketierung, Sicherheit, Typde
 | **Konsumententest** | **PASS** | `npm run test:consumer` | Installation in externem Projekt erfolgreich |
 | **Konsumenten-Typecheck**| **PASS** | `tsc --noEmit` (Konsument) | TS `7.0.2` & `5.8.3` mit `NodeNext` & `Bundler` bestanden |
 | **CLI-Dateien & Rechte** | **PASS** | POSIX-Prüfung | `dist/api/server.js`, `dist/worker.js`, `dist/scripts/migrate-vector.js` (0755) |
-| **npm-Scope-Besitz** | **BLOCKED** | Registry-Abfrage | Eigentümer-Login zur Freigabe erforderlich |
+| **npm-Scope-Besitz & Release** | **PASS** | `npm publish` & `npm view` | Erfolgreich autorisiert und unter `@denizsvnc` als `v2.2.0` veröffentlicht |
 | **Docker-Daemon-Laufzeit**| **NOT TESTED** | `docker run` | Kein Docker-Daemon auf Host vorhanden |
 
 ---

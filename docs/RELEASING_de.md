@@ -2,7 +2,7 @@
 
 ## Versionsrichtlinie
 
-Die empfohlene erste öffentliche Version ist **2.2.0**. Bereits veröffentlichte Versionen dürfen niemals überschrieben oder wiederverwendet werden.
+Die offizielle erste öffentliche Version ist **2.2.0**, veröffentlicht auf npm unter `@denizsvnc/ai-rag-engine`. Bereits veröffentlichte Versionen dürfen niemals überschrieben oder wiederverwendet werden.
 
 ## Lokale Qualitätskontrollen
 

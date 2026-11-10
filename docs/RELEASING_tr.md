@@ -2,7 +2,7 @@
 
 ## Sürüm Politikası
 
-Önerilen ilk public sürüm **2.2.0**'dır: önceki sürüm 2.1.0 olarak tanımlanmış olup yeni dağıtım kalıcı alım işleyicileri ve pgvector entegrasyonu içermektedir. Yayınlanmış hiçbir sürüm tekrar kullanılamaz; inceleme sonrası artifact'ler üzerinde sessiz değişiklik yapılamaz.
+Resmi ilk public sürüm **2.2.0**'dır: önceki sürüm 2.1.0 olarak tanımlanmış olup yeni dağıtım kalıcı alım işleyicileri ve pgvector entegrasyonu içermektedir. Paket npm üzerinde `@denizsvnc/ai-rag-engine` adıyla başarıyla yayımlanmıştır. Yayınlanmış hiçbir sürüm tekrar kullanılamaz; inceleme sonrası artifact'ler üzerinde sessiz değişiklik yapılamaz.
 
 ## Zorunlu Yerel Kalite Kapıları
 

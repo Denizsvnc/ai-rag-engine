@@ -2,7 +2,13 @@
 
 ## Laufzeit und Modulspezifikation
 
-Installieren Sie nach der Veröffentlichung `@denizsvnc/ai-rag-engine` oder vorab das lokale `.tgz`-Paket. Verwenden Sie ESM (`"type": "module"`). CommonJS `require()` wird nicht unterstützt; CommonJS-Anwendungen können dynamisches `import()` nutzen. Node.js 22.14+ ist erforderlich (Testmatrix: Node 22 und 24). TypeScript 5.8+ wird empfohlen; `NodeNext` und `Bundler` werden strikt unterstützt.
+Installieren Sie `@denizsvnc/ai-rag-engine` über npm:
+
+```sh
+npm install @denizsvnc/ai-rag-engine
+```
+
+Verwenden Sie ESM (`"type": "module"`). CommonJS `require()` wird nicht unterstützt; CommonJS-Anwendungen können dynamisches `import()` nutzen. Node.js 22.14+ ist erforderlich (Testmatrix: Node 22 und 24). TypeScript 5.8+ wird empfohlen; `NodeNext` und `Bundler` werden strikt unterstützt.
 
 Die Bibliothek lädt niemals automatisch `.env`-Dateien und erzeugt beim Import keine Hintergrundprozesse, Datenbankverbindungen oder Modelldownloads.
 

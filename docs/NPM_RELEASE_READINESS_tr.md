@@ -10,9 +10,9 @@
 
 ## 1. Yönetici Özeti ve Yayın Kararı
 
-### Yayın Kararı: **READY TO PUBLISH**
+### Yayın Kararı: **YAYIMLANDI & DOĞRULANDI (v2.2.0)**
 
-Tüm zorunlu yerel derleme, paketleme, güvenlik, tip tanımları ve bağımsız tüketici kurulum kapıları **BAŞARIYLA GEÇTİ**. Hiçbir gerileme veya gizli anahtar sızıntısı tespit edilmedi. Paket tarball'ı üretilmiş, izin listesi doğrulanmış ve tamamen yalıtılmış harici bir test ortamında başarıyla çalıştırılmıştır.
+Tüm zorunlu yerel derleme, paketleme, güvenlik, tip tanımları ve bağımsız tüketici kurulum kapıları **BAŞARIYLA GEÇTİ**. `@denizsvnc/ai-rag-engine@2.2.0` paketi npm üzerinde yayımlanmış ve canlı ortamda doğrulanmıştır.
 
 ---
 
@@ -33,7 +33,7 @@ Tüm zorunlu yerel derleme, paketleme, güvenlik, tip tanımları ve bağımsız
 | **Çalıştırılabilir Quickstart**| **PASS** | `quick-start.mjs` | "Returns: 14 days." çıktısı doğrulandı |
 | **Yerel Model Embedding** | **PASS** | `embedding.mjs` | 384 boyutlu vektör üretildi, global cache bozulmadı |
 | **CLI Dosyaları ve İzinler**| **PASS** | POSIX stat & shebang | `dist/api/server.js`, `dist/worker.js`, `dist/scripts/migrate-vector.js` (mod 0755) |
-| **npm Scope Doğrulaması** | **BLOCKED** | npm registry sorgusu | Paket sahibi yetkili oturumu gereklidir |
+| **npm Scope Doğrulaması & Yayın** | **PASS** | `npm publish` & `npm view` | Başarıyla yetkilendirildi ve `@denizsvnc` scope'unda v2.2.0 olarak yayımlandı |
 | **Docker Daemon Çalışması** | **NOT TESTED** | `docker run` | Ortamda Docker daemon socket'i bulunmamaktadır |
 
 ---

@@ -2,7 +2,13 @@
 
 ## Çalışma Zamanı ve Modül Sözleşmesi
 
-Yayınlandıktan sonra `@denizsvnc/ai-rag-engine` paketini, yayın öncesinde ise yerel `.tgz` dosyasını kurun. ESM kullanın (uygulamada `"type": "module"`). CommonJS `require()` desteklenen bir sözleşme değildir; CommonJS uygulamaları dinamik `import()` kullanabilir. Node.js 22.14+ gereklidir (test matrisi Node 22 ve 24'tür). TypeScript 5.8+ önerilir; `NodeNext` ve `Bundler` çözünürlükleri katı kontrollerle test edilmiştir. `skipLibCheck` zorunlu değildir. Desteklenen export'lar root API ve `./package.json`'dur.
+`@denizsvnc/ai-rag-engine` paketini npm üzerinden kurun:
+
+```sh
+npm install @denizsvnc/ai-rag-engine
+```
+
+ESM kullanın (uygulamada `"type": "module"`). CommonJS `require()` desteklenen bir sözleşme değildir; CommonJS uygulamaları dinamik `import()` kullanabilir. Node.js 22.14+ gereklidir (test matrisi Node 22 ve 24'tür). TypeScript 5.8+ önerilir; `NodeNext` ve `Bundler` çözünürlükleri katı kontrollerle test edilmiştir. `skipLibCheck` zorunlu değildir. Desteklenen export'lar root API ve `./package.json`'dur.
 
 Kütüphane asla otomatik olarak `.env` yüklemez. Kütüphaneyi import etmek sunucu başlatmaz, veritabanı veya Redis bağlantısı açmaz ve model indirmez. Transformers kütüphanesi ilk embedding çağrısında tembelce (lazily) yüklenir.
 

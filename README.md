@@ -22,13 +22,9 @@
 
 </div>
 
-**Publication status:** prepared locally for `@denizsvnc/ai-rag-engine@2.2.0`; this is not a claim that it is already available on npm. Scope ownership and publication remain the maintainer's responsibility.
-
 ## Requirements and installation
 
 ESM only. Node.js **22.14 or newer**; the compatibility matrix covers Node 22 and 24. TypeScript consumers should use TypeScript 5.8+ with NodeNext or Bundler resolution. Runtime applications do not need TypeScript or build tools.
-
-After publication:
 
 ```sh
 npm install @denizsvnc/ai-rag-engine

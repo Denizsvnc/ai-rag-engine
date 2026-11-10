@@ -2,7 +2,13 @@
 
 ## Runtime and module contract
 
-Install `@denizsvnc/ai-rag-engine` after publication, or its local `.tgz` before publication. Use ESM (`"type": "module"` in the application). CommonJS `require()` is not a supported contract; CommonJS applications can use asynchronous `import()`. Node.js 22.14+ is required; Node 22/24 are the explicit test matrix. TypeScript 5.8+ is recommended; NodeNext and Bundler resolution are validated with strict checking. `skipLibCheck` is not required. Supported exports are the root API and `./package.json`; internal `dist/` paths are private. CLI commands are separate entry points.
+Install `@denizsvnc/ai-rag-engine` from npm:
+
+```sh
+npm install @denizsvnc/ai-rag-engine
+```
+
+Use ESM (`"type": "module"` in the application). CommonJS `require()` is not a supported contract; CommonJS applications can use asynchronous `import()`. Node.js 22.14+ is required; Node 22/24 are the explicit test matrix. TypeScript 5.8+ is recommended; NodeNext and Bundler resolution are validated with strict checking. `skipLibCheck` is not required. Supported exports are the root API and `./package.json`; internal `dist/` paths are private. CLI commands are separate entry points.
 
 The library never automatically loads `.env`. Applications may call `dotenv.config()` themselves. The server/worker/migration CLIs explicitly load `.env`. Importing the root library creates no server, connection, model download, or background worker. Native Transformers is imported lazily on the first embedding initialization.
 
