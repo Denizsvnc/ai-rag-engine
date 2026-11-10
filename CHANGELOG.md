@@ -1,8 +1,15 @@
 # Changelog
 
-This file follows Semantic Versioning. Entries are maintained by the repository owner. No npm publication or Git tag is implied by an entry.
+This file follows Semantic Versioning.
 
-## 2.2.0 — Unreleased
+## 2.2.1 — 2026-11-10
+
+### Documentation
+
+- Updated `README.md`, `README_tr.md`, and `README_de.md` with verified, type-safe production examples featuring `GeminiAdapter`, `PostgresVectorAdapter`, `RedisCacheAdapter`, `LocalFaqAdapter`, and `SecurityConfig`.
+- Removed legacy pre-publication disclaimers and streamlined installation documentation for live npm consumption.
+
+## 2.2.0 — 2026-11-10
 
 ### Added
 
