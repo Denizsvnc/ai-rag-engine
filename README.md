@@ -99,7 +99,7 @@ pnpm add @denizsvnc/ai-rag-engine
 
 This minimal example requires zero credentials, external databases, or model downloads. It uses deterministic test doubles to demonstrate the core SDK contract:
 
-```typescript
+```js
 import { RAGEngine } from '@denizsvnc/ai-rag-engine';
 
 const engine = new RAGEngine({
@@ -108,18 +108,14 @@ const engine = new RAGEngine({
   inputs: {
     vectorStore: {
       async search(_query, _topK, filter) {
-        if (filter?.tenantId !== 'tenant-acme') return [];
-        return [{ id: 'policy-1', content: 'Returns are accepted within 14 calendar days.' }];
+        if (filter?.tenantId !== 'demo') return [];
+        return [{ id: 'returns', content: 'Returns are accepted within 14 days.' }];
       }
     }
   },
   llmProvider: {
     async generate({ systemPrompt }) {
-      return {
-        content: systemPrompt.includes('14 calendar days')
-          ? 'Returns must be initiated within 14 calendar days.'
-          : 'Information not found.'
-      };
+      return { content: systemPrompt.includes('14 days') ? 'Returns: 14 days.' : 'Unknown.' };
     }
   }
 });
@@ -127,15 +123,12 @@ const engine = new RAGEngine({
 await engine.init();
 
 const response = await engine.query('What is the return window?', {
-  tenantId: 'tenant-acme',
-  userId: 'usr_42',
-  roles: ['customer']
+  tenantId: 'demo',
+  userId: 'demo-user',
+  roles: ['viewer']
 });
 
-console.log(response.answer);
-// Output: Returns must be initiated within 14 calendar days.
-console.log('Resolved by:', response.resolvedBy);
-// Output: Resolved by: LLM_RAG
+console.log(response.answer); // Returns: 14 days.
 ```
 
 ### 2. Production Multi-Tenant Setup (Gemini, pgvector & Redis)
