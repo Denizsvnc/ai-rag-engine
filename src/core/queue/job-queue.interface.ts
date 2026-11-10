@@ -1,5 +1,13 @@
 export type JobStatus = 'pending' | 'queued' | 'processing' | 'completed' | 'failed';
 
+export const JobStatusValues = {
+    PENDING: 'pending',
+    QUEUED: 'queued',
+    PROCESSING: 'processing',
+    COMPLETED: 'completed',
+    FAILED: 'failed',
+} as const;
+
 export interface Job<TData = any, TResult = any> {
     attemptsMade?: number | undefined;
     maxAttempts?: number | undefined;

@@ -2,6 +2,21 @@
 
 This file follows Semantic Versioning.
 
+## 2.2.2 — 2026-11-10
+
+### Fixed
+
+- **Document Ingestion:** Resolved infinite decaying chunk loop in `DocumentIngestionService.chunkText` when `endIndex >= text.length`.
+- **Security & Prompt Injection:** Resolved regex boundary and preposition issues in `InjectionDetector` for English DAN jailbreak attacks (`in DAN mode`) and Turkish Unicode word boundaries (`ş, ç`).
+- **LLM Failover Logging:** Replaced generic `Object failed` error message in `FallbackLLMProvider` with dynamic provider, model, or constructor resolution.
+- **Rules Adapter:** Extended `StaticRulesAdapter` to accept structured rule objects (`{ id, rule }`) alongside plain string arrays via polymorphic `RuleInput`.
+- **Performance & SML Sharing:** Prevented redundant ONNX model downloads and duplicate memory footprint by sharing `SMLEngine` instances across `RAGEngine`, `LocalFaqAdapter`, and `MemoryVectorAdapter`.
+
+### Added
+
+- Exported `JobStatusValues` constants in `job-queue.interface.ts` to prevent casing mismatches.
+- Exported `RuleInput` type in root exports.
+
 ## 2.2.1 — 2026-11-10
 
 ### Documentation

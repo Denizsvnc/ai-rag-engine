@@ -44,6 +44,12 @@ export class RAGEngine {
         }
         this.smlEngine = new SMLEngine({ modelName: config.smlConfig?.modelName });
         const vectorStore = config.inputs?.vectorStore || new MemoryVectorAdapter(this.smlEngine);
+        if (typeof (vectorStore as any).setSMLEngine === 'function') {
+            (vectorStore as any).setSMLEngine(this.smlEngine);
+        }
+        if (config.inputs?.faq && typeof (config.inputs.faq as any).setSMLEngine === 'function') {
+            (config.inputs.faq as any).setSMLEngine(this.smlEngine);
+        }
         this.config = {
             ...config,
             inputs: {

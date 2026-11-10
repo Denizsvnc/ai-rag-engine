@@ -33,11 +33,11 @@ export class InjectionDetector {
         // 2. Jailbreaks, DAN modes, role hijacking
         {
             id: 'JAILBREAK_MODE_EN',
-            regex: /\b(you\s+are\s+now|act\s+as|switch\s+to|enter)\s+(an?\s+)?(developer|dan|jailbreak|unrestricted|unfiltered|god)\s*(mode|persona|ai)?\b/i
+            regex: /\b(you\s+are\s+now|act\s+as|switch\s+to|enter)\s+(in\s+(an?\s+)?|an?\s+)?(developer|dan|jailbreak|unrestricted|unfiltered|god)\s*(mode|persona|ai)?\b/i
         },
         {
             id: 'JAILBREAK_MODE_TR',
-            regex: /\bartık\s+(geliştirici|dan|kısıtlamasız|admin|jailbreak)\s+(modundasın|moduna\s+geç|olarak\s+davran)\b/i
+            regex: /(?:^|\s|[.,!?])(artık|şimdi)\s+(bir\s+)?(geliştirici|dan|kısıtlamasız|admin|jailbreak)\s+(modundasın|moduna\s+geç|olarak\s+davran)(?:$|\s|[.,!?])/i
         },
         {
             id: 'DISABLE_SAFETY_EN',

@@ -14,6 +14,14 @@ export class MemoryVectorAdapter implements IVectorStoreAdapter {
 
     constructor(private smlEngine: SMLEngine = new SMLEngine()) { }
 
+    public setSMLEngine(engine: SMLEngine): void {
+        this.smlEngine = engine;
+    }
+
+    public getSMLEngine(): SMLEngine {
+        return this.smlEngine;
+    }
+
     /**
      * Adds documents to memory, computes their embeddings, and indexes them in BM25.
      */

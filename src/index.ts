@@ -69,7 +69,7 @@ export { TieredLLMProvider, type TieredLLMConfig } from './adapters/llm/tiered.a
 
 // Data, Vector, Rules & FAQ Adapters
 export { MemoryVectorAdapter } from './adapters/vector/memory-vector.adapter.js';
-export { StaticRulesAdapter } from './adapters/rules/static-rules.adapter.js';
+export { StaticRulesAdapter, type RuleInput } from './adapters/rules/static-rules.adapter.js';
 export { UrlFaqAdapter } from './adapters/faq/url-faq.adapter.js';
 export { LocalFaqAdapter, type LocalFaqAdapterOptions } from './adapters/faq/local-faq.adapter.js';
 export { RedisConfirmationNonceStore, MemoryConfirmationNonceStore, type ConfirmationNonceStore } from './core/security/nonce-store.js';

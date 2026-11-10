@@ -16,12 +16,26 @@ export class FallbackLLMProvider implements ILLMProvider {
         this.logFailover = options?.logFailover ?? true;
     }
 
+    private getProviderName(provider: ILLMProvider, index: number): string {
+        if ((provider as any).name && typeof (provider as any).name === 'string') {
+            return (provider as any).name;
+        }
+        if ((provider as any).model && typeof (provider as any).model === 'string') {
+            const ctor = provider.constructor?.name && provider.constructor.name !== 'Object' ? provider.constructor.name : 'LLMProvider';
+            return `${ctor}(${(provider as any).model})`;
+        }
+        if (provider.constructor?.name && provider.constructor.name !== 'Object') {
+            return provider.constructor.name;
+        }
+        return `Provider#${index + 1}`;
+    }
+
     public async generate(request: ILLMRequest): Promise<ILLMResponse> {
         const failureErrors: Array<{ providerName: string; error: string }> = [];
 
         for (let i = 0; i < this.providers.length; i++) {
             const provider = this.providers[i]!;
-            const providerName = provider.constructor.name || `Provider#${i + 1}`;
+            const providerName = this.getProviderName(provider, i);
 
             try {
                 return await provider.generate(request);
@@ -31,7 +45,7 @@ export class FallbackLLMProvider implements ILLMProvider {
 
                 if (this.logFailover) {
                     const nextProvider = this.providers[i + 1];
-                    const nextName = nextProvider ? (nextProvider.constructor.name || `Provider#${i + 2}`) : 'None';
+                    const nextName = nextProvider ? this.getProviderName(nextProvider, i + 1) : 'None';
                     console.warn(
                         `[FallbackLLMProvider] ${providerName} failed: "${errorMessage}". Failing over to next provider: ${nextName}`
                     );

@@ -352,6 +352,11 @@ export class DocumentIngestionService {
                 chunks.push(chunk);
             }
 
+            // If endIndex reached or exceeded text end, we are done
+            if (endIndex >= text.length) {
+                break;
+            }
+
             startIndex = Math.max(startIndex + 1, endIndex - overlap);
         }
 

@@ -27,6 +27,14 @@ export class LocalFaqAdapter implements IFAQAdapter {
         this.defaultThreshold = options?.defaultMatchThreshold ?? 0.60;
     }
 
+    public setSMLEngine(engine: SMLEngine): void {
+        this.smlEngine = engine;
+    }
+
+    public getSMLEngine(): SMLEngine {
+        return this.smlEngine;
+    }
+
     /**
      * Initializes the adapter by reading the JSON file and caching embeddings in RAM.
      */
