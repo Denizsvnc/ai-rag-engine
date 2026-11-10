@@ -125,7 +125,7 @@ describe('Logical Verification: Real Source Code Mutation Testing & Fault Invari
         let testCaughtRegression = false;
         try {
             // Mutate: remove boundary validation and return naive single slice
-            (DocumentIngestionService as { chunkText: (...args: unknown[]) => string[] }).chunkText = (text: string) => [text];
+            (DocumentIngestionService as { chunkText: typeof DocumentIngestionService.chunkText }).chunkText = (text: string) => [text];
 
             let threw = false;
             try {
