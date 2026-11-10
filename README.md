@@ -27,8 +27,8 @@ Conventional RAG pipelines dispatch every incoming user query directly to an ext
 
 **AI-RAG-ENGINE** implements a cost-aware, multi-tiered request lifecycle that resolves queries at the earliest safe layer:
 
-- **Local Semantic Short-Circuits:** Frequent inquiries and semantic cache hits are resolved locally in `<2ms` with zero token expenditure.
-- **Hybrid Vector Retrieval:** Combines dense cosine embeddings with sparse BM25 indices via Reciprocal Rank Fusion (RRF) in PostgreSQL `pgvector`.
+- **Local Semantic Short-Circuits:** Frequent inquiries and semantic cache hits are resolved locally with sub-millisecond in-memory cache lookup latency with zero token expenditure.
+- **Hybrid Vector Retrieval:** Combines dense cosine similarity with sparse full-text search (`tsvector` / `websearch_to_tsquery` in PostgreSQL `pgvector`, or Okapi BM25 in memory) via Reciprocal Rank Fusion (RRF).
 - **Defense-in-Depth Security:** Algorithmic PII masking (Turkish TCKN modulo-10 checks, Credit Card Luhn validation, IBAN, email, phone), prompt injection heuristic shields, and cryptographically signed HMAC confirmation tickets for state-mutating tools.
 - **Strict Multi-Tenancy:** Parameterized tenant scoping across vector search, semantic caching, audit logging, and document ingestion.
 - **Extensible Adapter Ecosystem:** Native support for Gemini, OpenAI, Ollama, OpenRouter, custom endpoints, Redis, and memory vector stores.
@@ -44,7 +44,7 @@ User Query
 [ 1. Security & PII Gate ] ── (Prompt Injection Check / PII Redaction)
     │
     ▼
-[ 2. Semantic Cache Tier ] ── (Tenant-Scoped Cache Hit? ──> Return in <2ms, 0 Tokens)
+[ 2. Semantic Cache Tier ] ── (Tenant-Scoped Cache Hit? ──> Return In-Memory, 0 Tokens)
     │
     ▼
 [ 3. Local Semantic FAQ  ] ── (Local ONNX High-Confidence Match? ──> Return, 0 Tokens)
@@ -53,7 +53,7 @@ User Query
 [ 4. SML Router & Tools  ] ── (Intent Classification / Read-Only Tool Execution)
     │
     ▼
-[ 5. Hybrid Retrieval   ] ── (pgvector Dense Similarity + BM25 Sparse Fusion)
+[ 5. Hybrid Retrieval   ] ── (pgvector Dense Similarity + tsvector / BM25 Fusion)
     │
     ▼
 [ 6. LLM Synthesis      ] ── (Context-Bounded Generation: Gemini, OpenAI, Ollama)
@@ -64,10 +64,10 @@ User Query
 </div>
 
 1. **Security & PII Gate:** Evaluates raw inputs against injection heuristic patterns and masks sensitive PII before vector search or LLM dispatch.
-2. **Semantic Cache Tier:** Inspects multi-tenant scoped cache keys; returns cached responses in `<2ms` without token cost.
+2. **Semantic Cache Tier:** Inspects multi-tenant scoped cache keys; returns cached responses with sub-millisecond in-memory lookup latency without token cost.
 3. **Local Semantic FAQ Tier:** Computes similarity via in-process ONNX embeddings (`all-MiniLM-L6-v2`); serves matched questions without calling an external model.
 4. **SML Router & Tool Governance:** Small Model Engine classifies intents, enforces role-based tool execution, and requires HMAC confirmation tickets for mutations.
-5. **Hybrid Retrieval:** Fuses dense vector embeddings with sparse BM25 keyword rankings using Reciprocal Rank Fusion ($k=60$).
+5. **Hybrid Retrieval:** Fuses dense vector embeddings with sparse keyword rankings (PostgreSQL `tsvector`/`tsquery` or in-memory BM25) using Reciprocal Rank Fusion ($k=60$).
 6. **Context-Bounded Synthesis:** Formulates prompt contexts and streams answers through configured LLM providers with automated error failover and token accounting.
 
 ### Integration Topology & Endpoints
@@ -153,10 +153,10 @@ import {
 } from '@denizsvnc/ai-rag-engine';
 
 const engine = new RAGEngine({
-  // 1. LLM Provider (Gemini 1.5, OpenAI, Ollama, OpenRouter, or Custom)
+  // 1. LLM Provider (Gemini 2.0 Flash, OpenAI, Ollama, OpenRouter, or Custom)
   llmProvider: new GeminiAdapter({
     apiKey: process.env.GEMINI_API_KEY!,
-    model: 'gemini-1.5-flash',
+    model: 'gemini-2.0-flash',
     temperature: 0.2
   }),
 
@@ -265,17 +265,20 @@ To ensure reliable operations, the following boundaries and architectural trade-
 
 ## Verified Performance Benchmarks
 
-Measured on Apple Silicon (M-series, macOS), Node.js `v26.13.0`, across 127,000 total iterations (`npm run benchmark`):
+Measured on Apple Silicon (M-series, macOS), Node.js `v26.13.0`, across 107,000 total iterations (`npm run benchmark`):
 
 | Component / Target | Iterations | Measured Throughput | Avg Latency | p95 Latency |
 | :--- | :--- | :--- | :--- | :--- |
-| **`RedisCacheAdapter.get` (Serialization)** | 20,000 | **5,396,169 ops/sec** | 0.16 µs | 0.21 µs |
-| **`TokenTracker` FinOps Recording** | 20,000 | **3,909,049 ops/sec** | 0.23 µs | 0.63 µs |
-| **`CacheManager.get` (In-Memory Hot Path)** | 20,000 | **3,793,356 ops/sec** | 0.22 µs | 0.42 µs |
-| **`Dot Product` (384-dim Float32)** | 50,000 | **2,214,520 ops/sec** | 0.43 µs | 0.58 µs |
-| **`Document Chunking & Magic Bytes`** | 5,000 | **1,204,226 ops/sec** | 0.80 µs | 1.67 µs |
-| **`PIIGuard.sanitize` (TCKN+Luhn+IBAN)** | 10,000 | **230,595 ops/sec** | 4.27 µs | 5.17 µs |
-| **`BM25Index.search` (500-Doc Corpus)** | 2,000 | **20,665 ops/sec** | 48.36 µs | 63.75 µs |
+| **`TokenTracker` FinOps Recording** | 20,000 | **3,269,933 ops/sec** | 0.28 µs | 0.62 µs |
+| **`CacheManager.get` (In-Memory Hot Path, Async)** | 10,000 | **2,688,322 ops/sec** | 0.32 µs | 0.71 µs |
+| **`Dot Product` (384-dim Float32)** | 50,000 | **2,182,806 ops/sec** | 0.43 µs | 0.62 µs |
+| **`RedisCacheAdapter.get` (In-Memory Fallback LRU, Async)** | 10,000 | **1,471,408 ops/sec** | 0.64 µs | 1.08 µs |
+| **`Document Chunking & Magic Bytes Gate`** | 5,000 | **1,150,406 ops/sec** | 0.85 µs | 1.50 µs |
+| **`PIIGuard.sanitize` (TCKN+Luhn+IBAN)** | 10,000 | **234,821 ops/sec** | 4.19 µs | 5.00 µs |
+| **`BM25Index.search` (500-Doc Corpus)** | 2,000 | **21,441 ops/sec** | 46.61 µs | 56.29 µs |
+
+> [!NOTE]
+> **Benchmark Methodology & Scope:** Micro-benchmarks measure in-process CPU and in-memory execution paths under Node.js `v26.13.0` (heap allocation delta: ~10.14 MB across 107K iterations). Redis throughput reflects the local in-memory fallback LRU; remote network roundtrips and external LLM I/O will vary depending on network infrastructure.
 
 *For complete benchmark methodologies and memory allocation profiles, refer to [`docs/audits/PERFORMANCE_BENCHMARK.md`](docs/audits/PERFORMANCE_BENCHMARK.md).*
 

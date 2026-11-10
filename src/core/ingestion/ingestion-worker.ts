@@ -44,7 +44,6 @@ export class IngestionWorker {
             const safety = DocumentIngestionService.validateFileSafety(saved.filename, saved.content);
             if (!safety.safe) throw new Error(`Unsafe document: ${safety.reason}`);
             const text = DocumentIngestionService.extractText(saved.filename, saved.content);
-            if (text === 'PDF document with no extractable plain text stream.') throw new Error('PDF needs OCR or a supported text parser.');
             // Sanitize before chunking so identifiers cannot escape detection across chunk boundaries.
             const sanitized = PIIGuard.sanitize(text);
             const pieces = DocumentIngestionService.chunkText(sanitized.sanitizedText, saved.settings.chunkSize, saved.settings.chunkOverlap);

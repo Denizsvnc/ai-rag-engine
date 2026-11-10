@@ -91,6 +91,10 @@ describe('Bun Runtime Compatibility Suite (Bun v1.4.4+)', () => {
         const chunks = DocumentIngestionService.chunkText(extracted, 100, 20);
         expect(chunks.length).toBeGreaterThan(0);
         expect(chunks[0]).toContain('Bun Engine');
+
+        // Explicit error on empty/unparseable PDF
+        const emptyPdf = Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF');
+        expect(() => DocumentIngestionService.extractPdfText(emptyPdf)).toThrow(/PDF document contains no extractable text stream/);
     });
 
     it('5. End-to-End RAGEngine Query Lifecycle: Should execute vector retrieval and LLM synthesis under Bun', async () => {

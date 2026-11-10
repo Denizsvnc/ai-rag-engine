@@ -20,18 +20,18 @@ No rating has been assigned arbitrarily; every score is justified by reproducibl
 
 | Dimension | Evaluated Subsystems | Score | Target | Audit Verdict & Evidence |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. Architecture & Design** | Modularity, invariants, trust boundaries, lifecycle, loose coupling. | **9.8 / 10** | 10.0 | Clean interface segregation, zero-dependency core, explicit lifecycle (`init`, `shutdown`). |
-| **2. TypeScript SDK & API DX** | Public exports, dual constructor signatures, TSDoc comments, IDE autocompletion. | **9.9 / 10** | 10.0 | Full TSDoc on all options; dual signature support on Gemini/OpenAI/OpenRouter adapters; 0 `.d.ts` leaks. |
-| **3. Security & Governance** | PII masking, prompt injection defense, HMAC confirmation tickets, tenant isolation. | **9.9 / 10** | 10.0 | 230K ops/s PII sanitization; zero cross-tenant leakage observed; 0 high/critical CVEs in `npm audit`. |
-| **4. Concurrency & Reliability** | Serialized SML model initialization, thread-safe inference, error boundaries. | **9.8 / 10** | 10.0 | Promise lock chain prevents Transformers.js global `env` pollution; 10 parallel inits verified. |
-| **5. Ingestion & Preprocessing** | Chunking bounds, multi-byte UTF-8 preservation, native zlib PDF decompression. | **9.8 / 10** | 10.0 | `RangeError` validation on invalid bounds; `StringDecoder` eliminates split UTF-8 runes; native inflateSync. |
-| **6. Retrieval & RAG Quality** | Hybrid retriever (RRF), BM25, Cosine similarity, RAGEvaluator metrics. | **9.7 / 10** | 10.0 | Deduplicated retrieved IDs; empty answer scored 0.0; Turkish/English polarity mismatch flags. |
-| **7. Performance & Latency** | Throughput, micro-benchmarks, memory allocations, hot-path latency. | **9.8 / 10** | 10.0 | 3.8M ops/s in-memory cache; 2.2M ops/s 384-dim dot product; 5.4M ops/s Redis serialization. |
-| **8. Multi-Runtime Support** | Node.js v22/v24/v26, Bun 1.4.x, ESM/CJS packaging. | **9.9 / 10** | 10.0 | 191 Node.js tests passed; 29 Bun assertions passed in 442ms; dedicated Bun CI job integrated. |
-| **9. Test Quality & Coverage** | Unit, integration, security, consumer, mutation test kill rate. | **9.7 / 10** | 10.0 | 36 test suites; 100% of simulated algorithmic mutations killed; 0 failed tests. |
-| **10. Release & Supply Chain** | npm provenance, package allowlist, zero undeclared deps, clean git tree. | **9.9 / 10** | 10.0 | npm OIDC trusted publishing; 71 verified package files; automated pack verification script. |
+| **1. Architecture & Design** | Modularity, invariants, trust boundaries, lifecycle, loose coupling. | **9.7 / 10** | 10.0 | Clean interface segregation, zero-dependency core, explicit lifecycle (`init`, `shutdown`). |
+| **2. TypeScript SDK & API DX** | Public exports, dual constructor signatures, TSDoc comments, IDE autocompletion. | **9.8 / 10** | 10.0 | Full TSDoc; dual signature support; modern active catalog models (`gemini-2.0-flash`). |
+| **3. Security & Governance** | PII masking, prompt injection defense, HMAC confirmation tickets, tenant isolation. | **9.7 / 10** | 10.0 | 234K ops/s PII sanitization; zero cross-tenant leakage observed; 0 high/critical CVEs. |
+| **4. Concurrency & Reliability** | Serialized SML model initialization, thread-safe inference, error boundaries. | **9.6 / 10** | 10.0 | Global initialization lock chain prevents `env` corruption; 5 isolated tenant paths verified. |
+| **5. Ingestion & Preprocessing** | Chunking bounds, multi-byte UTF-8 preservation, unparseable PDF rejection. | **9.6 / 10** | 10.0 | Explicit error throw prevents silent vector store poisoning; StringDecoder code points. |
+| **6. Retrieval & RAG Quality** | Hybrid retriever (RRF), BM25 vs tsvector disambiguation, RAGEvaluator metrics. | **9.6 / 10** | 10.0 | Technical disambiguation in docs; deduplicated IDs; empty answer returns 0.0. |
+| **7. Performance & Latency** | Throughput, awaited async micro-benchmarks, memory allocations, hot-path latency. | **9.6 / 10** | 10.0 | 2.68M ops/s awaited in-memory cache; 1.47M ops/s Redis LRU; 10.14 MB heap delta. |
+| **8. Multi-Runtime Support** | Node.js v22/v24/v26, Bun 1.4.x, ESM/CJS packaging. | **9.6 / 10** | 10.0 | Node.js primary reference; Bun in-process core SDK verified (6 suites, 29 assertions). |
+| **9. Test Quality & Coverage** | Unit, integration, security, consumer, mutation test kill rate. | **9.5 / 10** | 10.0 | 36 test suites; distinct tenant symlink test; negative PDF error test; 0 failed tests. |
+| **10. Release & Supply Chain** | npm provenance, package allowlist, full release quality gate. | **9.7 / 10** | 10.0 | npm OIDC trusted publishing; `npm test` + `test:package` gated in `release.yml`. |
 
-**Overall Weighted System Quality Score: 9.83 / 10 (Production Grade / Enterprise Certified)**
+**Overall Weighted System Quality Score: 9.62 / 10 (Production Grade / Hardened & Verified)**
 
 ---
 
@@ -61,6 +61,16 @@ No rating has been assigned arbitrarily; every score is justified by reproducibl
 - **Issue:** Node.js native test runner crashed when discovering files importing `bun:test`.
 - **Resolution:** Isolated Bun-specific tests in `test/bun/bun-compat.test.ts`, excluded `test/bun/` from Node runner, added `"test:bun"` npm script, and integrated Bun test job in `.github/workflows/ci.yml`.
 - **Evidence:** Executed `npm run test:bun`: 6 suites, 29 assertions passed in 442ms under Bun v1.4.4.
+
+### 3.6 Peer Review Findings & Corrective Hardening (RESOLVED)
+Following external technical review, six specific discrepancies were identified, verified against implementation logic, and systematically resolved:
+1. **PostgreSQL vs. BM25 Disambiguation:** Disambiguated PostgreSQL `pgvector` full-text retrieval (`tsvector` / `websearch_to_tsquery`) from in-memory sparse retrieval (`BM25Index`) across documentation and architecture diagrams.
+2. **Cache Latency Contextualization:** Replaced blanket `<2ms` claims with explicit clarification that this latency refers to in-process memory cache hot-path retrieval, not external network or distributed cluster SLAs.
+3. **Gemini Active Catalog Standardization:** Updated outdated `gemini-1.5-flash` references across `README.md`, `README_tr.md`, `README_de.md`, and `src/config/env.ts` to active standard `gemini-2.0-flash`.
+4. **Benchmark Rigor & Async Await Execution:** Replaced unawaited async Promise profiling in `smoke-benchmark.ts` with explicit `await fn()` timing (`runAsyncBench`), tracked real V8 heap delta (10.14 MB across 107K ops), and labeled Redis throughput as in-memory fallback LRU.
+5. **Multi-Tenant SML Concurrency Isolation:** Upgraded `sml-concurrency.test.ts` to instantiate 5 concurrent engines using distinct, isolated tenant symlink directories (`tmp/test_models_tenant_${i}`) and alternating `localFilesOnly: true/false`, verifying that global `env` settings revert to baseline.
+6. **Silent PDF Poisoning Prevention:** Hardened `extractPdfText` in `document-ingestion.service.ts` to throw an explicit `Error` when a PDF contains no extractable plain text streams, preventing empty or fallback strings from being ingested into vector stores. Added corresponding negative test cases.
+7. **Release Workflow Quality Gate:** Added `npm test` into `.github/workflows/release.yml` before package publication.
 
 ---
 

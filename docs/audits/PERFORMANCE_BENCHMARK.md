@@ -16,36 +16,45 @@ AI-RAG-ENGINE is engineered for high-throughput, low-latency enterprise workload
 
 ## 2. Verified Benchmark Results
 
-The following measurements were collected on 2026-11-10 executing 127,000 total iterations across hot-path components:
+The following measurements were collected on 2026-11-10 executing 107,000 total iterations across hot-path components (`npm run benchmark`):
 
-| Component / Target | Iterations | Measured Throughput (ops/sec) | Avg Latency | p95 Latency | Memory Overhead |
+| Component / Target | Iterations | Measured Throughput (ops/sec) | Avg Latency | p95 Latency | Nature / Execution Model |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`RedisCacheAdapter.get` (Serialization)** | 20,000 | **5,396,169 ops/s** | 0.16 µs | 0.21 µs | Zero alloc |
-| **`TokenTracker` FinOps Recording** | 20,000 | **3,909,049 ops/s** | 0.23 µs | 0.63 µs | O(1) map write |
-| **`CacheManager.get` (In-Memory Hot Path)** | 20,000 | **3,793,356 ops/s** | 0.22 µs | 0.42 µs | O(1) hash lookup |
-| **`Dot Product` (384-dim all-MiniLM-L6-v2)** | 50,000 | **2,214,520 ops/s** | 0.43 µs | 0.58 µs | Float32 SIMD unroll |
-| **`Document Chunking & Magic Bytes Gate`** | 5,000 | **1,204,226 ops/s** | 0.80 µs | 1.67 µs | Linear slice |
-| **`PIIGuard.sanitize` (TCKN+Luhn+IBAN)** | 10,000 | **230,595 ops/s** | 4.27 µs | 5.17 µs | Single-pass regex |
-| **`BM25Index.search` (500-Doc Sparse Corpus)**| 2,000 | **20,665 ops/s** | 48.36 µs | 63.75 µs | Sparse inverted index|
+| **`TokenTracker` FinOps Recording** | 20,000 | **3,269,933 ops/s** | 0.28 µs | 0.62 µs | Synchronous CPU (O(1) Map) |
+| **`CacheManager.get` (In-Memory Hot Path)** | 10,000 | **2,688,322 ops/s** | 0.32 µs | 0.71 µs | Asynchronous Promise Awaited |
+| **`Dot Product` (384-dim all-MiniLM-L6-v2)** | 50,000 | **2,182,806 ops/s** | 0.43 µs | 0.62 µs | Synchronous Float32 Math |
+| **`RedisCacheAdapter.get` (Fallback LRU)** | 10,000 | **1,471,408 ops/s** | 0.64 µs | 1.08 µs | Asynchronous In-Memory Fallback |
+| **`Document Chunking & Magic Bytes Gate`** | 5,000 | **1,150,406 ops/s** | 0.85 µs | 1.50 µs | Synchronous String / Buffer Scan |
+| **`PIIGuard.sanitize` (TCKN+Luhn+IBAN)** | 10,000 | **234,821 ops/s** | 4.19 µs | 5.00 µs | Synchronous Multi-Regex & Modulus |
+| **`BM25Index.search` (500-Doc Sparse Corpus)** | 2,000 | **21,441 ops/s** | 46.61 µs | 56.29 µs | Synchronous Inverted Index Walk |
+
+**Memory Footprint:** Heap delta measured at 10.14 MB (8.61 MB -> 18.76 MB) over 107,000 iterations without memory leakage.
 
 ---
 
-## 3. Analysis by Subsystem
+## 3. Analysis by Subsystem & Benchmark Methodology
+
+> [!IMPORTANT]
+> **Methodology Boundary: Micro-benchmarks vs. Distributed System Latency**  
+> Micro-benchmarks measure exclusively **in-process CPU hot paths and in-memory async operations**.  
+> - `RedisCacheAdapter.get` was measured using its built-in in-memory fallback LRU. In production, remote network I/O to a standalone Redis instance or cluster typically incurs 0.5 ms – 2.5 ms network latency, depending on VPC topology.
+> - LLM synthesis latency (e.g. Gemini, OpenAI) is bound by external API network transport and LLM token generation rates (typically 200 ms – 1500 ms).
+> - Asynchronous functions (`cache.get`, `redisCache.get`) are measured using `runAsyncBench`, strictly awaiting each Promise resolution rather than profiling raw Promise allocation.
 
 ### 3.1 Vector Similarity & Math Operations
-- **Throughput:** Over 2.2 million vector dot-product computations per second on 384-dimensional embeddings.
-- **Latency:** Average latency of 0.43 microseconds (p95: 0.58 µs).
+- **Throughput:** Over 2.18 million vector dot-product computations per second on 384-dimensional embeddings.
+- **Latency:** Average latency of 0.43 microseconds (p95: 0.62 µs).
 - **Optimization:** Array bounds caching and flat Float32Array continuous memory layout.
 
 ### 3.2 PII Masking Pipeline
-- **Throughput:** ~230,000 operations per second under complex Turkish and international PII checks (TCKN modulus-10 verification, Credit Card Luhn formula, IBAN, email, phone).
-- **Latency:** Average latency of 4.27 µs per payload.
+- **Throughput:** ~234,000 operations per second under complex Turkish and international PII checks (TCKN modulus-10 verification, Credit Card Luhn formula, IBAN, email, phone).
+- **Latency:** Average latency of 4.19 µs per payload.
 
 ### 3.3 Semantic Cache Retrieval
-- **Throughput:** ~3.8 million in-memory lookups per second.
-- **Impact:** Queries hitting the semantic cache bypass vector search and LLM invocation entirely, delivering answers in sub-millisecond timeframes while reducing token expenditure to zero.
+- **Throughput:** ~2.68 million in-memory lookups per second.
+- **Impact:** Queries hitting the semantic cache bypass vector search and LLM invocation entirely, delivering answers with sub-millisecond in-process latency while reducing token expenditure to zero.
 
 ### 3.4 Sparse BM25 Search
-- **Throughput:** ~20,600 queries per second searching across a 500-document in-memory inverted index.
-- **Latency:** Average search latency of 48.36 µs, providing instantaneous keyword grounding for Reciprocal Rank Fusion.
+- **Throughput:** ~21,400 queries per second searching across a 500-document in-memory inverted index.
+- **Latency:** Average search latency of 46.61 µs, providing instantaneous keyword grounding for Reciprocal Rank Fusion.
 

@@ -1,9 +1,9 @@
 import { performance } from 'node:perf_hooks';
-import { PIIGuard } from '../../src/core/security/pii-guard';
-import { CacheManager } from '../../src/core/cache-manager';
-import { DocumentIngestionService } from '../../src/services/document-ingestion.service';
-import { TokenTracker } from '../../src/core/metrics/token-tracker';
-import { dotProduct } from '../../src/utils/math';
+import { PIIGuard } from '../../src/core/security/pii-guard.js';
+import { CacheManager } from '../../src/core/cache-manager.js';
+import { DocumentIngestionService } from '../../src/services/document-ingestion.service.js';
+import { TokenTracker } from '../../src/core/metrics/token-tracker.js';
+import { dotProduct } from '../../src/utils/math.js';
 
 interface BenchResult {
     name: string;
@@ -41,12 +41,41 @@ function runBench(name: string, iterations: number, fn: () => void): BenchResult
     };
 }
 
+async function runAsyncBench(name: string, iterations: number, fn: () => Promise<unknown>): Promise<BenchResult> {
+    const times: number[] = new Array(iterations);
+
+    const startTotal = performance.now();
+    for (let i = 0; i < iterations; i++) {
+        const t0 = performance.now();
+        await fn();
+        times[i] = (performance.now() - t0) * 1000; // microseconds
+    }
+    const endTotal = performance.now();
+    const totalMs = endTotal - startTotal;
+
+    times.sort((a, b) => a - b);
+    const avgLatencyUs = Number((times.reduce((a, b) => a + b, 0) / iterations).toFixed(2));
+    const p95LatencyUs = Number(times[Math.floor(iterations * 0.95)]!.toFixed(2));
+    const opsPerSec = Math.floor((iterations / totalMs) * 1000);
+
+    return {
+        name,
+        iterations,
+        totalMs: Number(totalMs.toFixed(2)),
+        opsPerSec,
+        avgLatencyUs,
+        p95LatencyUs
+    };
+}
+
 async function main() {
     console.log('='.repeat(80));
-    console.log('🚀 AI-RAG-ENGINE High-Throughput Smoke Benchmark');
+    console.log('🚀 AI-RAG-ENGINE In-Memory Micro-Benchmark');
     console.log('='.repeat(80));
 
-    // 1. PII Guard Sanitization Benchmark
+    const heapStartBytes = process.memoryUsage().heapUsed;
+
+    // 1. PII Guard Sanitization Benchmark (Synchronous CPU)
     const sampleText =
         'Müşteri Mehmet Bey, T.C. Kimlik No: 10000000146 ve Kart: 4532-0150-1234-5671 ile ödeme yaptı. ' +
         'İletişim: mehmet@firma.com, Tel: 05321234567, IBAN: TR330006100512345678901234.';
@@ -55,29 +84,29 @@ async function main() {
         PIIGuard.sanitize(sampleText);
     });
 
-    // 2. Cache Lookup Benchmark
+    // 2. Cache Lookup Benchmark (Asynchronous In-Memory)
     const cache = new CacheManager(undefined, 1, 5000, 3600000);
     await cache.init();
     await cache.set('fiyat nedir', { answer: '150 TL', intent: 'FAQ', resolvedBy: 'CACHE', latencyMs: 0 });
 
-    const cacheBench = runBench('CacheManager.get (In-Memory Hot Path)', 20000, () => {
-        cache.get('fiyat nedir');
+    const cacheBench = await runAsyncBench('CacheManager.get (In-Memory Hot Path, Async)', 10000, async () => {
+        await cache.get('fiyat nedir');
     });
 
-    // 3. Dot Product Vector Scoring (384-dimensional unit vectors)
+    // 3. Dot Product Vector Scoring (384-dimensional unit vectors, Synchronous CPU)
     const vecA = new Float32Array(384).map(() => Math.random() - 0.5);
     const vecB = new Float32Array(384).map(() => Math.random() - 0.5);
     const dotBench = runBench('Dot Product (384-dim all-MiniLM-L6-v2)', 50000, () => {
         dotProduct(vecA as unknown as number[], vecB as unknown as number[]);
     });
 
-    // 4. Document Text Chunking & Magic Byte Validation
+    // 4. Document Text Chunking (Synchronous CPU)
     const sampleDoc = ('Paragraf 1 metin içeriği ve kurumsal detaylar.\n\n').repeat(20);
     const chunkBench = runBench('Document Chunking & Magic Bytes Gate', 5000, () => {
         DocumentIngestionService.chunkText(sampleDoc, 200, 30);
     });
 
-    // 5. Token Tracker FinOps Tracking
+    // 5. Token Tracker FinOps Tracking (Synchronous in-memory Map)
     const tracker = new TokenTracker();
     const tokenBench = runBench('TokenTracker FinOps Recording', 20000, () => {
         tracker.trackQuery({
@@ -88,8 +117,8 @@ async function main() {
         });
     });
 
-    // 6. BM25 Lexical Keyword Search (Zero-Dependency Sparse Index)
-    const { BM25Index } = await import('../../src/core/vector/bm25');
+    // 6. BM25 Lexical Keyword Search (In-Memory Inverted Index)
+    const { BM25Index } = await import('../../src/core/vector/bm25.js');
     const bm25 = new BM25Index();
     const docs = [];
     for (let i = 0; i < 500; i++) {
@@ -103,13 +132,16 @@ async function main() {
         bm25.search('LAPTOP-X42 32GB NVMe', 5);
     });
 
-    // 7. Centralized RedisCacheAdapter Serialization Hot Path
-    const { RedisCacheAdapter } = await import('../../src/adapters/cache/redis-cache.adapter');
+    // 7. RedisCacheAdapter In-Memory Fallback Path (Asynchronous, no remote network I/O)
+    const { RedisCacheAdapter } = await import('../../src/adapters/cache/redis-cache.adapter.js');
     const redisCache = new RedisCacheAdapter({ enableFallbackMemory: true });
     await redisCache.set('hot_item', { sku: 'PRO-100', stock: 45, priceUsd: 1299.99 });
-    const redisBench = runBench('RedisCacheAdapter.get (Serialization Path)', 20000, () => {
-        redisCache.get('hot_item');
+    const redisBench = await runAsyncBench('RedisCacheAdapter.get (In-Memory Fallback LRU, Async)', 10000, async () => {
+        await redisCache.get('hot_item');
     });
+
+    const heapEndBytes = process.memoryUsage().heapUsed;
+    const heapDeltaMb = ((heapEndBytes - heapStartBytes) / (1024 * 1024)).toFixed(2);
 
     const results = [piiBench, cacheBench, dotBench, chunkBench, tokenBench, bm25Bench, redisBench];
 
@@ -125,7 +157,8 @@ async function main() {
     );
 
     console.log('='.repeat(80));
-    console.log('✅ Smoke Benchmark Completed Successfully. Zero Bloat verified.');
+    console.log(`Heap memory footprint: ${(heapStartBytes / 1024 / 1024).toFixed(2)} MB -> ${(heapEndBytes / 1024 / 1024).toFixed(2)} MB (Delta: ${heapDeltaMb} MB)`);
+    console.log('Methodology note: Measures in-process CPU and in-memory execution paths; network latency and remote DB/LLM roundtrips are excluded.');
     console.log('='.repeat(80));
 }
 

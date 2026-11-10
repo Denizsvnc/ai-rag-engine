@@ -72,6 +72,16 @@ endobj
 
             assert.ok(extracted.includes('Hello World'));
         });
+
+        it('should throw an explicit error instead of returning placeholder text when PDF text cannot be extracted', () => {
+            const emptyPdf = '%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF';
+            assert.throws(
+                () => DocumentIngestionService.extractText('empty.pdf', Buffer.from(emptyPdf, 'utf-8')),
+                {
+                    message: /PDF document contains no extractable text stream/
+                }
+            );
+        });
     });
 
     describe('SML Engine - Presets & Arbitrary Model Configurations', () => {

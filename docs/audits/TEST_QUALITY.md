@@ -48,7 +48,7 @@ graph TD
 
 ## 4. Evaluation of Test Rigor & Independent Verification
 
-1. **Independent Verification:** Tests validate behavioral invariants rather than implementation internals. For instance, `SMLEngine` concurrency tests spawn 10 independent instances in parallel with conflicting `cacheDir` configurations, asserting that final outputs and restored environments are strictly uncontaminated.
-2. **Negative & Adversarial Testing:** Includes malformed PDF stream tests, invalid chunk parameter tests (`overlap >= chunkSize`), split multi-byte UTF-8 character edge cases, and ticket replay attacks.
+1. **Independent Verification:** Tests validate behavioral invariants rather than implementation internals. For instance, `SMLEngine` concurrency tests spawn 5 independent instances in parallel with distinct, isolated `cacheDir` configurations (tenant symlinks in `tmp/`), alternating `localFilesOnly: true/false`, asserting that parallel embedding generations succeed, outputs have expected dimensions (384), and global environment settings (`env.cacheDir`, `env.allowRemoteModels`) are strictly restored to their baseline state without cross-contamination.
+2. **Negative & Adversarial Testing:** Includes malformed/unparseable PDF stream rejection tests (throwing explicit `Error` to prevent vector database poisoning), invalid chunk parameter tests (`overlap >= chunkSize`), split multi-byte UTF-8 character edge cases, and ticket replay attacks.
 3. **Reproducibility:** All unit and Bun tests run deterministically without requiring external API keys, network access, or paid cloud services.
 

@@ -378,22 +378,26 @@ export class DocumentIngestionService {
                 .trim();
         }
 
-        // 3. High-Fidelity Fallback: Stream Object Decomposition
-        const cleaned = contentToScan
-            .replace(/%PDF-[^\n]+/g, '')
-            .replace(/stream[\s\S]*?endstream/g, (streamObj) => {
-                const innerMatch = streamObj.match(/\((.*?)\)/g);
-                return innerMatch ? innerMatch.map(s => decodePdfLiteral(s.slice(1, -1))).join(' ') : '';
-            })
-            .replace(/obj[\s\S]*?endobj/g, (obj) => {
-                const innerMatch = obj.match(/\((.*?)\)/g);
-                return innerMatch ? innerMatch.map(s => decodePdfLiteral(s.slice(1, -1))).join(' ') : '';
-            })
-            .replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜäÄöÖüÜß\s.,!?:;@/\-()]/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
+        // 3. Fallback: Parse literal text strings (...) outside standard BT...ET blocks
+        const literalMatches = contentToScan.match(/\(([^()]*)\)/g);
+        if (literalMatches && literalMatches.length > 0) {
+            const fallbackSegments: string[] = [];
+            for (const match of literalMatches) {
+                const text = decodePdfLiteral(match.slice(1, -1)).trim();
+                // Filter out empty strings and non-text syntax artifacts
+                if (text.length > 0 && !/^\/[A-Za-z0-9_]+$/.test(text) && !/^[\d\s.,:/\\-]+$/.test(text)) {
+                    fallbackSegments.push(text);
+                }
+            }
+            if (fallbackSegments.length > 0) {
+                const joined = fallbackSegments.join(' ').replace(/\s+/g, ' ').trim();
+                if (joined.length > 0) {
+                    return joined;
+                }
+            }
+        }
 
-        return cleaned || 'PDF document with no extractable plain text stream.';
+        throw new Error('PDF document contains no extractable text stream (OCR or a supported text parser required).');
     }
 
 

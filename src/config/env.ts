@@ -14,7 +14,7 @@ const envSchema = z.object({
 
     GEMINI_API_KEY: z.string().optional(),
     GEMINI_MODEL: z.string().optional(),
-    GEMINI_MODEL_FAST: z.string().default('gemini-1.5-flash'),
+    GEMINI_MODEL_FAST: z.string().default('gemini-2.0-flash'),
     GEMINI_MODEL_SMART: z.string().default('gemini-1.5-pro'),
 
     OPENROUTER_API_KEY: z.string().optional(),

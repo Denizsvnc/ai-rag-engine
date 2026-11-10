@@ -4,7 +4,7 @@ import type { ILLMProvider, ILLMRequest, ILLMResponse } from '../../interfaces/l
 export interface GeminiConfig {
     /** Google Gemini API Key. Defaults to process.env.GEMINI_API_KEY. */
     apiKey?: string | undefined;
-    /** Model identifier (e.g. 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'). Defaults to process.env.GEMINI_MODEL || 'gemini-2.0-flash'. */
+    /** Model identifier (e.g. 'gemini-2.0-flash', 'gemini-1.5-pro'). Defaults to process.env.GEMINI_MODEL || process.env.GEMINI_MODEL_FAST || 'gemini-2.0-flash'. */
     model?: string | undefined;
     /** Sampling temperature. Defaults to 0.1 for deterministic RAG answers. */
     temperature?: number | undefined;

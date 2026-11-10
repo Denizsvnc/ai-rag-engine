@@ -17,7 +17,7 @@ import type { SMLModelPreset } from '../core/sml-engine.js';
  * @example
  * ```typescript
  * const engine = new RAGEngine({
- *   llmProvider: new GeminiAdapter({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-1.5-pro' }),
+ *   llmProvider: new GeminiAdapter({ apiKey: process.env.GEMINI_API_KEY, model: 'gemini-2.0-flash' }),
  *   inputs: {
  *     vectorStore: new PostgresVectorAdapter({ connectionString: process.env.DATABASE_URL })
  *   },

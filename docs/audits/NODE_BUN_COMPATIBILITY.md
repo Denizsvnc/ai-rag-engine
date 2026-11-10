@@ -59,8 +59,9 @@ AI-RAG-ENGINE is engineered to run seamlessly across both modern Node.js and Bun
 
 ---
 
-## 4. Verification Verdict
+## 4. Verification Verdict & Scope Boundaries
 
-- **Node.js (LTS & Modern):** Fully supported, certified production-ready.
-- **Bun (Modern):** Fully supported, certified production-ready.
+- **Node.js (LTS & Modern, v22.x - v26.x):** Primary reference runtime. Full test suite (unit, integration, services, benchmarks, packaging) 100% verified and passing.
+- **Bun (Modern, 1.4+):** Verified for in-process core SDK workloads (in-process ONNX embeddings, vector similarity math, PII guardrails, PDF stream decompression, local FAQ matching, and in-memory RAG evaluation).
+  - *Boundary Note:* External database daemons (e.g., live PostgreSQL `pgvector`, standalone Redis clusters) are not run under Bun in CI; Node.js is recommended for infrastructure deployments requiring external driver lifecycle management.
 

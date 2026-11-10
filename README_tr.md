@@ -79,7 +79,7 @@ const engine = new RAGEngine({
   // 1. LLM Sağlayıcısı (Gemini, OpenAI, Ollama veya Özel API)
   llmProvider: new GeminiAdapter(
     process.env.GEMINI_API_KEY,
-    'gemini-1.5-flash'
+    'gemini-2.0-flash'
   ),
 
   // 2. Bilgi Getirimi & Semantik FAQ Eşleme
