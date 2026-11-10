@@ -30,15 +30,6 @@ ESM only. Node.js **22.14 or newer**; the compatibility matrix covers Node 22 an
 npm install @denizsvnc/ai-rag-engine
 ```
 
-Before publication, install a locally built artifact:
-
-```sh
-npm ci
-npm pack
-# From a different project:
-npm install /absolute/path/to/denizsvnc-ai-rag-engine-2.2.0.tgz
-```
-
 ## Quick Start
 
 This deterministic example needs no credentials, model download, HTTP server, or database. The provider and vector adapter are test doubles demonstrating the integration contract; use real adapters for application data.
@@ -71,6 +62,71 @@ const result = await engine.query('What is the return window?', {
 console.log(result.answer); // Returns: 14 days.
 ```
 
+### Production Example (Multi-Tenant with Gemini, pgvector & Redis)
+
+For production applications with external LLMs, multi-tenant persistence, and distributed caching:
+
+```ts
+import {
+  RAGEngine,
+  GeminiAdapter,
+  PostgresVectorAdapter,
+  RedisCacheAdapter,
+  LocalFaqAdapter
+} from '@denizsvnc/ai-rag-engine';
+
+const engine = new RAGEngine({
+  // 1. LLM Provider (Gemini, OpenAI, Ollama, or Custom)
+  llmProvider: new GeminiAdapter(
+    process.env.GEMINI_API_KEY,
+    'gemini-1.5-flash'
+  ),
+
+  // 2. Knowledge Retrieval & Semantic FAQ Matching
+  inputs: {
+    vectorStore: new PostgresVectorAdapter({
+      connectionString: process.env.DATABASE_URL,
+      tableName: 'enterprise_embeddings'
+    }),
+    faq: new LocalFaqAdapter({
+      filePath: './faq.json',
+      defaultMatchThreshold: 0.65
+    })
+  },
+
+  // 3. Distributed Cache & Security Guardrails
+  cache: {
+    enabled: true,
+    adapter: new RedisCacheAdapter({
+      url: process.env.REDIS_URL,
+      defaultTtlMs: 3600000 // 1 hour
+    })
+  },
+  security: {
+    enabled: true,
+    blockHighRiskInjections: true,
+    pii: {
+      enabled: true,
+      maskTCKN: true,
+      maskCreditCards: true,
+      maskEmails: true
+    }
+  }
+});
+
+// Query with tenant isolation & role-based access
+const response = await engine.query('Q3 compliance audit summary', {
+  tenantId: 'tenant-acme',
+  userId: 'usr_8472',
+  roles: ['compliance_officer']
+});
+
+console.log(response.answer);
+console.log('Intent:', response.intent);
+console.log('Latency (ms):', response.latencyMs);
+console.log('Sources:', response.sources);
+```
+
 Importing the SDK does not start a server, load `.env`, open Redis/PostgreSQL connections, download models, or change the Transformers global environment. Constructors and explicit initialization perform the operations described in [the usage guide](docs/USAGE.md).
 
 ## Capabilities and operational boundaries
@@ -92,7 +148,7 @@ Prompt filters and PII patterns are defenses with limitations, not guarantees of
 - [Configuration, real providers, vectors, FAQ, tools and troubleshooting](docs/USAGE.md)
 - [Versioning, manual publication and release checklist](docs/RELEASING.md)
 - [Changelog](CHANGELOG.md)
-- [Detailed local release-readiness report](https://github.com/Denizsvnc/ai-rag-engine/blob/main/docs/NPM_RELEASE_READINESS.md)
+- [Detailed release-readiness report](docs/NPM_RELEASE_READINESS.md)
 
 ## Repository verification
 

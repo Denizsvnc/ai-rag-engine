@@ -32,4 +32,106 @@ ESM zorunludur. Node.js **22.14 veya üzeri**; uyumluluk matrisi Node 22 ve 24'�
 npm install @denizsvnc/ai-rag-engine
 ```
 
-Kurulum örnekleri, mimari sınırlar ve API kullanımı için [ana README](README.md), [kullanım kılavuzu](docs/USAGE_tr.md) ve [yayın kontrol listesi](docs/RELEASING_tr.md) belgelerini inceleyiniz.
+## Hızlı Başlangıç (Quick Start)
+
+Dış bağımlılık, model indirme veya veritabanı gerektirmeyen deterministik test örneği:
+
+```js
+import { RAGEngine } from '@denizsvnc/ai-rag-engine';
+
+const engine = new RAGEngine({
+  smlConfig: { enabled: false },
+  cache: { enabled: false },
+  inputs: {
+    vectorStore: {
+      async search(_query, _topK, filter) {
+        if (filter?.tenantId !== 'demo') return [];
+        return [{ id: 'iade', content: 'İadeler 14 gün içinde kabul edilir.' }];
+      }
+    }
+  },
+  llmProvider: {
+    async generate({ systemPrompt }) {
+      return { content: systemPrompt.includes('14 gün') ? 'İade süresi: 14 gündür.' : 'Bilinmiyor.' };
+    }
+  }
+});
+
+await engine.init();
+const result = await engine.query('İade süresi kaç gündür?', {
+  tenantId: 'demo', userId: 'demo-user', roles: ['viewer']
+});
+console.log(result.answer); // İade süresi: 14 gündür.
+```
+
+### Kurumsal Üretim Örneği (Gemini, pgvector & Redis)
+
+Harici LLM, kalıcı PostgreSQL vektör deposu ve dağıtık Redis önbelleği ile üretim örneği:
+
+```ts
+import {
+  RAGEngine,
+  GeminiAdapter,
+  PostgresVectorAdapter,
+  RedisCacheAdapter,
+  LocalFaqAdapter
+} from '@denizsvnc/ai-rag-engine';
+
+const engine = new RAGEngine({
+  // 1. LLM Sağlayıcısı (Gemini, OpenAI, Ollama veya Özel API)
+  llmProvider: new GeminiAdapter(
+    process.env.GEMINI_API_KEY,
+    'gemini-1.5-flash'
+  ),
+
+  // 2. Bilgi Getirimi & Semantik FAQ Eşleme
+  inputs: {
+    vectorStore: new PostgresVectorAdapter({
+      connectionString: process.env.DATABASE_URL,
+      tableName: 'enterprise_embeddings'
+    }),
+    faq: new LocalFaqAdapter({
+      filePath: './faq.json',
+      defaultMatchThreshold: 0.65
+    })
+  },
+
+  // 3. Dağıtık Önbellek & Güvenlik Duvarı
+  cache: {
+    enabled: true,
+    adapter: new RedisCacheAdapter({
+      url: process.env.REDIS_URL,
+      defaultTtlMs: 3600000 // 1 saat
+    })
+  },
+  security: {
+    enabled: true,
+    blockHighRiskInjections: true,
+    pii: {
+      enabled: true,
+      maskTCKN: true,
+      maskCreditCards: true,
+      maskEmails: true
+    }
+  }
+});
+
+// Kiracı izolasyonu ve RBAC yetkileriyle sorgulama
+const response = await engine.query('3. çeyrek denetim raporu özeti nedir?', {
+  tenantId: 'tenant-acme',
+  userId: 'usr_8472',
+  roles: ['compliance_officer']
+});
+
+console.log(response.answer);
+console.log('Intent:', response.intent);
+console.log('Latency (ms):', response.latencyMs);
+console.log('Kaynaklar:', response.sources);
+```
+
+## Dokümantasyon
+
+- [Yapılandırma, Sağlayıcılar, Vektörler ve Sorun Giderme](docs/USAGE_tr.md)
+- [Sürüm Yönetimi ve Yayın Kontrol Listesi](docs/RELEASING_tr.md)
+- [Değişiklik Günlüğü (Changelog)](CHANGELOG.md)
+- [Yayın Hazırlığı ve Kalite Raporu](docs/NPM_RELEASE_READINESS_tr.md)

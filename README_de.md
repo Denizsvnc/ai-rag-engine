@@ -32,4 +32,106 @@ Nur ESM. Node.js **22.14 oder neuer**; die Kompatibilitätsmatrix umfasst Node 2
 npm install @denizsvnc/ai-rag-engine
 ```
 
-Installationsbeispiele, Betriebsgrenzen und API-Details finden Sie in der [README](README.md), im [Usage Guide](docs/USAGE_de.md) und in der [Release Checklist](docs/RELEASING_de.md).
+## Schnellstart (Quick Start)
+
+Deterministisches Testbeispiel ohne externe Abhängigkeiten, Modell-Downloads oder Datenbanken:
+
+```js
+import { RAGEngine } from '@denizsvnc/ai-rag-engine';
+
+const engine = new RAGEngine({
+  smlConfig: { enabled: false },
+  cache: { enabled: false },
+  inputs: {
+    vectorStore: {
+      async search(_query, _topK, filter) {
+        if (filter?.tenantId !== 'demo') return [];
+        return [{ id: 'rueckgabe', content: 'Rückgaben sind innerhalb von 14 Tagen möglich.' }];
+      }
+    }
+  },
+  llmProvider: {
+    async generate({ systemPrompt }) {
+      return { content: systemPrompt.includes('14 Tagen') ? 'Rückgabefrist: 14 Tage.' : 'Unbekannt.' };
+    }
+  }
+});
+
+await engine.init();
+const result = await engine.query('Wie lange ist die Rückgabefrist?', {
+  tenantId: 'demo', userId: 'demo-user', roles: ['viewer']
+});
+console.log(result.answer); // Rückgabefrist: 14 Tage.
+```
+
+### Produktionsbeispiel (Multi-Tenant mit Gemini, pgvector & Redis)
+
+Produktionsbeispiel mit externem LLM, persistentem PostgreSQL-Vektorspeicher und verteiltem Redis-Cache:
+
+```ts
+import {
+  RAGEngine,
+  GeminiAdapter,
+  PostgresVectorAdapter,
+  RedisCacheAdapter,
+  LocalFaqAdapter
+} from '@denizsvnc/ai-rag-engine';
+
+const engine = new RAGEngine({
+  // 1. LLM-Provider (Gemini, OpenAI, Ollama oder Custom API)
+  llmProvider: new GeminiAdapter(
+    process.env.GEMINI_API_KEY,
+    'gemini-1.5-flash'
+  ),
+
+  // 2. Wissensabruf & semantisches FAQ-Matching
+  inputs: {
+    vectorStore: new PostgresVectorAdapter({
+      connectionString: process.env.DATABASE_URL,
+      tableName: 'enterprise_embeddings'
+    }),
+    faq: new LocalFaqAdapter({
+      filePath: './faq.json',
+      defaultMatchThreshold: 0.65
+    })
+  },
+
+  // 3. Verteilter Cache & Sicherheitsfilter
+  cache: {
+    enabled: true,
+    adapter: new RedisCacheAdapter({
+      url: process.env.REDIS_URL,
+      defaultTtlMs: 3600000 // 1 Stunde
+    })
+  },
+  security: {
+    enabled: true,
+    blockHighRiskInjections: true,
+    pii: {
+      enabled: true,
+      maskTCKN: true,
+      maskCreditCards: true,
+      maskEmails: true
+    }
+  }
+});
+
+// Abfrage mit Mandantenisolation und rollenbasierter Zugriffskontrolle (RBAC)
+const response = await engine.query('Zusammenfassung des Q3-Audit-Berichts', {
+  tenantId: 'tenant-acme',
+  userId: 'usr_8472',
+  roles: ['compliance_officer']
+});
+
+console.log(response.answer);
+console.log('Intent:', response.intent);
+console.log('Latenz (ms):', response.latencyMs);
+console.log('Quellen:', response.sources);
+```
+
+## Dokumentation
+
+- [Konfiguration, Provider, Vektorspeicher und Fehlerbehebung](docs/USAGE_de.md)
+- [Versionsverwaltung und Release-Checkliste](docs/RELEASING_de.md)
+- [Änderungsprotokoll (Changelog)](CHANGELOG.md)
+- [Release-Bereitschaftsbericht](docs/NPM_RELEASE_READINESS_de.md)
