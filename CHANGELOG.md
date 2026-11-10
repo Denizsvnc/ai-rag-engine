@@ -2,6 +2,20 @@
 
 This file follows Semantic Versioning.
 
+## 2.2.4 — 2026-11-10
+
+### Fixed
+
+- **Silent PDF Poisoning Prevention:** Hardened `DocumentIngestionService.extractPdfText` to strictly reject unparseable/scanned PDFs with an explicit `Error`, preventing empty placeholders or structural metadata (`1 0 EOF`) from being chunked into the vector database.
+- **Active Gemini Catalog Models:** Standardized default fast model to `gemini-2.0-flash` across `GeminiAdapter`, `env.ts`, TSDoc, and README code examples.
+- **PostgreSQL vs. BM25 Disambiguation:** Clarified in architecture documentation that PostgreSQL hybrid retrieval fuses dense vectors with native `tsvector`/`websearch_to_tsquery` via RRF, while Okapi BM25 operates on in-memory collections (`BM25Index`).
+- **Benchmark Async Timing & Heap Tracking:** Integrated `runAsyncBench` to properly await async cache calls in `smoke-benchmark.ts`, labeled in-memory fallback LRU clearly, and measured actual V8 heap memory deltas.
+
+### Security & CI
+
+- **Release Quality Gate:** Added mandatory `npm test` execution to `.github/workflows/release.yml` preceding package publication.
+- **SML Multi-Tenant Concurrency Tests:** Added multi-instance concurrency test with distinct isolated tenant cache symlink paths in `tmp/`, verifying that Transformers.js global `env` settings revert to baseline.
+
 ## 2.2.3 — 2026-11-10
 
 ### Fixed
