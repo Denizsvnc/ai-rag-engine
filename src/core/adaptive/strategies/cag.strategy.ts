@@ -1,6 +1,7 @@
 import type { IStrategy, StrategyCapabilityMetadata, StrategyExecutionContext, StrategyExecutionResult } from '../../../interfaces/strategy.interface.js';
 import type { ICacheAdapter } from '../../../interfaces/cache.interface.js';
 import type { EvidenceItem } from '../../../interfaces/evidence.interface.js';
+import { CacheIdentity } from '../../security/cache-identity.js';
 
 /**
  * Backing cache tier taxonomy utilized by Cache-Augmented Generation (CAG).
@@ -8,21 +9,42 @@ import type { EvidenceItem } from '../../../interfaces/evidence.interface.js';
 export type CAGCacheType =
     | 'in_memory_lru'
     | 'redis_distributed'
-    | 'provider_prompt_prefix'
+    | 'response_cache'
+    | 'semantic_cache'
+    | 'prompt_prefix_cache'
+    | 'provider_managed_cache'
     | 'native_model_kv';
+
+/**
+ * Options for configuring CAGStrategy.
+ */
+export interface CAGStrategyOptions {
+    /** Whether strategy is enabled. */
+    enabled?: boolean | undefined;
+    /** Declared or preferred cache architecture tier. */
+    cacheType?: CAGCacheType | undefined;
+    /**
+     * Whether the active model provider genuinely supports hardware/native KV-cache reuse.
+     * Defaults to `false` unless explicitly negotiated with an LLM provider supporting KV cache.
+     */
+    nativeKvCapability?: boolean | undefined;
+    /** HMAC signing secret for cryptographic cache key generation. */
+    signingSecret?: string | undefined;
+}
 
 /**
  * Cache-Augmented Generation (CAG) strategy for zero-token instantaneous answer resolution.
  *
  * @remarks
- * Evaluates semantic query keys against memory LRU, distributed Redis, or prompt-prefix caches.
- * When a hit occurs, returns an immediate answer draft with 0 LLM token cost.
+ * Evaluates multi-dimensional cryptographic cache keys against memory LRU, distributed Redis,
+ * or prompt-prefix caches. When an authorized hit occurs, returns an immediate answer draft.
+ * Strictly separates response caching from genuine native KV-cache acceleration.
  */
 export class CAGStrategy implements IStrategy {
     public readonly metadata: StrategyCapabilityMetadata = {
         id: 'cag',
         name: 'Cache-Augmented Generation (CAG)',
-        description: 'Hierarchical prompt-prefix, semantic, and in-memory cache lookup with zero-token execution.',
+        description: 'Multi-dimensional cryptographic cache lookup with strict role, tenant, and revision isolation.',
         category: 'cache',
         supportsStreaming: false,
         supportsMultiTenant: true,
@@ -33,11 +55,28 @@ export class CAGStrategy implements IStrategy {
         estimatedCostPerQuery: 0.0
     };
 
+    private readonly enabled: boolean;
+    private readonly cacheType: CAGCacheType;
+    private readonly nativeKvCapability: boolean;
+    private readonly signingSecret: string | undefined;
+
     constructor(
         private readonly cacheAdapter?: ICacheAdapter | undefined,
-        private readonly enabled: boolean = true,
-        private readonly cacheType: CAGCacheType = 'in_memory_lru'
-    ) {}
+        optionsOrEnabled: boolean | CAGStrategyOptions = true,
+        legacyCacheType: CAGCacheType = 'in_memory_lru'
+    ) {
+        if (typeof optionsOrEnabled === 'boolean') {
+            this.enabled = optionsOrEnabled;
+            this.cacheType = legacyCacheType;
+            this.nativeKvCapability = false;
+            this.signingSecret = undefined;
+        } else {
+            this.enabled = optionsOrEnabled.enabled ?? true;
+            this.cacheType = optionsOrEnabled.cacheType || legacyCacheType;
+            this.nativeKvCapability = Boolean(optionsOrEnabled.nativeKvCapability);
+            this.signingSecret = optionsOrEnabled.signingSecret;
+        }
+    }
 
     public isEnabled(): boolean {
         return this.enabled && !!this.cacheAdapter;
@@ -56,22 +95,48 @@ export class CAGStrategy implements IStrategy {
     }
 
     /**
-     * Executes Cache-Augmented Generation retrieval.
-     * Accurately reports cache architecture without falsely claiming native KV-cache.
+     * Executes Cache-Augmented Generation retrieval with multi-dimensional authorization scoping.
+     * Enforces genuine capability negotiation for native KV-cache claims.
      */
     public async execute(context: StrategyExecutionContext): Promise<StrategyExecutionResult> {
         const startTime = Date.now();
         if (!this.cacheAdapter) {
-            return { strategyId: 'cag', success: false, executionTimeMs: 0, evidence: [], confidence: 0, error: 'Cache adapter not configured' };
+            return {
+                strategyId: 'cag',
+                success: false,
+                executionTimeMs: 0,
+                evidence: [],
+                confidence: 0,
+                error: 'Cache adapter not configured'
+            };
         }
 
-        // Construct tenant-scoped cache key
-        const cacheKey = `cag:tenant:${context.tenantId}:${this.hash(context.query)}`;
+        // 1. Determine effective capability: only report native KV if genuinely supported by provider
+        const effectiveNativeKv = this.cacheType === 'native_model_kv' && this.nativeKvCapability;
+        const effectiveCacheTier: CAGCacheType =
+            this.cacheType === 'native_model_kv' && !this.nativeKvCapability
+                ? 'response_cache' // Degrade gracefully from unverified claim to actual response cache
+                : this.cacheType;
+
+        // 2. Build multi-dimensional cryptographic cache key
+        const cacheKey = CacheIdentity.buildCacheKey({
+            tenantId: context.tenantId,
+            query: context.query,
+            roles: context.roles,
+            userId: context.userId,
+            documentRevision: (context.metadata?.['documentRevision'] as string | number | undefined),
+            graphRevision: (context.metadata?.['graphRevision'] as string | number | undefined),
+            policyVersion: (context.metadata?.['policyVersion'] as string | number | undefined),
+            modelId: (context.metadata?.['modelId'] as string | undefined),
+            strategyConfigVersion: (context.metadata?.['strategyConfigVersion'] as string | number | undefined),
+            cacheScope: 'cag'
+        }, this.signingSecret);
+
         const cached = await this.cacheAdapter.get(cacheKey);
 
         if (cached) {
             const evidence: EvidenceItem[] = [{
-                id: `cag_hit_${this.hash(cacheKey)}`,
+                id: `cag_hit_${Date.now()}`,
                 strategyId: 'cag',
                 sourceDocId: 'cache_store',
                 tenantId: context.tenantId,
@@ -80,43 +145,41 @@ export class CAGStrategy implements IStrategy {
                 evidenceType: 'cached_prefix',
                 extractionProvenance: { method: 'rule_assertion', confidence: 1.0 },
                 metadata: {
-                    cacheType: this.cacheType,
-                    nativeKvSupported: this.cacheType === 'native_model_kv'
+                    cacheType: effectiveCacheTier,
+                    nativeKvSupported: effectiveNativeKv,
+                    cacheKey
                 }
             }];
+
+            const answerDraft = typeof cached === 'string'
+                ? cached
+                : (typeof cached === 'object' && cached !== null && 'answer' in cached && typeof (cached as { answer: unknown }).answer === 'string'
+                    ? (cached as { answer: string }).answer
+                    : undefined);
 
             return {
                 strategyId: 'cag',
                 success: true,
                 executionTimeMs: Date.now() - startTime,
                 evidence,
-                answerDraft: typeof cached === 'string'
-                    ? cached
-                    : (typeof cached === 'object' && cached !== null && 'answer' in cached && typeof (cached as { answer: unknown }).answer === 'string'
-                        ? (cached as { answer: string }).answer
-                        : undefined),
+                ...(answerDraft ? { answerDraft } : {}),
                 confidence: 1.0,
-                telemetry: { cacheHit: true, tokensUsed: 0 }
+                telemetry: {
+                    cacheHit: true,
+                    tokensUsed: 0,
+                    nativeKvUsed: effectiveNativeKv
+                }
             };
         }
 
+        // Cache miss: do NOT fabricate an answerDraft or report false confidence
         return {
             strategyId: 'cag',
             success: true,
             executionTimeMs: Date.now() - startTime,
             evidence: [],
             confidence: 0.0,
-            telemetry: { cacheHit: false, tokensUsed: 0 }
+            telemetry: { cacheHit: false, tokensUsed: 0, nativeKvUsed: false }
         };
     }
-
-    private hash(str: string): string {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            hash = (hash << 5) - hash + str.charCodeAt(i);
-            hash |= 0;
-        }
-        return Math.abs(hash).toString(36).slice(0, 8);
-    }
 }
-

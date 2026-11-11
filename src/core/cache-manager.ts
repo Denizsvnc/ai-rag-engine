@@ -137,15 +137,32 @@ export class CacheManager implements ICacheAdapter {
         let evictedCount = 0;
         const keysToEvict: string[] = [];
 
-        for (const key of this.memoryCache.keys()) {
+        for (const [key, value] of this.memoryCache.entries()) {
+            let matched = false;
             if (typeof patternOrKey === 'string') {
                 if (key === patternOrKey || key.toLowerCase().includes(patternOrKey.toLowerCase())) {
-                    keysToEvict.push(key);
+                    matched = true;
+                } else if (value && typeof value === 'object') {
+                    const obj = value as Record<string, unknown>;
+                    const queryText = typeof obj._query === 'string' ? obj._query : (typeof obj.answer === 'string' ? obj.answer : '');
+                    if (queryText.toLowerCase().includes(patternOrKey.toLowerCase())) {
+                        matched = true;
+                    }
                 }
             } else if (patternOrKey instanceof RegExp) {
                 if (patternOrKey.test(key)) {
-                    keysToEvict.push(key);
+                    matched = true;
+                } else if (value && typeof value === 'object') {
+                    const obj = value as Record<string, unknown>;
+                    const queryText = typeof obj._query === 'string' ? obj._query : (typeof obj.answer === 'string' ? obj.answer : '');
+                    if (patternOrKey.test(queryText)) {
+                        matched = true;
+                    }
                 }
+            }
+
+            if (matched) {
+                keysToEvict.push(key);
             }
         }
 

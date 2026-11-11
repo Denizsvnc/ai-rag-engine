@@ -20,7 +20,7 @@
 
 </div>
 
-`@denizsvnc/ai-rag-engine@2.4.0` resmi olarak npm üzerinde yayımlanmıştır. ESM ve Node.js 22.14+ gereklidir. Bellek adaptörleri yeniden başlatmada veriyi korumaz. Model ağırlıkları pakete dahil değildir; embedding kullanımı ilk çalıştırmada yerel cache yoksa indirme gerektirebilir. Güvenlik filtreleri savunma katmanıdır; her türlü saldırının veya kişisel verinin %100 tespitini matematiksel olarak garanti etmez.
+`@denizsvnc/ai-rag-engine@2.4.1` resmi olarak npm üzerinde yayımlanmıştır. ESM ve Node.js 22.14+ gereklidir. Bellek adaptörleri yeniden başlatmada veriyi korumaz. Model ağırlıkları pakete dahil değildir; embedding kullanımı ilk çalıştırmada yerel cache yoksa indirme gerektirebilir. Güvenlik filtreleri savunma katmanıdır; her türlü saldırının veya kişisel verinin %100 tespitini matematiksel olarak garanti etmez.
 
 ## Gereksinimler ve Kurulum
 
@@ -77,10 +77,10 @@ import {
 
 const engine = new RAGEngine({
   // 1. LLM Sağlayıcısı (Gemini, OpenAI, Ollama veya Özel API)
-  llmProvider: new GeminiAdapter(
-    process.env.GEMINI_API_KEY,
-    'gemini-2.0-flash'
-  ),
+  llmProvider: new GeminiAdapter({
+    apiKey: process.env.GEMINI_API_KEY,
+    model: 'gemini-3.6-flash'
+  }),
 
   // 2. Bilgi Getirimi & Semantik FAQ Eşleme
   inputs: {
@@ -125,6 +125,53 @@ console.log(response.answer);
 console.log('Intent:', response.intent);
 console.log('Latency (ms):', response.latencyMs);
 console.log('Kaynaklar:', response.sources);
+```
+
+---
+
+## Geliştirici Deneyimi (DX) ve Sıfır Zorunlu `.env` Felsefesi
+
+AI-RAG-ENGINE kütüphanesi kullanıcı projelerinde mutlak esneklik sağlar:
+- **`node_modules` İzolasyonu:** Kullanıcı paket koduna girip `.env` aramaz veya düzenlemez.
+- **Doğrudan Kod Enjeksiyonu:** Tüm parametreler ve gizli anahtarlar constructor nesnesiyle doğrudan verilebilir.
+- **Tip Güvenliği ve IntelliSense:** Tüm parametreler TypeScript tanımları ve TSDoc açıklamalarıyla editörde otomatik tamamlanır.
+
+### Yöntem 1: Kod İçinde Doğrudan Verme (In-Code Injection)
+
+```typescript
+import { RAGEngine, GeminiAdapter, PostgresVectorAdapter } from '@denizsvnc/ai-rag-engine';
+
+const engine = new RAGEngine({
+  llmProvider: new GeminiAdapter({
+    apiKey: myVault.get('GEMINI_KEY'),
+    model: 'gemini-3.6-flash'
+  }),
+  storage: {
+    vectors: new PostgresVectorAdapter({
+      connectionString: myVault.get('DB_URL')
+    })
+  }
+});
+```
+
+### Yöntem 2: Özel `.env` Dosyası Belirtme (Custom `.env` Path)
+
+```typescript
+import dotenv from 'dotenv';
+import path from 'node:path';
+import { RAGEngine, OpenAIAdapter } from '@denizsvnc/ai-rag-engine';
+
+// Kendi projenizdeki özel dosya yolunu verin
+dotenv.config({ path: path.resolve(process.cwd(), 'config/.env.staging') });
+
+const engine = new RAGEngine({
+  llmProvider: new OpenAIAdapter({ apiKey: process.env.STAGING_OPENAI_KEY })
+});
+```
+
+Node.js 20+ paketsiz çalıştırma:
+```bash
+node --env-file=./config/.env.production dist/index.js
 ```
 
 ---

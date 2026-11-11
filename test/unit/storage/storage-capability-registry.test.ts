@@ -47,9 +47,13 @@ describe('StorageCapabilityRegistry & Capability Negotiation', () => {
         // No vector store registered
         assert.equal(registry.getOptimalRetrievalStrategy(), 'none');
 
-        // Hybrid-capable provider (Memory or SQLite)
+        // Hybrid-capable provider (Memory or SQLite with engine-level RRF)
         const sqlite = new SqliteVectorAdapter({ filePath: ':memory:' });
         registry.register('vectors', 'SqliteVectorAdapter', sqlite);
+        assert.equal(registry.getOptimalRetrievalStrategy(), 'engine_hybrid');
+
+        // Native hybrid search provider override
+        registry.register('vectors', 'MockNativeHybrid', {}, { nativeHybridSearch: true });
         assert.equal(registry.getOptimalRetrievalStrategy(), 'native_hybrid');
 
         // Dense-only provider override

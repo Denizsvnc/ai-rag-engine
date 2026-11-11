@@ -33,7 +33,7 @@ for (const file of files) {
     assert.ok(!/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{30,}|npm_[A-Za-z0-9]{30,}/.test(source), 'Possible credential in ' + file);
     assert.ok(!/sourceMappingURL=/.test(source), 'Unresolvable source map in ' + file);
     if (!file.startsWith('dist/')) continue;
-    for (const match of source.matchAll(/(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s*|\brequire\s*\(\s*)['"]([^'"]+)['"]/g)) {
+    for (const match of source.matchAll(/(?:\bfrom\s+|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*)['"]([^'"\r\n]+)['"]/g)) {
         const specifier = match[1];
         if (specifier.startsWith('.')) {
             const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier));

@@ -13,6 +13,9 @@ import { DocumentIngestionService, type DocumentUploadPayload } from '../service
 import type { Job } from './queue/job-queue.interface.js';
 import type { QueryContext } from '../interfaces/query-context.interface.js';
 import type { ToolAuditLog } from '../interfaces/tool.interface.js';
+import { GovernedToolExecutor } from './security/governed-tool-executor.js';
+import { CacheIdentity } from './security/cache-identity.js';
+import { normalizeEngineDependencies } from './dependency-normalizer.js';
 
 import type { ICacheAdapter } from '../interfaces/cache.interface.js';
 import { MemoryVectorAdapter } from '../adapters/vector/memory-vector.adapter.js';
@@ -84,28 +87,6 @@ export class RAGEngine {
      * @param config - The engine configuration options (`EngineConfig`).
      */
     constructor(private config: EngineConfig) {
-        if (config.tools?.items.some(tool => tool.isMutating || tool.requiresConfirmation)) {
-            this.confirmationService = new ConfirmationService(config.confirmation?.secret, undefined, config.confirmation?.nonceStore);
-        }
-        if (config.storage) {
-            this.storageContainer = 'healthCheck' in config.storage
-                ? config.storage
-                : createStorage(config.storage);
-            this.capabilityRegistry = (this.storageContainer as any).registry;
-        } else {
-            this.capabilityRegistry = new StorageCapabilityRegistry();
-        }
-
-        if (config.cache?.adapter) {
-            this.cacheManager = config.cache.adapter;
-        } else {
-            this.cacheManager = new CacheManager(
-                config.cache?.filePath,
-                config.cache?.minHitsToPersist,
-                1000,
-                config.cache?.ttlMs || 1000 * 60 * 60 * 24
-            );
-        }
         this.smlEngine = new SMLEngine({
             modelName: config.smlConfig?.modelName,
             dtype: config.smlConfig?.dtype,
@@ -115,52 +96,47 @@ export class RAGEngine {
             circuitBreakerThreshold: config.smlConfig?.circuitBreakerThreshold,
             circuitBreakerCooldownMs: config.smlConfig?.circuitBreakerCooldownMs,
         });
-        const vectorStore = this.storageContainer?.config.vectors || config.inputs?.vectorStore || new MemoryVectorAdapter(this.smlEngine);
-        if (hasSetSMLEngine(vectorStore)) {
-            vectorStore.setSMLEngine(this.smlEngine);
-        }
-        if (hasSetSMLEngine(config.inputs?.faq)) {
-            config.inputs.faq.setSMLEngine(this.smlEngine);
+
+        const normalized = normalizeEngineDependencies(config, this.smlEngine);
+        this.storageContainer = normalized.storageContainer;
+        this.capabilityRegistry = normalized.capabilityRegistry;
+        this.cacheManager = normalized.cacheAdapter;
+        this.toolRegistry = normalized.toolRegistry ?? null;
+
+        if (config.tools?.items.some(tool => tool.isMutating || tool.requiresConfirmation)) {
+            this.confirmationService = new ConfirmationService(config.confirmation?.secret, undefined, config.confirmation?.nonceStore);
         }
 
-        if (!config.storage) {
-            this.capabilityRegistry.register('vectors', vectorStore.constructor.name, vectorStore);
-            if (config.inputs?.graph) {
-                this.capabilityRegistry.register('graph', config.inputs.graph.constructor.name, config.inputs.graph);
-            }
-            if (this.cacheManager) {
-                this.capabilityRegistry.register('cache', this.cacheManager.constructor.name, this.cacheManager);
-            }
-        }
         this.config = {
             ...config,
             inputs: {
                 ...config.inputs,
-                vectorStore
+                vectorStore: normalized.vectorStore,
+                documentStore: normalized.documentStore,
+                graph: normalized.graphStore,
+                rules: normalized.rulesAdapter,
+                faq: normalized.faqAdapter
             }
         };
+
         this.tokenTracker = new TokenTracker(config.metrics);
         this.ingestionService = new DocumentIngestionService({
-            vectorStore,
+            vectorStore: normalized.vectorStore,
             smlEngine: this.smlEngine,
-            jobQueue: config.ingestion?.jobQueue as import('../services/document-ingestion.service.js').DocumentIngestionConfig['jobQueue'],
-            backend: config.ingestion?.backend,
+            jobQueue: normalized.jobQueue as import('../services/document-ingestion.service.js').DocumentIngestionConfig['jobQueue'],
+            backend: normalized.ingestionStore as unknown as import('../interfaces/ingestion.interface.js').IIngestionBackend | undefined,
             chunkSize: config.ingestion?.chunkSize,
             chunkOverlap: config.ingestion?.chunkOverlap,
             piiPolicy: config.security?.pii
         });
 
-        if (config.tools && config.tools.items.length > 0) {
-            this.toolRegistry = new ToolRegistry(this.smlEngine, config.tools.registryFilePath);
-        }
-
         if (config.adaptive?.enabled) {
             this.adaptiveOrchestrator = new AdaptiveIntelligenceOrchestrator(config.adaptive, {
-                vectorStore,
-                graphStore: config.inputs?.graph as import('../interfaces/graph.interface.js').IGraphAdapter | undefined,
+                vectorStore: normalized.vectorStore,
+                graphStore: normalized.graphStore as import('../interfaces/graph.interface.js').IGraphAdapter | undefined,
                 toolRegistry: this.toolRegistry,
                 cacheAdapter: this.cacheManager,
-                rulesAdapter: config.inputs?.rules
+                rulesAdapter: normalized.rulesAdapter
             });
         }
     }
@@ -384,10 +360,17 @@ export class RAGEngine {
         }
 
         // 2. Multi-Tenant & Role-Isolated Cache lookup (P0 Security Isolation)
-        const scope = JSON.stringify([context?.tenantId ?? null, context?.userId ?? null, context?.roles?.slice().sort() ?? []]);
         const revision = this.config.cache?.enabled !== false && context?.tenantId && this.config.inputs?.vectorStore?.getRevision
             ? await this.config.inputs.vectorStore.getRevision(context.tenantId) : '0';
-        const cacheKey = `v3:${scope}:${revision}:${sanitizedPrompt}`;
+        const cacheKey = CacheIdentity.buildCacheKey({
+            tenantId: context?.tenantId || 'default',
+            query: sanitizedPrompt,
+            roles: context?.roles,
+            userId: context?.userId,
+            documentRevision: revision,
+            modelId: this.config.llmProvider ? (this.config.llmProvider.constructor?.name || 'llm') : 'default_llm',
+            cacheScope: 'response'
+        });
 
         if (this.config.cache?.enabled !== false && !context?.skipCache && !context?.confirmationTicket) {
             const cachedRaw = await this.cacheManager.get(cacheKey);
@@ -438,7 +421,11 @@ export class RAGEngine {
                 };
 
                 if (this.config.cache?.enabled !== false) {
-                    await this.cacheManager.set(cacheKey, responseObj);
+                    await this.cacheManager.set(cacheKey, {
+                        ...responseObj,
+                        _query: sanitizedPrompt,
+                        _tenantId: context?.tenantId || 'default'
+                    });
                 }
 
                 return responseObj;
@@ -486,149 +473,61 @@ export class RAGEngine {
                             });
                             continue;
                         }
-                        const toolExecStart = Date.now();
-
-                        // Barrier 1: Role-Based Access Control (RBAC)
-                        if (matchedTool.requiredRoles && matchedTool.requiredRoles.length > 0) {
-                            const callerRoles = context?.roles || [];
-                            const hasPermission = matchedTool.requiredRoles.some(r => callerRoles.includes(r));
-                            if (!hasPermission) {
-                                const authError = `User lacks required role(s): ${matchedTool.requiredRoles.join(', ')}`;
-                                console.warn(`[RAGEngine Governance] Unauthorized tool call blocked: ${tc.name} by user ${context?.userId || 'anonymous'}`);
-                                this.recordAuditLog({
-                                    timestamp: new Date().toISOString(),
-                                    toolName: tc.name,
-                                    tenantId: context?.tenantId,
-                                    userId: context?.userId,
-                                    args: tc.arguments,
-                                    isMutating: !!matchedTool.isMutating,
-                                    status: 'UNAUTHORIZED',
-                                    error: authError,
-                                    durationMs: 0
-                                });
-                                toolResultContext.push({
-                                    toolName: tc.name,
-                                    result: { error: authError, status: 'UNAUTHORIZED' }
-                                });
-                                continue;
-                            }
-                        }
-
-                        // Barrier 2: Mutation & Cryptographic Confirmation Ticket Guard (P0 Security)
-                        const isMutatingOperation = matchedTool.isMutating || matchedTool.requiresConfirmation;
-                        if (isMutatingOperation) {
-                            mutatingToolAttempted = true;
-                            let isConfirmed = false;
-                            let confirmationError: string | undefined;
-
-                            if (context?.confirmationTicket) {
-                                const ticketCheck = await ConfirmationService.verifyTicket(
-                                    context.confirmationTicket,
-                                    tc.name,
-                                    tc.arguments,
-                                    context,
-                                    this.config.confirmation?.secret,
-                                    this.config.confirmation?.nonceStore
-                                );
-                                if (ticketCheck.valid) {
-                                    isConfirmed = true;
-                                } else {
-                                    confirmationError = ticketCheck.error;
-                                }
-                            }
-
-                            if (!isConfirmed) {
-                                const ticket = this.confirmationService!.issueTicket(tc.name, tc.arguments, context);
-                                const warnMsg = confirmationError ||
-                                    `Tool '${tc.name}' mutates state and requires user confirmation. Submit the provided confirmation ticket to proceed.`;
-                                console.warn(`[RAGEngine Governance] Mutation blocked without verified confirmation ticket: ${tc.name}`);
-                                this.recordAuditLog({
-                                    timestamp: new Date().toISOString(),
-                                    toolName: tc.name,
-                                    tenantId: context?.tenantId,
-                                    userId: context?.userId,
-                                    args: tc.arguments,
-                                    isMutating: true,
-                                    status: 'CONFIRMATION_REQUIRED',
-                                    error: warnMsg,
-                                    durationMs: 0
-                                });
-                                confirmationRequests.push({ toolName: tc.name, proposedArgs: tc.arguments, confirmationTicket: ticket });
-                                toolResultContext.push({
-                                    toolName: tc.name,
-                                    result: {
-                                        status: 'CONFIRMATION_REQUIRED',
-                                        message: warnMsg,
-                                        proposedArgs: tc.arguments
-                                    }
-                                });
-                                continue;
-                            }
-                        }
-
-                        // Barrier 3: Strict Zod Schema Validation
-                        const effectiveSchema: z.ZodSchema | undefined = matchedTool.zodSchema || ('schema' in matchedTool ? (matchedTool as { schema?: z.ZodSchema }).schema : undefined);
-                        if (effectiveSchema) {
-                            const parseResult = effectiveSchema.safeParse(tc.arguments);
-                            if (!parseResult.success) {
-                                const validationError = `Invalid tool arguments: ${parseResult.error.message}`;
-                                console.warn(`[RAGEngine Governance] Argument validation failed for ${tc.name}:`, parseResult.error.issues);
-                                this.recordAuditLog({
-                                    timestamp: new Date().toISOString(),
-                                    toolName: tc.name,
-                                    tenantId: context?.tenantId,
-                                    userId: context?.userId,
-                                    args: tc.arguments,
-                                    isMutating: !!matchedTool.isMutating,
-                                    status: 'VALIDATION_FAILED',
-                                    error: validationError,
-                                    durationMs: 0
-                                });
-                                toolResultContext.push({
-                                    toolName: tc.name,
-                                    result: {
-                                        status: 'VALIDATION_FAILED',
-                                        error: validationError,
-                                        details: parseResult.error.issues
-                                    }
-                                });
-                                continue;
-                            }
-                            tc.arguments = (parseResult.data as Record<string, unknown>) || {};
-                        }
-
-                        // Barrier 4: Execution & Audit Logging
                         console.log(`[RAGEngine] Triggering action: ${tc.name} with args:`, tc.arguments);
-                        try {
-                            const dbResult = await matchedTool.execute(tc.arguments, context);
-                            const durationMs = Date.now() - toolExecStart;
-                            this.recordAuditLog({
-                                timestamp: new Date().toISOString(),
+                        const execOutcome = await GovernedToolExecutor.execute({
+                            tool: matchedTool,
+                            arguments: tc.arguments,
+                            context: { tenantId: context?.tenantId || 'default', ...context },
+                            confirmationService: this.confirmationService,
+                            confirmationSecret: this.config.confirmation?.secret,
+                            nonceStore: this.config.confirmation?.nonceStore,
+                            auditRecorder: (log) => this.recordAuditLog(log),
+                            timeoutMs: 15_000
+                        });
+
+                        if (execOutcome.status === 'SUCCESS') {
+                            mutatingToolAttempted = mutatingToolAttempted || Boolean(matchedTool.isMutating || matchedTool.requiresConfirmation);
+                            toolResultContext.push({
                                 toolName: tc.name,
-                                tenantId: context?.tenantId,
-                                userId: context?.userId,
-                                args: tc.arguments,
-                                isMutating: !!matchedTool.isMutating,
-                                status: 'SUCCESS',
-                                durationMs
+                                result: execOutcome.data
                             });
-                            toolResultContext.push({ toolName: tc.name, result: dbResult });
                             executedTools.push({ name: tc.name, args: tc.arguments });
-                        } catch (error: unknown) {
-                            const durationMs = Date.now() - toolExecStart;
-                            const errMsg = error instanceof Error ? error.message : String(error);
-                            this.recordAuditLog({
-                                timestamp: new Date().toISOString(),
+                        } else if (execOutcome.status === 'CONFIRMATION_REQUIRED') {
+                            mutatingToolAttempted = true;
+                            confirmationRequests.push({
                                 toolName: tc.name,
-                                tenantId: context?.tenantId,
-                                userId: context?.userId,
-                                args: tc.arguments,
-                                isMutating: !!matchedTool.isMutating,
-                                status: 'EXECUTION_FAILED',
-                                error: errMsg,
-                                durationMs
+                                proposedArgs: execOutcome.proposedArgs,
+                                confirmationTicket: execOutcome.confirmationTicket
                             });
-                            toolResultContext.push({ toolName: tc.name, result: { error: errMsg } });
+                            toolResultContext.push({
+                                toolName: tc.name,
+                                result: {
+                                    status: 'CONFIRMATION_REQUIRED',
+                                    message: execOutcome.message,
+                                    proposedArgs: execOutcome.proposedArgs
+                                }
+                            });
+                        } else if (execOutcome.status === 'UNAUTHORIZED') {
+                            console.warn(`[RAGEngine Governance] Unauthorized tool call blocked: ${tc.name} by user ${context?.userId || 'anonymous'}`);
+                            toolResultContext.push({
+                                toolName: tc.name,
+                                result: { error: execOutcome.error, status: 'UNAUTHORIZED' }
+                            });
+                        } else if (execOutcome.status === 'VALIDATION_FAILED') {
+                            console.warn(`[RAGEngine Governance] Argument validation failed for ${tc.name}:`, execOutcome.details);
+                            toolResultContext.push({
+                                toolName: tc.name,
+                                result: {
+                                    status: 'VALIDATION_FAILED',
+                                    error: execOutcome.error,
+                                    details: execOutcome.details
+                                }
+                            });
+                        } else {
+                            toolResultContext.push({
+                                toolName: tc.name,
+                                result: { error: execOutcome.error, status: execOutcome.status }
+                            });
                         }
                     }
                 }
@@ -709,10 +608,18 @@ export class RAGEngine {
             if (intent === 'TOOL_CALL') {
                 if (!mutatingToolAttempted && (this.config.cache?.cacheToolResults === true || this.config.cache?.toolResultTtlMs)) {
                     const toolTtl = this.config.cache?.toolResultTtlMs || 60000;
-                    await this.cacheManager.set(cacheKey, responseObj, toolTtl);
+                    await this.cacheManager.set(cacheKey, {
+                        ...responseObj,
+                        _query: sanitizedPrompt,
+                        _tenantId: context?.tenantId || 'default'
+                    }, toolTtl);
                 }
             } else {
-                await this.cacheManager.set(cacheKey, responseObj, this.config.cache?.ttlMs);
+                await this.cacheManager.set(cacheKey, {
+                    ...responseObj,
+                    _query: sanitizedPrompt,
+                    _tenantId: context?.tenantId || 'default'
+                }, this.config.cache?.ttlMs);
             }
         }
 

@@ -190,7 +190,7 @@ const engine = new RAGEngine({
   // 1. LLM Provider (Gemini 2.0 Flash, OpenAI, Ollama, OpenRouter, or Custom)
   llmProvider: new GeminiAdapter({
     apiKey: process.env.GEMINI_API_KEY!,
-    model: 'gemini-2.0-flash',
+    model: 'gemini-3.6-flash', // Google official catalog (active)
     temperature: 0.2
   }),
 
@@ -239,6 +239,59 @@ const result = await engine.query('Summarize our customer refund policy', {
 console.log(result.answer);
 console.log('Sources:', result.sources);
 console.log('Latency:', result.latencyMs, 'ms');
+```
+
+---
+
+## Developer Experience & Configuration Flexibility
+
+AI-RAG-ENGINE follows a strict **zero-forced-`.env`** philosophy:
+- **No Hidden Files in `node_modules`:** Consuming projects never need to inspect or modify internal `.env` files.
+- **100% Programmatic Dependency Injection:** Every adapter, store, and engine option is configured directly via strongly-typed TypeScript constructors.
+- **Full TypeScript IntelliSense:** Editors (VS Code, WebStorm, Neovim) auto-complete parameters, types, and TSDoc documentation out-of-the-box.
+
+### Option A: Direct In-Code Injection (Recommended for SDK Consumers)
+
+Fetch credentials from your existing config, secret manager (AWS Secrets Manager, GCP Secret Manager, Vault), or environment:
+
+```typescript
+import { RAGEngine, GeminiAdapter, PostgresVectorAdapter } from '@denizsvnc/ai-rag-engine';
+
+const engine = new RAGEngine({
+  llmProvider: new GeminiAdapter({
+    apiKey: mySecretManager.get('GEMINI_API_KEY'),
+    model: 'gemini-3.6-flash'
+  }),
+  storage: {
+    vectors: new PostgresVectorAdapter({
+      connectionString: mySecretManager.get('DATABASE_URL')
+    })
+  }
+});
+```
+
+### Option B: Custom `.env` File Path
+
+If your application organizes environment files (e.g., `.env.staging`, `.env.production`):
+
+```typescript
+import dotenv from 'dotenv';
+import path from 'node:path';
+import { RAGEngine, OpenAIAdapter } from '@denizsvnc/ai-rag-engine';
+
+// Point dotenv to your custom location before engine initialization
+dotenv.config({ path: path.resolve(process.cwd(), 'config/.env.staging') });
+
+const engine = new RAGEngine({
+  llmProvider: new OpenAIAdapter({
+    apiKey: process.env.STAGING_OPENAI_KEY
+  })
+});
+```
+
+Or using Node.js 20+ built-in flag (zero dependencies):
+```bash
+node --env-file=./config/.env.production dist/index.js
 ```
 
 ---

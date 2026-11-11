@@ -230,9 +230,12 @@ export class Neo4jGraphAdapter implements IGraphStore {
         try {
             const cypher = `
                 MATCH (start:Entity { tenantId: $tenantId, id: $id })
-                MATCH (start)-[r:RELATION*1..${maxDepth}]-(neighbor:Entity { tenantId: $tenantId })
-                WITH neighbor, last(r) AS edge
-                RETURN neighbor, edge
+                MATCH p = (start)-[r:RELATION*1..${maxDepth}]-(neighbor:Entity { tenantId: $tenantId })
+                WHERE ALL(n IN nodes(p) WHERE n.tenantId = $tenantId)
+                  AND ALL(rel IN relationships(p) WHERE rel.tenantId = $tenantId)
+                UNWIND nodes(p) AS pathNode
+                UNWIND relationships(p) AS pathEdge
+                RETURN DISTINCT pathNode, pathEdge
                 LIMIT $maxNodes
             `;
             const res = await session.run(cypher, {
@@ -245,8 +248,8 @@ export class Neo4jGraphAdapter implements IGraphStore {
             const edgesMap = new Map<string, GraphEdge>();
 
             for (const rec of res.records) {
-                const n = rec.get('neighbor').properties;
-                const e = rec.get('edge').properties;
+                const n = rec.get('pathNode').properties;
+                const e = rec.get('pathEdge').properties;
                 let nProps = {};
                 let eProps = {};
                 try { nProps = JSON.parse(n.properties); } catch {}

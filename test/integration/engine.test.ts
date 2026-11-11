@@ -85,6 +85,8 @@ describe('Integration - RAGEngine Full Lifecycle', () => {
     });
 
     it('should initialize successfully', async () => {
+        const fs = await import('fs/promises');
+        await fs.unlink('./src/utils/test-engine-cache.json').catch(() => {});
         await engine.init();
         assert.ok(true);
     });

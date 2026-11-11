@@ -20,6 +20,17 @@ export type StrategyId =
 export type StrategyCategory = 'retrieval' | 'reasoning' | 'knowledge' | 'cache' | 'agent';
 
 /**
+ * Fine-grained operational outcome of strategy execution.
+ */
+export type StrategyExecutionOutcome =
+    | 'SUCCESS'
+    | 'FAILED'
+    | 'TIMED_OUT'
+    | 'CANCELLED'
+    | 'UNAVAILABLE'
+    | 'BUDGET_EXCEEDED';
+
+/**
  * Capability and dependency metadata declared by each strategy.
  */
 export interface StrategyCapabilityMetadata {
@@ -93,6 +104,8 @@ export interface StrategyExecutionResult {
     answerDraft?: string | undefined;
     /** Calibrated confidence score in range [0.0 - 1.0]. */
     confidence: number;
+    /** Fine-grained execution outcome status. */
+    outcome?: StrategyExecutionOutcome | undefined;
     /** Error message if the strategy failed. */
     error?: string | undefined;
     /** Telemetry metrics gathered during execution. */
@@ -101,6 +114,7 @@ export interface StrategyExecutionResult {
         nodesTraversed?: number | undefined;
         cacheHit?: boolean | undefined;
         toolCallsCount?: number | undefined;
+        nativeKvUsed?: boolean | undefined;
     } | undefined;
 }
 

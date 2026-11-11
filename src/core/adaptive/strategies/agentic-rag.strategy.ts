@@ -3,6 +3,7 @@ import type { ToolRegistry } from '../../tool-registry.js';
 import type { EvidenceItem } from '../../../interfaces/evidence.interface.js';
 import type { IAgentTool } from '../../../interfaces/tool.interface.js';
 import type { QueryContext } from '../../../interfaces/query-context.interface.js';
+import { GovernedToolExecutor } from '../../security/governed-tool-executor.js';
 
 /**
  * Strategy performing autonomous bounded tool execution and reasoning.
@@ -139,45 +140,35 @@ export class AgenticRAGStrategy implements IStrategy {
             if (executedCallsCount >= maxToolCalls) break;
             if (context.signal?.aborted) throw context.signal.reason || new Error('Aborted');
 
-            // Read-only tools can be executed automatically during retrieval
-            if (!tool.isMutating && !tool.requiresConfirmation) {
-                try {
-                    const qContext: QueryContext = {
-                        tenantId: context.tenantId,
-                        userId: context.userId,
-                        roles: context.roles,
-                        metadata: { query: context.query }
-                    };
-                    const toolResult = await tool.execute({}, qContext);
+            const qContext: QueryContext = {
+                tenantId: context.tenantId,
+                userId: context.userId,
+                roles: context.roles,
+                metadata: { query: context.query }
+            };
 
-                    executedCallsCount++;
-                    evidence.push({
-                        id: `agentic_tool_${tool.name}_${Date.now()}`,
-                        strategyId: 'agentic_rag',
-                        sourceDocId: `tool_${tool.name}`,
-                        tenantId: context.tenantId,
-                        content: `Tool Execution [${tool.name}]: ${JSON.stringify(toolResult)}`,
-                        score: 0.90,
-                        evidenceType: 'tool_output',
-                        extractionProvenance: { method: 'tool_execution', confidence: 0.90 },
-                        metadata: { toolName: tool.name }
-                    });
-                } catch (e: unknown) {
-                    const errMsg = e instanceof Error ? e.message : String(e);
-                    // Failure isolation: tool failure does not crash the entire agentic run
-                    evidence.push({
-                        id: `agentic_tool_err_${tool.name}`,
-                        strategyId: 'agentic_rag',
-                        sourceDocId: `tool_${tool.name}`,
-                        tenantId: context.tenantId,
-                        content: `Tool Execution [${tool.name}] Failed: ${errMsg}`,
-                        score: 0.10,
-                        evidenceType: 'tool_output',
-                        metadata: { toolName: tool.name, error: true }
-                    });
-                }
-            } else {
-                // Mutating tools require confirmation; record requirement as evidence without executing
+            const outcome = await GovernedToolExecutor.execute({
+                tool,
+                arguments: {},
+                context: qContext,
+                signal: context.signal,
+                timeoutMs: 5_000
+            });
+
+            if (outcome.status === 'SUCCESS') {
+                executedCallsCount++;
+                evidence.push({
+                    id: `agentic_tool_${tool.name}_${Date.now()}`,
+                    strategyId: 'agentic_rag',
+                    sourceDocId: `tool_${tool.name}`,
+                    tenantId: context.tenantId,
+                    content: `Tool Execution [${tool.name}]: ${JSON.stringify(outcome.data)}`,
+                    score: 0.90,
+                    evidenceType: 'tool_output',
+                    extractionProvenance: { method: 'tool_execution', confidence: 0.90 },
+                    metadata: { toolName: tool.name }
+                });
+            } else if (outcome.status === 'CONFIRMATION_REQUIRED') {
                 evidence.push({
                     id: `agentic_mutating_${tool.name}`,
                     strategyId: 'agentic_rag',
@@ -186,7 +177,19 @@ export class AgenticRAGStrategy implements IStrategy {
                     content: `Mutating Tool [${tool.name}] identified but blocked pending cryptographic confirmation ticket.`,
                     score: 0.85,
                     evidenceType: 'tool_output',
-                    metadata: { toolName: tool.name, requiresConfirmation: true }
+                    metadata: { toolName: tool.name, requiresConfirmation: true, confirmationTicket: outcome.confirmationTicket }
+                });
+            } else {
+                // Failure isolation & boundary enforcement (UNAUTHORIZED, VALIDATION_FAILED, TIMEOUT, CANCELLED, EXECUTION_FAILED)
+                evidence.push({
+                    id: `agentic_tool_${outcome.status.toLowerCase()}_${tool.name}`,
+                    strategyId: 'agentic_rag',
+                    sourceDocId: `tool_${tool.name}`,
+                    tenantId: context.tenantId,
+                    content: `Tool Execution [${tool.name}] Blocked or Failed (${outcome.status}): ${outcome.error}`,
+                    score: 0.10,
+                    evidenceType: 'tool_output',
+                    metadata: { toolName: tool.name, error: true, status: outcome.status }
                 });
             }
         }

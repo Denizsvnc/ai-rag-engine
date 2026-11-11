@@ -133,5 +133,8 @@ export { SemanticGraphStrategy } from './core/adaptive/strategies/semantic-graph
 export { KnowledgeGraphStrategy } from './core/adaptive/strategies/knowledge-graph.strategy.js';
 export { GraphRAGStrategy } from './core/adaptive/strategies/graph-rag.strategy.js';
 export { KAGStrategy, type LogicalDeductionStep } from './core/adaptive/strategies/kag.strategy.js';
-export { CAGStrategy, type CAGCacheType } from './core/adaptive/strategies/cag.strategy.js';
+export { CAGStrategy, type CAGCacheType, type CAGStrategyOptions } from './core/adaptive/strategies/cag.strategy.js';
 export { AgenticRAGStrategy } from './core/adaptive/strategies/agentic-rag.strategy.js';
+export { GovernedToolExecutor, type GovernedToolExecutionRequest, type GovernedToolExecutionResult } from './core/security/governed-tool-executor.js';
+export { CacheIdentity, type CacheKeyDimensions } from './core/security/cache-identity.js';
+export { normalizeEngineDependencies, type NormalizedEngineDependencies } from './core/dependency-normalizer.js';

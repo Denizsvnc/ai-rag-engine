@@ -79,7 +79,7 @@ export interface ToolAuditLog {
     userId?: string | undefined;
     args: unknown;
     isMutating: boolean;
-    status: 'SUCCESS' | 'VALIDATION_FAILED' | 'UNAUTHORIZED' | 'CONFIRMATION_REQUIRED' | 'EXECUTION_FAILED';
+    status: 'SUCCESS' | 'VALIDATION_FAILED' | 'UNAUTHORIZED' | 'CONFIRMATION_REQUIRED' | 'EXECUTION_FAILED' | 'TIMEOUT' | 'CANCELLED';
     error?: string | undefined;
     durationMs: number;
 }

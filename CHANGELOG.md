@@ -2,6 +2,24 @@
 
 This file follows Semantic Versioning.
 
+## 2.4.1 — 2026-11-11
+
+### Security & Hardening
+
+- **Governed Tool Execution Architecture (`GovernedToolExecutor`):** Implemented 10 mandatory security evaluation gates for agentic tool calls including AST argument sanitization against prototype pollution (`__proto__`, `constructor`, `prototype`), path traversal prevention (`..`), prompt injection token rejection, strict state mutation RBAC checks, cryptographic HMAC-SHA256 confirmation ticket verification, and uncooperative timeout budgets.
+- **CAG Cache Identity & Isolation (`CacheIdentity`):** Formulated multi-dimensional HMAC-SHA256 hashed cache keys (`rag:v4:${tenantId}:${scope}:${digest}`) eliminating query and PII plaintext leakage in distributed caches. Mandated honest capability negotiation for native KV caching (`nativeKvSupported`).
+- **Filesystem Blob Security:** Fortified `LocalFsBlobStore` with strict tenant ID pattern validation (`/^[a-zA-Z0-9_-]+$/`), directory boundary separator confinement (`tenantRoot + path.sep`), and recursive `lstat` symlink traversal prevention.
+- **Neo4j Graph Multi-Hop Confinement:** Enforced path-wide tenant boundary predicates (`ALL(n IN nodes(p) WHERE n.tenantId = $tenantId) AND ALL(rel IN relationships(p) WHERE rel.tenantId = $tenantId)`) across multi-hop graph queries.
+
+### Fixed
+
+- **Adaptive Execution Scheduler Resilience:** Equipped `ExecutionScheduler` with individual strategy racing via `Promise.race`, unblocking uncooperative hanging strategy promises and properly enforcing per-strategy timeout budgets and `AbortSignal` propagation.
+- **KAG Deductive Logic & Fact Verification:** Overhauled `KAGStrategy` to replace loose keyword matching with typed fact relationships (`KAGFact`) from `graphStore`, modus ponens antecedent verification, prohibition contradiction detection, and zero-evidence abstention (`confidence: 0.0`).
+- **Query Planner Policy Enforcement:** Fortified `AdaptiveQueryPlanner` to respect `allowRequestOverrides !== false`, reject disabled strategies in manual routing mode, and honestly calibrate confidence scores.
+- **Universal Dependency Normalization:** Introduced `normalizeEngineDependencies` creating a single source of truth bridging legacy `inputs.*` and modern `storage.*` configurations across all orchestrators.
+- **Zero-Env Developer Experience:** Completely isolated SDK core from mandatory `.env` dependencies; all options, API keys, and connection strings are injectable via strongly-typed constructor parameters with full TypeScript IntelliSense.
+- **100% Real Code Mutation Verification:** Injected real prototype and static method mutations into test suites, achieving 100% mutation kill rate (11/11 mutants detected and killed).
+
 ## 2.4.0 — 2026-11-11
 
 ### Added

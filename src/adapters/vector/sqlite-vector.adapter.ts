@@ -43,14 +43,14 @@ export class SqliteVectorAdapter implements IVectorStore {
     public readonly capabilities: StorageCapabilities = {
         denseVectorSearch: true,
         sparseRetrieval: true,
-        nativeHybridSearch: true,
+        nativeHybridSearch: false,
         metadataFiltering: true,
         namespaceIsolation: true,
         transactions: true,
         atomicDocumentReplacement: true,
         versioning: true,
         batchOperations: true,
-        nativeIndexes: true,
+        nativeIndexes: false,
         fullTextSearch: true
     };
 

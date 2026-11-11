@@ -11,8 +11,11 @@ export interface LocalFsBlobOptions {
  * Local filesystem blob storage adapter for storing large document binaries on local disk.
  *
  * @remarks
- * Directory path traversal (`..` and absolute paths) is strictly blocked.
- * Stores blobs partitioned by tenant sub-folders: `${baseDir}/${tenantId}/${sanitizedKey}`.
+ * Security Hardening:
+ * - Strict tenantId validation matching `/^[a-zA-Z0-9_-]+$/`.
+ * - Multi-layer path traversal prevention (`..`, absolute paths, null bytes, backslashes).
+ * - Exact directory boundary confinement (`tenantRoot + path.sep`).
+ * - Active symlink traversal detection across directory tree and file targets (`lstat`, `realpath`).
  *
  * @example
  * ```typescript
@@ -39,34 +42,80 @@ export class LocalFsBlobStore implements IBlobStore {
         return Boolean(this.capabilities[capability]);
     }
 
-    private resolvePath(key: string, tenantId: string): string {
-        const cleanTenant = tenantId.replace(/[^a-zA-Z0-9_-]/g, '_');
-        if (key.includes('..') || path.isAbsolute(key)) {
-            throw new Error(`[LocalFsBlobStore] Path traversal detected: ${key}`);
+    private resolvePath(key: string, tenantId: string): { targetPath: string; tenantRoot: string } {
+        if (!tenantId || typeof tenantId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(tenantId)) {
+            throw new Error(`[LocalFsBlobStore] Invalid tenantId: "${tenantId}". Must match /^[a-zA-Z0-9_-]+$/`);
         }
-        const targetPath = path.resolve(this.baseDir, cleanTenant, key);
 
-        const tenantRoot = path.resolve(this.baseDir, cleanTenant);
-        if (!targetPath.startsWith(tenantRoot)) {
-            throw new Error(`[LocalFsBlobStore] Path traversal detected: ${key}`);
+        if (!key || typeof key !== 'string' || key.trim().length === 0) {
+            throw new Error('[LocalFsBlobStore] Blob key must be a non-empty string.');
         }
-        return targetPath;
+
+        if (key.includes('\0') || key.includes('..') || path.isAbsolute(key) || key.includes('\\')) {
+            throw new Error(`[LocalFsBlobStore] Path traversal detected: "${key}"`);
+        }
+
+        const tenantRoot = path.resolve(this.baseDir, tenantId);
+        const targetPath = path.resolve(tenantRoot, key);
+
+        // Enforce boundary with trailing separator to prevent prefix collision (e.g. tenant-a vs tenant-alpha)
+        if (targetPath !== tenantRoot && !targetPath.startsWith(tenantRoot + path.sep)) {
+            throw new Error(`[LocalFsBlobStore] Path traversal detected: key escapes tenant boundary: "${key}"`);
+        }
+
+        return { targetPath, tenantRoot };
+    }
+
+    private async verifyNoSymlinks(targetPath: string, tenantRoot: string): Promise<void> {
+        let curr = path.dirname(targetPath);
+        while (curr.startsWith(tenantRoot)) {
+            try {
+                const stat = await fs.promises.lstat(curr);
+                if (stat.isSymbolicLink()) {
+                    throw new Error(`[LocalFsBlobStore] Symlink traversal detected in directory path: "${curr}"`);
+                }
+            } catch (err: unknown) {
+                if ((err as { code?: string }).code === 'ENOENT') {
+                    curr = path.dirname(curr);
+                    continue;
+                }
+                throw err;
+            }
+            if (curr === tenantRoot) break;
+            curr = path.dirname(curr);
+        }
+
+        try {
+            const stat = await fs.promises.lstat(targetPath);
+            if (stat.isSymbolicLink()) {
+                throw new Error(`[LocalFsBlobStore] Target file is a forbidden symlink: "${targetPath}"`);
+            }
+        } catch (err: unknown) {
+            if ((err as { code?: string }).code !== 'ENOENT') {
+                throw err;
+            }
+        }
     }
 
     public async put(key: string, data: Buffer, tenantId: string): Promise<{ uri: string; sizeBytes: number }> {
-        const filePath = this.resolvePath(key, tenantId);
-        await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
-        await fs.promises.writeFile(filePath, data);
+        const { targetPath, tenantRoot } = this.resolvePath(key, tenantId);
+
+        await this.verifyNoSymlinks(targetPath, tenantRoot);
+
+        await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+        await fs.promises.writeFile(targetPath, data);
+
         return {
-            uri: `file://${filePath}`,
+            uri: `file://${targetPath}`,
             sizeBytes: data.length
         };
     }
 
     public async get(key: string, tenantId: string): Promise<Buffer | null> {
-        const filePath = this.resolvePath(key, tenantId);
+        const { targetPath, tenantRoot } = this.resolvePath(key, tenantId);
         try {
-            return await fs.promises.readFile(filePath);
+            await this.verifyNoSymlinks(targetPath, tenantRoot);
+            return await fs.promises.readFile(targetPath);
         } catch (e: unknown) {
             if ((e as { code?: string }).code === 'ENOENT') return null;
             throw e;
@@ -74,9 +123,10 @@ export class LocalFsBlobStore implements IBlobStore {
     }
 
     public async delete(key: string, tenantId: string): Promise<boolean> {
-        const filePath = this.resolvePath(key, tenantId);
+        const { targetPath, tenantRoot } = this.resolvePath(key, tenantId);
         try {
-            await fs.promises.unlink(filePath);
+            await this.verifyNoSymlinks(targetPath, tenantRoot);
+            await fs.promises.unlink(targetPath);
             return true;
         } catch (e: unknown) {
             if ((e as { code?: string }).code === 'ENOENT') return false;
@@ -85,9 +135,10 @@ export class LocalFsBlobStore implements IBlobStore {
     }
 
     public async exists(key: string, tenantId: string): Promise<boolean> {
-        const filePath = this.resolvePath(key, tenantId);
+        const { targetPath, tenantRoot } = this.resolvePath(key, tenantId);
         try {
-            await fs.promises.access(filePath);
+            await this.verifyNoSymlinks(targetPath, tenantRoot);
+            await fs.promises.access(targetPath);
             return true;
         } catch {
             return false;

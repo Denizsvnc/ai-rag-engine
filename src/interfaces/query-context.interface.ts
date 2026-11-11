@@ -38,6 +38,11 @@ export interface QueryContext {
     confirmationTicket?: string | undefined;
 
     /**
+     * Optional abort signal for latency deadline or client cancellation.
+     */
+    signal?: AbortSignal | undefined;
+
+    /**
      * Optional strategy request-level overrides.
      * Note: Cannot re-enable strategies disabled by tenant or system security policy.
      */

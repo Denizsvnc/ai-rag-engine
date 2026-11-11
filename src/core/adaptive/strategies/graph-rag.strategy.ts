@@ -4,11 +4,15 @@ import type { IVectorStoreAdapter } from '../../../interfaces/vector.interface.j
 import type { EvidenceItem } from '../../../interfaces/evidence.interface.js';
 
 /**
- * Strategy combining multi-hop graph expansion with linked unstructured vector text chunks.
+ * Strategy combining multi-hop local entity graph expansion with linked unstructured vector text chunks.
  *
  * @remarks
- * Bridges knowledge graphs with vector embeddings by searching graph neighborhoods and boosting
- * corresponding vector chunks linked by `sourceChunkId` or `documentId`.
+ * Architecture & Scope:
+ * - Implements **Local GraphRAG**: Performs seed entity discovery followed by BFS neighborhood traversal
+ *   up to `traversalDepth` hops, joining structural graph relations with corresponding vector chunks linked
+ *   via `sourceChunkId` or `sourceDocId`.
+ * - Does NOT perform offline global community-level summarization (hierarchical Leiden clustering). For global
+ *   thematic queries without entity anchors, use `SemanticGraphStrategy` or `HybridSearchStrategy`.
  *
  * @example
  * ```typescript

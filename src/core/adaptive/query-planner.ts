@@ -92,7 +92,16 @@ export class AdaptiveQueryPlanner {
      */
     public async plan(context: StrategyExecutionContext): Promise<StrategyDecisionExplanation> {
         const signals = this.extractSignals(context.query);
-        const mode: AdaptiveExecutionMode = (context.metadata?.requestedMode as AdaptiveExecutionMode | undefined) || this.config.mode || 'auto';
+        const allowOverrides = this.config.allowRequestOverrides !== false;
+
+        const requestedMode = allowOverrides
+            ? (context.metadata?.requestedMode as AdaptiveExecutionMode | undefined)
+            : undefined;
+        const requestedStrategy = allowOverrides
+            ? (context.metadata?.requestedStrategy as StrategyId | undefined)
+            : undefined;
+
+        const mode: AdaptiveExecutionMode = requestedMode || this.config.mode || 'auto';
         const availableStrategies = await this.registry.getAvailableStrategies(context);
         const availableIds = new Set(availableStrategies.map(s => s.metadata.id));
 
@@ -100,10 +109,14 @@ export class AdaptiveQueryPlanner {
         const rejectedStrategies: Array<{ strategyId: StrategyId; reason: string }> = [];
         const reasons: string[] = [];
 
+        if (!allowOverrides && (context.metadata?.requestedStrategy || context.metadata?.requestedMode)) {
+            reasons.push('Request overrides disabled by policy; caller override ignored');
+        }
+
         // Check all registered strategies to record rejection reasons if unavailable/disabled
         for (const strategy of this.registry.getAll()) {
             const id = strategy.metadata.id;
-            if (!this.registry.isStrategyPermitted(id, context.metadata?.requestedStrategy as StrategyId | undefined)) {
+            if (!this.registry.isStrategyPermitted(id, requestedStrategy)) {
                 rejectedStrategies.push({ strategyId: id, reason: 'Disabled by system/tenant policy or configuration' });
             } else if (!availableIds.has(id)) {
                 rejectedStrategies.push({ strategyId: id, reason: 'Prerequisites or backend store unavailable' });
@@ -112,21 +125,37 @@ export class AdaptiveQueryPlanner {
 
         // 1. Manual Execution Mode: enforce single requested strategy
         if (mode === 'manual') {
-            const requested = context.metadata?.requestedStrategy as StrategyId | undefined;
-            if (requested && availableIds.has(requested)) {
-                selectedStrategies.push(requested);
-                reasons.push(`Manual mode: executed explicitly requested strategy '${requested}'`);
+            if (requestedStrategy) {
+                const isPermitted = this.registry.isStrategyPermitted(requestedStrategy);
+                if (!isPermitted) {
+                    reasons.push(`Manual mode: requested strategy '${requestedStrategy}' is disabled by policy`);
+                    rejectedStrategies.push({
+                        strategyId: requestedStrategy,
+                        reason: 'Security violation: requested strategy is disabled by tenant/system policy'
+                    });
+                    if (availableStrategies.length > 0) {
+                        const fallbackStrategy = availableStrategies[0]!.metadata.id;
+                        selectedStrategies.push(fallbackStrategy);
+                        reasons.push(`Fell back to authorized strategy '${fallbackStrategy}'`);
+                    }
+                } else if (availableIds.has(requestedStrategy)) {
+                    selectedStrategies.push(requestedStrategy);
+                    reasons.push(`Manual mode: executed explicitly requested strategy '${requestedStrategy}'`);
+                } else if (availableStrategies.length > 0) {
+                    const fallbackStrategy = availableStrategies[0]!.metadata.id;
+                    selectedStrategies.push(fallbackStrategy);
+                    reasons.push(`Manual mode: requested strategy '${requestedStrategy}' unavailable; defaulted to '${fallbackStrategy}'`);
+                }
             } else if (availableStrategies.length > 0) {
                 const fallbackStrategy = availableStrategies[0]!.metadata.id;
                 selectedStrategies.push(fallbackStrategy);
-                reasons.push(`Manual mode: requested strategy not available; defaulted to highest priority '${fallbackStrategy}'`);
+                reasons.push(`Manual mode: no strategy requested; defaulted to '${fallbackStrategy}'`);
             }
         } 
         // 2. Auto-Hybrid Execution Mode: select primary + complementary strategies for parallel evidence collection
         else if (mode === 'auto-hybrid') {
             const maxParallel = this.config.maxParallelOperations ?? 3;
 
-            // Decide complementary pair/trio based on signals
             if (signals.hasMultiHopKeywords && availableIds.has('graph_rag')) {
                 selectedStrategies.push('graph_rag');
                 reasons.push('Multi-hop relational question detected -> selected graph_rag');
@@ -143,7 +172,6 @@ export class AdaptiveQueryPlanner {
                 reasons.push('Dense semantic grounding -> selected semantic_search');
             }
 
-            // Fill up to maxParallel from top priority available strategies if needed
             for (const strat of availableStrategies) {
                 if (selectedStrategies.length >= maxParallel) break;
                 const id = strat.metadata.id;
@@ -199,10 +227,11 @@ export class AdaptiveQueryPlanner {
         if (selectedStrategies.length === 0) {
             if (availableIds.has('traditional_rag')) {
                 selectedStrategies.push('traditional_rag');
+                reasons.push('Fallback to baseline available retrieval strategy');
             } else if (availableStrategies.length > 0) {
                 selectedStrategies.push(availableStrategies[0]!.metadata.id);
+                reasons.push('Fallback to first available retrieval strategy');
             }
-            reasons.push('Fallback to baseline available retrieval strategy');
         }
 
         // Calculate estimated cost and latency
@@ -225,8 +254,27 @@ export class AdaptiveQueryPlanner {
             }
         }
 
-        // Calibrate confidence (bounded [0.5 - 0.98])
-        const confidence = Math.min(0.98, Math.max(0.60, 0.70 + (selectedStrategies.length > 0 ? 0.20 : 0.0)));
+        // Honest signal-calibrated confidence score
+        let confidence = 0.50;
+        if (selectedStrategies.length === 0) {
+            confidence = 0.0;
+        } else if (signals.hasExactIdentifiers && selectedStrategies.includes('hybrid_search')) {
+            confidence = 0.95;
+        } else if (signals.hasActionKeywords && selectedStrategies.includes('agentic_rag')) {
+            confidence = 0.92;
+        } else if (signals.hasLogicalRuleKeywords && selectedStrategies.includes('kag')) {
+            confidence = 0.90;
+        } else if (signals.hasMultiHopKeywords && selectedStrategies.includes('graph_rag')) {
+            confidence = 0.88;
+        } else if (signals.hasConceptualKeywords && selectedStrategies.includes('semantic_graph')) {
+            confidence = 0.85;
+        } else if (mode === 'auto-hybrid') {
+            confidence = 0.85;
+        } else if (mode === 'manual') {
+            confidence = 0.90;
+        } else {
+            confidence = 0.70;
+        }
 
         return {
             selectedStrategies,
